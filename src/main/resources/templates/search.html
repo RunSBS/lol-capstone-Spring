@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>검색</title>
+    <style>
+        #result { margin-top: 12px; }
+        .row { margin: 4px 0; }
+    </style>
+</head>
+<body>
+<form id="searchForm">
+    닉네임 : <input type="text" id="gameName" name="gameName"><br/>
+    태그 : <input type="text" id="tagLine" name="tagLine"><br/>
+    <button type="submit">제출</button>
+</form>
+
+<div id="result"></div>
+
+<script>
+    document.getElementById("searchForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const gameName = document.getElementById("gameName").value.trim();
+        const tagLine  = document.getElementById("tagLine").value.trim();
+        const g = encodeURIComponent(gameName);
+        const t = encodeURIComponent(tagLine);
+
+        try {
+            const res = await fetch(`/api/lol/summoner/view/${g}/${t}`, { method: "POST" });
+            if (!res.ok) throw new Error(`HTTP ${res.status} - ${await res.text()}`);
+            const v = await res.json();
+
+            // Data Dragon 프로필 아이콘(버전은 따로 관리; 여기선 예시로 ddVer 변수 가정)
+            const ddVer = "15.18.1"; // TODO: 서버에서 주입하거나 최신 버전 API로 갱신
+            const iconUrl = `https://ddragon.leagueoflegends.com/cdn/${ddVer}/img/profileicon/${v.profileIconId}.png`;
+
+            document.getElementById("result").innerHTML = `
+                <div class="row"><strong>Riot ID</strong> : ${v.gameName}#${v.tagLine}</div>
+                <div class="row"><strong>닉네임</strong> : ${v.gameName}</div>
+                <div class="row"><strong>태그</strong> : #${v.tagLine}</div>
+                <div class="row"><strong>PUUID</strong> : ${v.puuid}</div>
+                <div class="row"><strong>레벨</strong> : ${v.summonerLevel ?? ""}</div>
+                <div class="row"><strong>아이콘</strong> :
+                 <img src="${iconUrl}" alt="profile icon" width="64" height="64"
+                         onerror="this.style.display='none'">
+                 </div>
+            `;
+        } catch (err) {
+            document.getElementById("result").innerHTML = `<pre>요청 실패: ${String(err)}</pre>`;
+        }
+    });
+</script>
+</body>
+</html>
