@@ -41,7 +41,7 @@ public class SummonerService {
         return riotRegionalClient.get()
                 .uri(uri -> uri.path("/riot/account/v1/accounts/by-riot-id/{gameName}/{tagLine}")
                 .build(gameName, tagLine))
-        // 여기부터 역직렬화 하겠다
+                // 여기부터 역직렬화 하겠다
                 .retrieve()
                 // 상태코드가 에러일경우, 에러코드를 던지자
                 .onStatus(HttpStatusCode::isError, r -> toApiError("account-by-gameName-tagLine", r))

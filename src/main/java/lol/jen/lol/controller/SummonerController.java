@@ -11,7 +11,7 @@ import reactor.core.publisher.Mono;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/lol/summoner")
+@RequestMapping("/summoner")
 public class SummonerController {
     private final SummonerService summonerService;
     // UI용 통합 엔드 포인트
