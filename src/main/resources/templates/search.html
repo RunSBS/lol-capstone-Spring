@@ -26,7 +26,7 @@
         const t = encodeURIComponent(tagLine);
 
         try {
-            const res = await fetch(`/api/lol/summoner/view/${g}/${t}`, { method: "POST" });
+            const res = await fetch(`/summoner/view/${g}/${t}`, { method: "POST" });
             if (!res.ok) throw new Error(`HTTP ${res.status} - ${await res.text()}`);
             const v = await res.json();
 
@@ -40,6 +40,7 @@
                 <div class="row"><strong>태그</strong> : #${v.tagLine}</div>
                 <div class="row"><strong>PUUID</strong> : ${v.puuid}</div>
                 <div class="row"><strong>레벨</strong> : ${v.summonerLevel ?? ""}</div>
+                <div class="row"><strong>마지막 수정 시간</strong> : ${v.revisionDate ?? ""}</div>
                 <div class="row"><strong>아이콘</strong> :
                  <img src="${iconUrl}" alt="profile icon" width="64" height="64"
                          onerror="this.style.display='none'">
