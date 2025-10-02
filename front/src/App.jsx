@@ -1,5 +1,5 @@
-// src/App.js
-import { useMemo, useState } from "react";
+// src/App.jsx
+import React, { useMemo, useState } from "react";
 import "./App.css";
 
 const Q_SOLO = "RANKED_SOLO_5x5";
@@ -451,7 +451,7 @@ const styles = {
         borderRadius: 6,
         fontWeight: 700,
         fontSize: 12,
-        border: "1px solid #0c151d",
+        border: "1px solid #0c151d"
     },
     tabs: { display: "flex", gap: 6, margin: "16px 0 8px" },
     tabBtn: {
