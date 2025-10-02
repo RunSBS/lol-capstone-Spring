@@ -5,7 +5,7 @@ import "./App.css";
 const Q_SOLO = "RANKED_SOLO_5x5";
 const Q_FLEX = "RANKED_FLEX_SR";
 
-// ===== 공통 유틸 =====
+// ===== 유틸 함수 =====
 function displayTier(tier, rank) {
     if (!tier) return "-";
     const niceTier = tier.charAt(0) + tier.slice(1).toLowerCase();
@@ -58,16 +58,16 @@ function tierEmblemUrls(tier) {
     ];
 }
 
-// ===== 프리젠테이션 컴포넌트 =====
+// ===== 컴포넌트 =====
 function RankCard({ entry, title }) {
     if (!entry) {
         return (
-            <div style={styles.card}>
-                <div style={styles.cardHeader}>
+            <div className="card">
+                <div className="cardHeader">
                     <div>{title}</div>
-                    <div style={styles.muted}>데이터 없음</div>
+                    <div className="muted">데이터 없음</div>
                 </div>
-                <div style={styles.empty}>해당 큐에서 배치/랭크 기록이 없습니다.</div>
+                <div className="empty">해당 큐에서 배치/랭크 기록이 없습니다.</div>
             </div>
         );
     }
@@ -77,15 +77,15 @@ function RankCard({ entry, title }) {
     const fallback = urls[1];
 
     return (
-        <div style={styles.card}>
-            <div style={styles.cardHeader}>
+        <div className="card">
+            <div className="cardHeader">
                 <div>{title}</div>
-                <div style={styles.muted}>
+                <div className="muted">
                     {entry.wins ?? 0}승 {entry.losses ?? 0}패
                 </div>
             </div>
 
-            <div style={styles.rankRow}>
+            <div className="rankRow">
                 {entry.tier && (
                     <img
                         src={primary}
@@ -99,10 +99,10 @@ function RankCard({ entry, title }) {
                         }}
                     />
                 )}
-                <div style={styles.tierText}>{tierText}</div>
+                <div className="tierText">{tierText}</div>
             </div>
 
-            <div style={styles.grid}>
+            <div className="grid">
                 <div>LP</div>
                 <div>{entry.leaguePoints ?? 0} LP</div>
 
@@ -128,7 +128,7 @@ function RankCard({ entry, title }) {
 function MatchCard({ match, ddVer, focusPuuid }) {
     const me = useMemo(() => {
         const list = Array.isArray(match.participants) ? match.participants : [];
-        return list.find(p => p?.puuid === focusPuuid) || list[0];
+        return list.find((p) => p?.puuid === focusPuuid) || list[0];
     }, [match, focusPuuid]);
 
     if (!match) return null;
@@ -143,13 +143,8 @@ function MatchCard({ match, ddVer, focusPuuid }) {
     const champSquare = `https://ddragon.leagueoflegends.com/cdn/${ddVer}/img/champion/${champ}.png`;
 
     return (
-        <div
-            style={{
-                ...styles.matchCard,
-                borderLeft: `4px solid ${won ? "#4ade80" : "#f87171"}`,
-            }}
-        >
-            <div style={styles.matchHeader}>
+        <div className={`matchCard ${won ? "winBorder" : "loseBorder"}`}>
+            <div className="matchHeader">
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <img
                         src={champSquare}
@@ -163,34 +158,33 @@ function MatchCard({ match, ddVer, focusPuuid }) {
                         <div style={{ fontWeight: 800, color: won ? "#a7f3d0" : "#fecaca" }}>
                             {won ? "승리" : "패배"}
                         </div>
-                        <div style={styles.mutedSmall}>
+                        <div className="mutedSmall">
                             {match.gameMode || "CLASSIC"} · {fmtDuration(match.gameDuration)}
                         </div>
                     </div>
                 </div>
-
-                <div style={styles.mutedSmall}>{timeAgo(match.gameCreation)}</div>
+                <div className="mutedSmall">{timeAgo(match.gameCreation)}</div>
             </div>
 
-            <div style={styles.matchBody}>
-                <div style={styles.kdaBox}>
+            <div className="matchBody">
+                <div className="kdaBox">
                     <div style={{ fontWeight: 800, fontSize: 16 }}>
                         {k} / {d} / {a}
                     </div>
-                    <div style={styles.mutedSmall}>K / D / A</div>
+                    <div className="mutedSmall">K / D / A</div>
                 </div>
 
-                <div style={styles.sep} />
+                <div className="sep" />
 
                 <div>
                     <div style={{ fontWeight: 700 }}>{cs}</div>
-                    <div style={styles.mutedSmall}>CS</div>
+                    <div className="mutedSmall">CS</div>
                 </div>
 
                 <div style={{ flex: 1 }} />
 
                 <div style={{ textAlign: "right" }}>
-                    <div style={styles.mutedSmall}>버전</div>
+                    <div className="mutedSmall">버전</div>
                     <div>{match.gameVersion}</div>
                 </div>
             </div>
@@ -201,8 +195,8 @@ function MatchCard({ match, ddVer, focusPuuid }) {
 function MatchList({ matches, ddVer, focusPuuid }) {
     if (!matches?.length) {
         return (
-            <div style={styles.card}>
-                <div style={styles.empty}>최근 전적이 없습니다.</div>
+            <div className="card">
+                <div className="empty">최근 전적이 없습니다.</div>
             </div>
         );
     }
@@ -262,112 +256,9 @@ function App() {
         }
     };
 
-    const renderProfile = () => {
-        if (!view) return null;
-        const iconUrl = `https://ddragon.leagueoflegends.com/cdn/${ddVer}/img/profileicon/${view.profileIconId}.png`;
-        return (
-            <div style={styles.profile}>
-                <div style={styles.iconWrap}>
-                    <img
-                        src={iconUrl}
-                        alt="profile icon"
-                        width={64}
-                        height={64}
-                        onError={(e) => (e.currentTarget.style.display = "none")}
-                        style={{ borderRadius: 8, display: "block" }}
-                    />
-                    <div style={styles.levelBadge}>{view.summonerLevel ?? ""}</div>
-                </div>
-                <div>
-                    <div style={{ fontSize: 22, fontWeight: 900 }}>
-                        {view.gameName} <span style={styles.muted}>#{view.tagLine}</span>
-                    </div>
-                    <div style={{ margin: "6px 0" }}>
-                        <span style={styles.badge}>PUUID</span> {view.puuid}
-                    </div>
-                    <div style={styles.muted}>마지막 수정: {fmtDate(view.revisionDate)}</div>
-                </div>
-            </div>
-        );
-    };
-
-    const renderTabs = () => {
-        if (!view) return null;
-        const solo =
-            view.soloRanked && view.soloRanked.queueType === Q_SOLO
-                ? view.soloRanked
-                : view.soloRanked || null;
-        const flex =
-            view.flexRanked && view.flexRanked.queueType === Q_FLEX
-                ? view.flexRanked
-                : view.flexRanked || null;
-
-        return (
-            <>
-                <div style={styles.tabs}>
-                    <button
-                        type="button"
-                        style={{
-                            ...styles.tabBtn,
-                            ...(activeTab === "solo" ? styles.tabBtnActive : {}),
-                        }}
-                        onClick={() => setActiveTab("solo")}
-                    >
-                        솔로 랭크
-                    </button>
-                    <button
-                        type="button"
-                        style={{
-                            ...styles.tabBtn,
-                            ...(activeTab === "flex" ? styles.tabBtnActive : {}),
-                        }}
-                        onClick={() => setActiveTab("flex")}
-                    >
-                        자유 랭크
-                    </button>
-                </div>
-
-                <div style={{ marginTop: 8 }}>
-                    {activeTab === "solo" && <RankCard entry={solo} title="솔로 랭크" />}
-                    {activeTab === "flex" && <RankCard entry={flex} title="자유 랭크" />}
-                </div>
-            </>
-        );
-    };
-
-    const renderLeftPane = () => {
-        if (loading) return <div className="row">불러오는 중…</div>;
-        if (err)
-            return (
-                <div className="row" style={{ color: "#f87171" }}>
-                    요청 실패: {err}
-                </div>
-            );
-        if (!view) return null;
-
-        return (
-            <div>
-                {renderProfile()}
-                {renderTabs()}
-            </div>
-        );
-    };
-
-    const renderRightPane = () => {
-        if (!view) return null;
-        if (matchLoading) return <div style={styles.muted}>전적 불러오는 중…</div>;
-        if (matchErr) return <div style={{ color: "#f87171" }}>전적 로드 실패: {matchErr}</div>;
-        return (
-            <div>
-                <div style={styles.colHeader}>최근 매치</div>
-                <MatchList matches={matches} ddVer={ddVer} focusPuuid={view.puuid} />
-            </div>
-        );
-    };
-
     return (
-        <div className="App" style={styles.app}>
-            <form id="searchForm" onSubmit={onSubmit} style={styles.form}>
+        <div className="App">
+            <form id="searchForm" onSubmit={onSubmit} className="form">
                 <label>
                     닉네임:{" "}
                     <input
@@ -395,133 +286,71 @@ function App() {
                 </button>
             </form>
 
+            {err && <div style={{ color: "#f87171" }}>요청 실패: {err}</div>}
+
             {view ? (
-                <div style={styles.twoCols}>
-                    <div style={styles.leftCol}>{renderLeftPane()}</div>
-                    <div style={styles.rightCol}>{renderRightPane()}</div>
+                <div className="twoCols">
+                    <div className="leftCol">
+                        <div className="profile">
+                            {/* 프로필 정보 */}
+                            <div className="iconWrap">
+                                <img
+                                    src={`https://ddragon.leagueoflegends.com/cdn/${ddVer}/img/profileicon/${view.profileIconId}.png`}
+                                    alt="profile icon"
+                                    width={64}
+                                    height={64}
+                                    style={{ borderRadius: 8 }}
+                                    onError={(e) => (e.currentTarget.style.display = "none")}
+                                />
+                                <div className="levelBadge">{view.summonerLevel ?? ""}</div>
+                            </div>
+                            <div>
+                                <div style={{ fontSize: 22, fontWeight: 900 }}>
+                                    {view.gameName} <span className="muted">#{view.tagLine}</span>
+                                </div>
+                                <div style={{ margin: "6px 0" }}>
+                                    <span className="badge">PUUID</span> {view.puuid}
+                                </div>
+                                <div className="muted">마지막 수정: {fmtDate(view.revisionDate)}</div>
+                            </div>
+                        </div>
+
+                        {/* 랭크 카드 */}
+                        <div className="tabs">
+                            <button
+                                type="button"
+                                className={`tabBtn ${activeTab === "solo" ? "tabBtnActive" : ""}`}
+                                onClick={() => setActiveTab("solo")}
+                            >
+                                솔로 랭크
+                            </button>
+                            <button
+                                type="button"
+                                className={`tabBtn ${activeTab === "flex" ? "tabBtnActive" : ""}`}
+                                onClick={() => setActiveTab("flex")}
+                            >
+                                자유 랭크
+                            </button>
+                        </div>
+
+                        {activeTab === "solo" && <RankCard entry={view.soloRanked} title="솔로 랭크" />}
+                        {activeTab === "flex" && <RankCard entry={view.flexRanked} title="자유 랭크" />}
+                    </div>
+
+                    <div className="rightCol">
+                        <div className="colHeader">최근 매치</div>
+                        {matchLoading ? (
+                            <div className="muted">전적 불러오는 중…</div>
+                        ) : matchErr ? (
+                            <div style={{ color: "#f87171" }}>전적 로드 실패: {matchErr}</div>
+                        ) : (
+                            <MatchList matches={matches} ddVer={ddVer} focusPuuid={view.puuid} />
+                        )}
+                    </div>
                 </div>
             ) : null}
         </div>
     );
 }
-
-/* ---- 스타일 ---- */
-const styles = {
-    app: { color: "#eaeaea", background: "#1f1f1f", minHeight: "100vh", padding: 16 },
-    form: { marginBottom: 8 },
-    muted: { color: "#94a3b8" },
-    mutedSmall: { color: "#9fb0bf", fontSize: 12 },
-    badge: {
-        display: "inline-block",
-        background: "#36404a",
-        color: "#cfe4ff",
-        padding: "2px 6px",
-        borderRadius: 6,
-        fontSize: 12,
-        marginRight: 6,
-    },
-    twoCols: {
-        display: "grid",
-        gridTemplateColumns: "minmax(320px, 520px) 1fr",
-        gap: 16,
-        alignItems: "start",
-        marginTop: 12,
-    },
-    leftCol: { display: "grid", gap: 12 },
-    rightCol: { display: "grid", gap: 12 },
-    profile: {
-        display: "grid",
-        gridTemplateColumns: "80px 1fr",
-        gap: 12,
-        alignItems: "center",
-        background: "#2a2a2a",
-        borderRadius: 10,
-        padding: 12,
-        marginBottom: 4,
-    },
-    iconWrap: { position: "relative", width: 64, height: 64 },
-    levelBadge: {
-        position: "absolute",
-        bottom: -6,
-        left: "50%",
-        transform: "translateX(-50%)",
-        background: "#0e1a24",
-        color: "#cfe4ff",
-        padding: "2px 6px",
-        borderRadius: 6,
-        fontWeight: 700,
-        fontSize: 12,
-        border: "1px solid #0c151d"
-    },
-    tabs: { display: "flex", gap: 6, margin: "16px 0 8px" },
-    tabBtn: {
-        background: "#343a40",
-        border: "1px solid #444",
-        color: "#d7e3f4",
-        padding: "6px 12px",
-        borderRadius: 8,
-        cursor: "pointer",
-    },
-    tabBtnActive: { background: "#5b9bd5", borderColor: "#5b9bd5", color: "#081018", fontWeight: 700 },
-    card: {
-        background: "#23262b",
-        border: "1px solid #353b42",
-        borderRadius: 10,
-        padding: 14,
-        minWidth: 280,
-        maxWidth: 520,
-    },
-    colHeader: {
-        fontWeight: 900,
-        color: "#cfd9e4",
-        fontSize: 16,
-        borderBottom: "1px solid #37424a",
-        paddingBottom: 6,
-        marginBottom: 6,
-    },
-    cardHeader: {
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "baseline",
-        marginBottom: 6,
-        borderBottom: "1px solid #37424a",
-        paddingBottom: 6,
-        color: "#cfd9e4",
-        fontWeight: 700,
-    },
-    tierText: { fontSize: 22, fontWeight: 800, color: "#ffd37e", marginBottom: 6 },
-    rankRow: { display: "flex", alignItems: "center", marginBottom: 6 },
-    grid: { display: "grid", gridTemplateColumns: "auto auto", gap: "6px 16px", color: "#b7c3cf" },
-    empty: { color: "#9aa7b4", fontStyle: "italic" },
-
-    // 매치 카드
-    matchCard: {
-        background: "#23262b",
-        border: "1px solid #353b42",
-        borderRadius: 10,
-        padding: 12,
-    },
-    matchHeader: {
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginBottom: 8,
-    },
-    matchBody: {
-        display: "flex",
-        alignItems: "center",
-        gap: 12,
-    },
-    kdaBox: {
-        background: "#1c2228",
-        border: "1px solid #2b3640",
-        padding: "6px 10px",
-        borderRadius: 8,
-        textAlign: "center",
-        minWidth: 96,
-    },
-    sep: { width: 1, alignSelf: "stretch", background: "#36414a", opacity: 0.7 },
-};
-
 
 export default App;
