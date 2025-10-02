@@ -1,6 +1,7 @@
 package lol.jen.lol.service;
 
 import lol.jen.lol.dto.AccountDto;
+import lol.jen.lol.dto.LeagueEntryDto;
 import lol.jen.lol.dto.SummonerDto;
 import lol.jen.lol.dto.ViewDto;
 import lombok.RequiredArgsConstructor;
@@ -10,6 +11,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
+
+import java.util.List;
 
 @Service
 public class SummonerService {
@@ -60,23 +63,53 @@ public class SummonerService {
                 // 결과를 dto에 저장
                 .bodyToMono(SummonerDto.class);
     }
-    /** AccountDto + SummonerDto 합친 ViewDto 반환 ( View페이지용 Dto ) */
     public Mono<ViewDto> getViewDtoByGameNameAndTagLine(String gameName, String tagLine){
         return getAccountDtoByGameNameAndTagLine(gameName, tagLine)
                 .flatMap(acc ->
-                        getSummonerDtoByPuuid(acc.getPuuid())
-                        .map(sum -> {
+                        Mono.zip(
+                                getSummonerDtoByPuuid(acc.getPuuid()),
+                                getLeagueEntryDtoByPuuid(acc.getPuuid())
+                        ).map(tuple -> {
+                            SummonerDto sum = tuple.getT1();
+                            List<LeagueEntryDto> leagues = tuple.getT2();
+
+                            LeagueEntryDto solo = leagues.stream()
+                                    .filter(l -> "RANKED_SOLO_5x5".equals(l.getQueueType()))
+                                    .findFirst().orElse(null);
+
+                            LeagueEntryDto flex = leagues.stream()
+                                    .filter(l -> "RANKED_FLEX_SR".equals(l.getQueueType()))
+                                    .findFirst().orElse(null);
+
+                            LeagueEntryDto tft = leagues.stream()
+                                    .filter(l -> "RANKED_TFT".equals(l.getQueueType()))
+                                    .findFirst().orElse(null);
+
                             ViewDto viewDto = new ViewDto();
-                            // Account 쪽
+                            // Account
                             viewDto.setPuuid(acc.getPuuid());
                             viewDto.setGameName(acc.getGameName());
                             viewDto.setTagLine(acc.getTagLine());
-                            // Summoner 쪽
+                            // Summoner
                             viewDto.setProfileIconId(sum.getProfileIconId());
                             viewDto.setRevisionDate(sum.getRevisionDate());
                             viewDto.setSummonerLevel(sum.getSummonerLevel());
+                            // League (큐 타입별로 분리 저장)
+                            viewDto.setSoloRanked(solo);
+                            viewDto.setFlexRanked(flex);
+                            viewDto.setTftRanked(tft);
                             return viewDto;
                         })
                 );
+    }
+    /* puuid로 LeagueEntryDto 목록 반환 */
+    public Mono<List<LeagueEntryDto>> getLeagueEntryDtoByPuuid(String puuid){
+        return platformClient.get()
+                .uri(uri -> uri.path("/lol/league/v4/entries/by-puuid/{puuid}")
+                        .build(puuid))
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, r -> toApiError("leagueEntryDto-by-puuid", r))
+                .bodyToFlux(LeagueEntryDto.class)   // <-- 배열 응답
+                .collectList();
     }
 }

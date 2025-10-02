@@ -1,23 +1,151 @@
 <!DOCTYPE html>
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="UTF-8" />
     <title>검색</title>
     <style>
-        #result { margin-top: 12px; }
-        .row { margin: 4px 0; }
+        body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, Noto Sans, Apple Color Emoji, Segoe UI Emoji; color: #eaeaea; background:#1f1f1f; }
+        a, button, input { font-family: inherit; }
+        #result { margin-top: 16px; }
+        .row { margin: 6px 0; }
+
+        /* 프로필 카드 */
+        .profile {
+            display: grid;
+            grid-template-columns: 80px 1fr;
+            gap: 12px;
+            align-items: center;
+            background: #2a2a2a;
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 14px;
+        }
+        .badge {
+            display:inline-block; background:#36404a; color:#cfe4ff; padding:2px 6px; border-radius:6px; font-size:12px; margin-right:6px;
+        }
+        .icon-wrap { position: relative; width: 64px; height: 64px; }
+        .icon-wrap img { width: 64px; height: 64px; border-radius: 8px; display:block; }
+        .icon-level {
+            position:absolute; bottom:-6px; left:50%; transform:translateX(-50%);
+            background:#0e1a24; color:#cfe4ff; padding:2px 6px; border-radius:6px; font-weight:700; font-size:12px;
+            border:1px solid #0c151d;
+        }
+
+        /* 탭 */
+        .tabs { display:flex; gap:6px; margin:16px 0 8px; }
+        .tab-btn {
+            background:#343a40; border:1px solid #444; color:#d7e3f4; padding:6px 12px; border-radius:8px; cursor:pointer;
+        }
+        .tab-btn.active { background:#5b9bd5; border-color:#5b9bd5; color:#081018; font-weight:700; }
+
+        /* 랭크 카드 */
+        .rank-card {
+            background:#23262b; border:1px solid #353b42; border-radius:10px; padding:14px; min-width:280px; max-width:420px;
+        }
+        .rank-header {
+            display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; border-bottom:1px solid #37424a; padding-bottom:6px;
+            color:#cfd9e4; font-weight:700;
+        }
+        .rank-tier { font-size:22px; font-weight:800; color:#ffd37e; } /* 티어 텍스트 색 */
+        .rank-body { display:grid; grid-template-columns:auto auto; gap:6px 16px; color:#b7c3cf; }
+        .muted { color:#94a3b8; font-size:12px; }
+        .empty { color:#9aa7b4; font-style:italic; }
+        .hidden { display:none; }
     </style>
 </head>
 <body>
 <form id="searchForm">
-    닉네임 : <input type="text" id="gameName" name="gameName"><br/>
-    태그 : <input type="text" id="tagLine" name="tagLine"><br/>
+    닉네임 : <input type="text" id="gameName" name="gameName" />
+    <br />
+    태그 : <input type="text" id="tagLine" name="tagLine" />
+    <br />
     <button type="submit">제출</button>
 </form>
 
 <div id="result"></div>
 
 <script>
+    const Q_SOLO = "RANKED_SOLO_5x5";
+    const Q_FLEX = "RANKED_FLEX_SR";
+    const Q_TFT  = "RANKED_TFT";
+
+    // 티어 텍스트 꾸미기 (GOLD I -> "Gold 1")
+    function displayTier(tier, rank) {
+        if (!tier) return "-";
+        const niceTier = tier.charAt(0) + tier.slice(1).toLowerCase(); // GOLD -> Gold
+        const roman = rank || "";
+        const map = { "I": "1", "II": "2", "III": "3", "IV": "4" };
+        return `${niceTier} ${map[roman] ?? roman}`;
+    }
+
+    // 승률 계산
+    function winRate(w, l) {
+        const t = (w|0) + (l|0);
+        if (t === 0) return "-";
+        return Math.round((w / t) * 100) + "%";
+    }
+
+    // league entries를 다양한 형태에서 안전하게 꺼내기
+    function extractLeagues(v) {
+        if (Array.isArray(v?.leagueEntries)) return v.leagueEntries;
+        if (Array.isArray(v?.leagueEntryDto)) return v.leagueEntryDto; // 혹시 이런 이름이면
+        if (v?.leaguesByQueue && typeof v.leaguesByQueue === "object") {
+            return Object.values(v.leaguesByQueue);
+        }
+        return []; // 없음
+    }
+
+    // 특정 큐타입 엔트리 찾기
+    function findByQueue(list, queueType) {
+        return list.find(e => e?.queueType === queueType) || null;
+    }
+
+    // 랭크 카드 렌더
+    function renderRankCard(entry, titleText) {
+        if (!entry) {
+            return `
+        <div class="rank-card">
+          <div class="rank-header">
+            <div>${titleText}</div>
+            <div class="muted">데이터 없음</div>
+          </div>
+          <div class="empty">해당 큐에서 배치/랭크 기록이 없습니다.</div>
+        </div>
+      `;
+        }
+        const tierText = displayTier(entry.tier, entry.rank);
+        const lp = entry.leaguePoints ?? 0;
+        const wins = entry.wins ?? 0;
+        const losses = entry.losses ?? 0;
+        const wr = winRate(wins, losses);
+
+        return `
+      <div class="rank-card">
+        <div class="rank-header">
+          <div>${titleText}</div>
+          <div class="muted">${wins}승 ${losses}패</div>
+        </div>
+        <div class="rank-tier">${tierText}</div>
+        <div class="rank-body" style="margin-top:6px">
+          <div>LP</div><div>${lp} LP</div>
+          <div>승률</div><div>${wr}</div>
+          <div>핫스트릭</div><div>${entry.hotStreak ? "예" : "아니오"}</div>
+          <div>베테랑</div><div>${entry.veteran ? "예" : "아니오"}</div>
+          <div>신규 진입</div><div>${entry.freshBlood ? "예" : "아니오"}</div>
+          <div>비활성</div><div>${entry.inactive ? "예" : "아니오"}</div>
+        </div>
+      </div>
+    `;
+    }
+
+    // 탭 전환
+    function activateTab(which) {
+        document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+        document.querySelectorAll(".tab-panel").forEach(p => p.classList.add("hidden"));
+        document.getElementById(`tabbtn-${which}`).classList.add("active");
+        document.getElementById(`panel-${which}`).classList.remove("hidden");
+    }
+
     document.getElementById("searchForm").addEventListener("submit", async (e) => {
         e.preventDefault();
         const gameName = document.getElementById("gameName").value.trim();
@@ -30,22 +158,48 @@
             if (!res.ok) throw new Error(`HTTP ${res.status} - ${await res.text()}`);
             const v = await res.json();
 
-            // Data Dragon 프로필 아이콘(버전은 따로 관리; 여기선 예시로 ddVer 변수 가정)
-            const ddVer = "15.18.1"; // TODO: 서버에서 주입하거나 최신 버전 API로 갱신
+            // Data Dragon 프로필 아이콘
+            const ddVer = "15.18.1"; // TODO: 서버에서 최신 버전 주입
             const iconUrl = `https://ddragon.leagueoflegends.com/cdn/${ddVer}/img/profileicon/${v.profileIconId}.png`;
 
-            document.getElementById("result").innerHTML = `
-                <div class="row"><strong>Riot ID</strong> : ${v.gameName}#${v.tagLine}</div>
-                <div class="row"><strong>닉네임</strong> : ${v.gameName}</div>
-                <div class="row"><strong>태그</strong> : #${v.tagLine}</div>
-                <div class="row"><strong>PUUID</strong> : ${v.puuid}</div>
-                <div class="row"><strong>레벨</strong> : ${v.summonerLevel ?? ""}</div>
-                <div class="row"><strong>마지막 수정 시간</strong> : ${v.revisionDate ?? ""}</div>
-                <div class="row"><strong>아이콘</strong> :
-                 <img src="${iconUrl}" alt="profile icon" width="64" height="64"
-                         onerror="this.style.display='none'">
-                 </div>
-            `;
+            // 리그 데이터 파싱
+            const leagues = extractLeagues(v);
+            // TFT 제외, 솔로/자유만
+            const solo = findByQueue(leagues, Q_SOLO);
+            const flex = findByQueue(leagues, Q_FLEX);
+
+            const profileHtml = `
+        <div class="profile">
+          <div class="icon-wrap">
+            <img src="${iconUrl}" alt="profile icon" onerror="this.style.display='none'"/>
+            <div class="icon-level">${v.summonerLevel ?? ""}</div>
+          </div>
+          <div>
+            <div style="font-size:22px; font-weight:900;">${v.gameName} <span class="muted">#${v.tagLine}</span></div>
+            <div class="row"><span class="badge">PUUID</span> ${v.puuid}</div>
+            <div class="row muted">마지막 수정: ${v.revisionDate ?? "-"}</div>
+          </div>
+        </div>
+      `;
+
+            // 탭 + 패널
+            const tabsHtml = `
+        <div class="tabs">
+          <button type="button" id="tabbtn-solo" class="tab-btn active" onclick="activateTab('solo')">솔로 랭크</button>
+          <button type="button" id="tabbtn-flex" class="tab-btn" onclick="activateTab('flex')">자유 랭크</button>
+        </div>
+        <div id="panel-solo" class="tab-panel">
+          ${renderRankCard(solo, "솔로 랭크")}
+        </div>
+        <div id="panel-flex" class="tab-panel hidden">
+          ${renderRankCard(flex, "자유 랭크")}
+        </div>
+      `;
+
+            document.getElementById("result").innerHTML = profileHtml + tabsHtml;
+
+            // 기본 탭 활성화
+            activateTab("solo");
         } catch (err) {
             document.getElementById("result").innerHTML = `<pre>요청 실패: ${String(err)}</pre>`;
         }

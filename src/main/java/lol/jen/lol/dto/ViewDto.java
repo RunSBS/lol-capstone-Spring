@@ -4,6 +4,9 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
+
+import java.util.List;
+
 /**
  * 프론트로 넘겨줄 View용 Dto이다.
  * AccountDto 와 SummonerDto의 내용이 합쳐짐
@@ -28,4 +31,9 @@ public class ViewDto {
     private Long revisionDate;
     // 소환사 계정 레벨
     private Long summonerLevel;
+
+    // League - 큐 타입별 단일 엔트리
+    private LeagueEntryDto soloRanked;   // RANKED_SOLO_5x5
+    private LeagueEntryDto flexRanked;   // RANKED_FLEX_SR
+    private LeagueEntryDto tftRanked;    // RANKED_TFT
 }
