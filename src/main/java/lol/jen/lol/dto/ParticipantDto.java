@@ -12,18 +12,28 @@ import lombok.ToString;
 @Getter @Setter @ToString
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class ParticipantDto {
-    private String puuid;                 // ✅ 추가
-    private String summonerName;          // 표시용 (fallback)
-    private String riotIdGameName;        // ✅ 선택: 표준 Riot ID
-    private String riotIdTagline;         // ✅ 선택
+    // 식별/표시
+    private String puuid;
+    private String riotIdGameName;
+    private String riotIdTagline;
+    private String summonerName;
 
+    // 기본 전적
     private String championName;
-    private int teamId;
-    private int kills;
-    private int deaths;
-    private int assists;
-    private int totalMinionsKilled;
+    private int teamId;                // 100=블루, 200=레드
+    private int kills, deaths, assists;
     private int champLevel;
     private int goldEarned;
     private boolean win;
+
+    // CS
+    private int csTotal;               // totalMinionsKilled + neutralMinionsKilled
+
+    // 주문/룬/아이템
+    private Integer summoner1Id, summoner2Id;
+    private Integer primaryStyleId, subStyleId; // perks.styles[0/1].style
+    private Integer item0, item1, item2, item3, item4, item5, item6;
+
+    // 배지(멀티킬)
+    private Integer largestMultiKill;
 }

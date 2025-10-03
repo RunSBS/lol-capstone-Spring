@@ -2,10 +2,37 @@
 import React, { useMemo, useState } from "react";
 import "./App.css";
 
-const Q_SOLO = "RANKED_SOLO_5x5";
-const Q_FLEX = "RANKED_FLEX_SR";
+/* ===================== 상수/유틸 ===================== */
+const QUEUE_LABEL = {
+    420: "개인/2인 랭크 게임",
+    440: "자유 랭크",
+    450: "칼바람 나락",
+    430: "일반(드래프트)",
+    400: "일반(블라인드)",
+};
+const queueLabel = (q) => QUEUE_LABEL[q] || "기타 큐";
 
-// ===== 유틸 함수 =====
+const SPELL_KEY = {
+    1: "SummonerBoost",
+    3: "SummonerExhaust",
+    4: "SummonerFlash",
+    6: "SummonerHaste",
+    7: "SummonerHeal",
+    11: "SummonerSmite",
+    12: "SummonerTeleport",
+    13: "SummonerMana", // 거의 안 씀
+    14: "SummonerDot",
+    21: "SummonerBarrier",
+};
+
+const RUNE_STYLE_NAME = {
+    8000: "Precision",
+    8100: "Domination",
+    8200: "Sorcery",
+    8300: "Inspiration",
+    8400: "Resolve",
+};
+
 function displayTier(tier, rank) {
     if (!tier) return "-";
     const niceTier = tier.charAt(0) + tier.slice(1).toLowerCase();
@@ -49,129 +76,165 @@ function fmtDuration(seconds = 0) {
     const p2 = (n) => n.toString().padStart(2, "0");
     return h > 0 ? `${h}:${p2(m)}:${p2(sec)}` : `${m}:${p2(sec)}`;
 }
-function tierEmblemUrls(tier) {
-    if (!tier) return [];
-    const t = tier.toLowerCase();
-    return [
-        `https://raw.communitydragon.org/latest/game/assets/ux/ranked-emblems/league-emblem-${t}.png`,
-        `https://opgg-static.akamaized.net/images/medals_new/${t}.png`,
-    ];
+
+const ddVer = "15.18.1"; // 데이터 드래곤 버전
+
+/* 이미지 URL 유틸 */
+const champImg = (name) =>
+    name ? `https://ddragon.leagueoflegends.com/cdn/${ddVer}/img/champion/${name}.png` : null;
+const spellImg = (id) =>
+    id && SPELL_KEY[id]
+        ? `https://ddragon.leagueoflegends.com/cdn/${ddVer}/img/spell/${SPELL_KEY[id]}.png`
+        : null;
+const runeStyleImg = (styleId) =>
+    styleId && RUNE_STYLE_NAME[styleId]
+        ? `https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/${RUNE_STYLE_NAME[styleId]}/${RUNE_STYLE_NAME[styleId]}.png`
+        : null;
+const itemImg = (id) =>
+    id && id !== 0 ? `https://ddragon.leagueoflegends.com/cdn/${ddVer}/img/item/${id}.png` : null;
+const tierEmblem = (tier) =>
+    tier
+        ? `https://raw.communitydragon.org/latest/game/assets/ux/ranked-emblems/league-emblem-${tier.toLowerCase()}.png`
+        : null;
+
+/* 파생 값 */
+const kdaRatio = (k, d, a) => ((k + a) / Math.max(1, d)).toFixed(1);
+const csPerMin = (cs, seconds) => (cs / Math.max(1, seconds / 60)).toFixed(1);
+const multiKillLabel = (n) =>
+    n >= 5 ? "펜타킬" : n === 4 ? "쿼드라킬" : n === 3 ? "트리플킬" : n === 2 ? "더블킬" : null;
+
+/* ===================== 작은 컴포넌트 ===================== */
+function Img({ src, alt, size = 20, round = 6, className, onErrorHide = true }) {
+    if (!src) return <span style={{ width: size, height: size, display: "inline-block" }} />;
+    return (
+        <img
+            src={src}
+            alt={alt || ""}
+            width={size}
+            height={size}
+            className={className}
+            style={{ borderRadius: round }}
+            onError={(e) => {
+                if (onErrorHide) e.currentTarget.style.display = "none";
+            }}
+        />
+    );
 }
 
-// ===== 컴포넌트 =====
-function RankCard({ entry, title }) {
-    if (!entry) {
-        return (
-            <div className="card">
-                <div className="cardHeader">
-                    <div>{title}</div>
-                    <div className="muted">데이터 없음</div>
-                </div>
-                <div className="empty">해당 큐에서 배치/랭크 기록이 없습니다.</div>
-            </div>
-        );
-    }
-    const tierText = displayTier(entry.tier, entry.rank);
-    const urls = tierEmblemUrls(entry.tier);
-    const primary = urls[0];
-    const fallback = urls[1];
-
+function SpellPair({ s1, s2 }) {
     return (
-        <div className="card">
-            <div className="cardHeader">
-                <div>{title}</div>
-                <div className="muted">
-                    {entry.wins ?? 0}승 {entry.losses ?? 0}패
-                </div>
-            </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <Img src={spellImg(s1)} size={20} round={4} />
+            <Img src={spellImg(s2)} size={20} round={4} />
+        </div>
+    );
+}
 
-            <div className="rankRow">
-                {entry.tier && (
-                    <img
-                        src={primary}
-                        alt={entry.tier}
-                        width={64}
-                        height={64}
-                        style={{ marginRight: 12 }}
-                        onError={(e) => {
-                            if (e.currentTarget.src !== fallback) e.currentTarget.src = fallback;
-                            else e.currentTarget.style.display = "none";
-                        }}
-                    />
-                )}
-                <div className="tierText">{tierText}</div>
-            </div>
+function RunePair({ primary, sub }) {
+    return (
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <Img src={runeStyleImg(primary)} size={20} round={10} />
+            <Img src={runeStyleImg(sub)} size={20} round={10} />
+        </div>
+    );
+}
 
-            <div className="grid">
-                <div>LP</div>
-                <div>{entry.leaguePoints ?? 0} LP</div>
+function ItemsRow({ items = [], trinket }) {
+    return (
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+            {items.map((id, i) => (
+                <Img key={i} src={itemImg(id)} size={26} round={6} />
+            ))}
+            <div style={{ width: 6 }} />
+            <Img src={itemImg(trinket)} size={26} round={6} />
+        </div>
+    );
+}
 
-                <div>승률</div>
-                <div>{winRate(entry.wins, entry.losses)}</div>
-
-                <div>핫스트릭</div>
-                <div>{entry.hotStreak ? "예" : "아니오"}</div>
-
-                <div>베테랑</div>
-                <div>{entry.veteran ? "예" : "아니오"}</div>
-
-                <div>신규 진입</div>
-                <div>{entry.freshBlood ? "예" : "아니오"}</div>
-
-                <div>비활성</div>
-                <div>{entry.inactive ? "예" : "아니오"}</div>
+/* 참가자 띄우기 (블루/레드) */
+function TeamParticipants({ list = [], title }) {
+    return (
+        <div>
+            <div className="mutedSmall" style={{ marginBottom: 4 }}>{title}</div>
+            <div style={{ display: "grid", gap: 6 }}>
+                {list.map((p, idx) => {
+                    const name = p.riotIdGameName || p.summonerName || p.puuid?.slice(0, 6);
+                    return (
+                        <div key={p.puuid || idx} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <Img src={champImg(p.championName)} size={18} />
+                            <div className="mutedSmall" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                {name}
+                            </div>
+                        </div>
+                    );
+                })}
             </div>
         </div>
     );
 }
 
-function MatchCard({ match, ddVer, focusPuuid }) {
+/* ===================== 카드 ===================== */
+function MatchCard({ match, focusPuuid, viewerRanks }) {
     const me = useMemo(() => {
         const list = Array.isArray(match.participants) ? match.participants : [];
         return list.find((p) => p?.puuid === focusPuuid) || list[0];
     }, [match, focusPuuid]);
 
-    if (!match) return null;
+    if (!match || !me) return null;
 
-    const won = !!me?.win;
-    const k = me?.kills ?? 0;
-    const d = me?.deaths ?? 0;
-    const a = me?.assists ?? 0;
-    const cs = me?.totalMinionsKilled ?? 0;
+    const won = !!me.win;
+    const k = me.kills ?? 0;
+    const d = me.deaths ?? 0;
+    const a = me.assists ?? 0;
+    const cs = me.csTotal ?? 0;
+    const ratio = kdaRatio(k, d, a);
+    const cpm = csPerMin(cs, match.gameDuration || 1);
+    const mk = multiKillLabel(me.largestMultiKill || 0);
 
-    const champ = me?.championName || "Aatrox";
-    const champSquare = `https://ddragon.leagueoflegends.com/cdn/${ddVer}/img/champion/${champ}.png`;
+    const champ = me.championName || "Aatrox";
+    const viewerRankEntry =
+        match.queueId === 420 ? viewerRanks?.soloRanked : match.queueId === 440 ? viewerRanks?.flexRanked : null;
+
+    const tierText = viewerRankEntry ? displayTier(viewerRankEntry.tier, viewerRankEntry.rank) : "-";
+    const tierImg = viewerRankEntry ? tierEmblem(viewerRankEntry.tier) : null;
+
+    const blue = (match.participants || []).filter((p) => p.teamId === 100);
+    const red = (match.participants || []).filter((p) => p.teamId === 200);
 
     return (
         <div className={`matchCard ${won ? "winBorder" : "loseBorder"}`}>
+
+            {/* 헤더 */}
             <div className="matchHeader">
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <img
-                        src={champSquare}
-                        alt={champ}
-                        width={46}
-                        height={46}
-                        style={{ borderRadius: 8 }}
-                        onError={(e) => (e.currentTarget.style.display = "none")}
-                    />
+                    <Img src={champImg(champ)} size={46} round={8} />
                     <div>
                         <div style={{ fontWeight: 800, color: won ? "#a7f3d0" : "#fecaca" }}>
                             {won ? "승리" : "패배"}
                         </div>
                         <div className="mutedSmall">
-                            {match.gameMode || "CLASSIC"} · {fmtDuration(match.gameDuration)}
+                            {queueLabel(match.queueId)} · {fmtDuration(match.gameDuration)}
                         </div>
                     </div>
                 </div>
                 <div className="mutedSmall">{timeAgo(match.gameCreation)}</div>
             </div>
 
-            <div className="matchBody">
+            {/* 본문 상단: 스펠/룬 + KDA/CS + 티어 */}
+            <div className="matchBody" style={{ alignItems: "center" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <SpellPair s1={me.summoner1Id} s2={me.summoner2Id} />
+                    <RunePair primary={me.primaryStyleId} sub={me.subStyleId} />
+                </div>
+
+                <div className="sep" />
+
                 <div className="kdaBox">
                     <div style={{ fontWeight: 800, fontSize: 16 }}>
                         {k} / {d} / {a}
                     </div>
                     <div className="mutedSmall">K / D / A</div>
+                    <div className="mutedSmall" style={{ marginTop: 4 }}>평점 {ratio}:1</div>
                 </div>
 
                 <div className="sep" />
@@ -179,20 +242,53 @@ function MatchCard({ match, ddVer, focusPuuid }) {
                 <div>
                     <div style={{ fontWeight: 700 }}>{cs}</div>
                     <div className="mutedSmall">CS</div>
+                    <div className="mutedSmall">분당 {cpm}</div>
                 </div>
 
                 <div style={{ flex: 1 }} />
 
-                <div style={{ textAlign: "right" }}>
-                    <div className="mutedSmall">버전</div>
-                    <div>{match.gameVersion}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    {tierImg && <Img src={tierImg} size={28} round={0} />}
+                    <div style={{ textAlign: "right" }}>
+                        <div className="mutedSmall">티어</div>
+                        <div>{tierText}</div>
+                    </div>
                 </div>
+            </div>
+
+            {/* 내 아이템 + 배지 */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 10px" }}>
+                <div>
+                    <div className="mutedSmall">내 아이템</div>
+                    <ItemsRow
+                        items={[me.item0, me.item1, me.item2, me.item3, me.item4, me.item5]}
+                        trinket={me.item6}
+                    />
+                </div>
+                <div>
+                    {mk && <span className="badge">{mk}</span>}
+                    {/* ACE/불운 등은 나중 단계에서 추가 */}
+                </div>
+            </div>
+
+            {/* 참가자 10명 (블루/레드) */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, padding: "8px 10px" }}>
+                <TeamParticipants title="블루 팀" list={blue} />
+                <TeamParticipants title="레드 팀" list={red} />
+            </div>
+
+            {/* 플로팅(상세) 버튼 - 내용은 비워둠 */}
+            <div style={{ display: "flex", justifyContent: "flex-end", padding: "6px 10px" }}>
+                <button type="button" className="tabBtn" onClick={() => alert("상세 보기(플로팅)는 다음 단계에서 구현합니다.")}>
+                    상세 보기
+                </button>
             </div>
         </div>
     );
 }
 
-function MatchList({ matches, ddVer, focusPuuid }) {
+/* ===================== 리스트/페이지 ===================== */
+function MatchList({ matches, focusPuuid, viewerRanks }) {
     if (!matches?.length) {
         return (
             <div className="card">
@@ -203,13 +299,12 @@ function MatchList({ matches, ddVer, focusPuuid }) {
     return (
         <div style={{ display: "grid", gap: 10 }}>
             {matches.map((m) => (
-                <MatchCard key={m.matchId} match={m} ddVer={ddVer} focusPuuid={focusPuuid} />
+                <MatchCard key={m.matchId} match={m} focusPuuid={focusPuuid} viewerRanks={viewerRanks} />
             ))}
         </div>
     );
 }
 
-// ===== 메인 =====
 function App() {
     const [gameName, setGameName] = useState("");
     const [tagLine, setTagLine] = useState("");
@@ -217,13 +312,11 @@ function App() {
     const [err, setErr] = useState(null);
 
     const [view, setView] = useState(null);
-    const [activeTab, setActiveTab] = useState("solo");
-
     const [matches, setMatches] = useState([]);
     const [matchLoading, setMatchLoading] = useState(false);
     const [matchErr, setMatchErr] = useState(null);
 
-    const ddVer = "15.18.1";
+    const [matchTab, setMatchTab] = useState("all");
 
     const onSubmit = async (e) => {
         e.preventDefault();
@@ -233,7 +326,6 @@ function App() {
         setLoading(true);
         setMatchLoading(true);
         setMatchErr(null);
-        setActiveTab("solo");
 
         try {
             const g = encodeURIComponent(gameName.trim());
@@ -255,6 +347,22 @@ function App() {
             setMatchLoading(false);
         }
     };
+
+    // 탭 필터(솔랭/자랭/기타/전체)
+    const QUEUE_SOLO = 420;
+    const QUEUE_FLEX = 440;
+    const filteredMatches = useMemo(() => {
+        if (!Array.isArray(matches)) return [];
+        return matches
+            .filter((m) => {
+                const q = m?.queueId;
+                if (matchTab === "solo") return q === QUEUE_SOLO;
+                if (matchTab === "flex") return q === QUEUE_FLEX;
+                if (matchTab === "other") return q !== QUEUE_SOLO && q !== QUEUE_FLEX;
+                return true;
+            })
+            .sort((a, b) => (b.gameCreation ?? 0) - (a.gameCreation ?? 0));
+    }, [matches, matchTab]);
 
     return (
         <div className="App">
@@ -291,16 +399,13 @@ function App() {
             {view ? (
                 <div className="twoCols">
                     <div className="leftCol">
+                        {/* 프로필 */}
                         <div className="profile">
-                            {/* 프로필 정보 */}
                             <div className="iconWrap">
-                                <img
+                                <Img
                                     src={`https://ddragon.leagueoflegends.com/cdn/${ddVer}/img/profileicon/${view.profileIconId}.png`}
-                                    alt="profile icon"
-                                    width={64}
-                                    height={64}
-                                    style={{ borderRadius: 8 }}
-                                    onError={(e) => (e.currentTarget.style.display = "none")}
+                                    size={64}
+                                    round={8}
                                 />
                                 <div className="levelBadge">{view.summonerLevel ?? ""}</div>
                             </div>
@@ -315,26 +420,37 @@ function App() {
                             </div>
                         </div>
 
-                        {/* 랭크 카드 */}
-                        <div className="tabs">
+                        {/* 전적 탭(필터) */}
+                        <div className="tabs" style={{ gap: 6 }}>
                             <button
                                 type="button"
-                                className={`tabBtn ${activeTab === "solo" ? "tabBtnActive" : ""}`}
-                                onClick={() => setActiveTab("solo")}
+                                className={`tabBtn ${matchTab === "all" ? "tabBtnActive" : ""}`}
+                                onClick={() => setMatchTab("all")}
                             >
-                                솔로 랭크
+                                전체
                             </button>
                             <button
                                 type="button"
-                                className={`tabBtn ${activeTab === "flex" ? "tabBtnActive" : ""}`}
-                                onClick={() => setActiveTab("flex")}
+                                className={`tabBtn ${matchTab === "solo" ? "tabBtnActive" : ""}`}
+                                onClick={() => setMatchTab("solo")}
                             >
-                                자유 랭크
+                                솔로랭크
+                            </button>
+                            <button
+                                type="button"
+                                className={`tabBtn ${matchTab === "flex" ? "tabBtnActive" : ""}`}
+                                onClick={() => setMatchTab("flex")}
+                            >
+                                자유랭크
+                            </button>
+                            <button
+                                type="button"
+                                className={`tabBtn ${matchTab === "other" ? "tabBtnActive" : ""}`}
+                                onClick={() => setMatchTab("other")}
+                            >
+                                기타
                             </button>
                         </div>
-
-                        {activeTab === "solo" && <RankCard entry={view.soloRanked} title="솔로 랭크" />}
-                        {activeTab === "flex" && <RankCard entry={view.flexRanked} title="자유 랭크" />}
                     </div>
 
                     <div className="rightCol">
@@ -344,7 +460,7 @@ function App() {
                         ) : matchErr ? (
                             <div style={{ color: "#f87171" }}>전적 로드 실패: {matchErr}</div>
                         ) : (
-                            <MatchList matches={matches} ddVer={ddVer} focusPuuid={view.puuid} />
+                            <MatchList matches={filteredMatches} focusPuuid={view.puuid} viewerRanks={view} />
                         )}
                     </div>
                 </div>

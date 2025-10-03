@@ -17,6 +17,7 @@ import org.springframework.core.ParameterizedTypeReference; // <- 추가
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import java.util.Comparator;
 
 @Service
 @RequiredArgsConstructor
@@ -65,28 +66,26 @@ public class MatchService {
                     return toApiError("match-by-id", resp).flatMap(Mono::error);
                 });
     }
-
     /** RawMatch → MatchDto 변환 */
     // src/main/java/lol/jen/lol/service/MatchService.java
+    // src/main/java/lol/jen/lol/service/MatchService.java (일부분)
     public MatchDto toMatchDto(RawMatch raw) {
         MatchDto dto = new MatchDto();
-        if (raw.getMetadata() != null) {
-            dto.setMatchId(raw.getMetadata().getMatchId());
-        }
+        if (raw.getMetadata() != null) dto.setMatchId(raw.getMetadata().getMatchId());
         if (raw.getInfo() != null) {
             var info = raw.getInfo();
             dto.setGameCreation(info.getGameCreation());
             dto.setGameDuration(info.getGameDuration());
             dto.setGameMode(info.getGameMode());
             dto.setGameVersion(info.getGameVersion());
+            dto.setQueueId(info.getQueueId());
 
             var parts = info.getParticipants() == null ? List.<RawMatch.Participant>of() : info.getParticipants();
-            dto.setParticipants(parts.stream().filter(Objects::nonNull).map(p -> {
+            dto.setParticipants(parts.stream().map(p -> {
                 ParticipantDto x = new ParticipantDto();
-                x.setPuuid(p.getPuuid());                              // ✅
-                x.setRiotIdGameName(p.getRiotIdGameName());            // ✅
-                x.setRiotIdTagline(p.getRiotIdTagline());              // ✅
-                // Riot ID가 있으면 우선 표시, 없으면 기존 summonerName 사용
+                x.setPuuid(p.getPuuid());
+                x.setRiotIdGameName(p.getRiotIdGameName());
+                x.setRiotIdTagline(p.getRiotIdTagline());
                 x.setSummonerName(p.getRiotIdGameName() != null ? p.getRiotIdGameName() : p.getSummonerName());
 
                 x.setChampionName(p.getChampionName());
@@ -94,28 +93,52 @@ public class MatchService {
                 x.setKills(nz(p.getKills()));
                 x.setDeaths(nz(p.getDeaths()));
                 x.setAssists(nz(p.getAssists()));
-                int cs = nz(p.getTotalMinionsKilled()) + nz(p.getNeutralMinionsKilled());
-                x.setTotalMinionsKilled(cs);
                 x.setChampLevel(nz(p.getChampLevel()));
                 x.setGoldEarned(nz(p.getGoldEarned()));
                 x.setWin(Boolean.TRUE.equals(p.getWin()));
+
+                // CS 합산
+                int cs = nz(p.getTotalMinionsKilled()) + nz(p.getNeutralMinionsKilled());
+                x.setCsTotal(cs);
+
+                // 주문/룬/아이템/배지 (RawMatch.Participant에 필드 추가 필요)
+                x.setSummoner1Id(p.getSummoner1Id());
+                x.setSummoner2Id(p.getSummoner2Id());
+                x.setPrimaryStyleId(safePrimaryStyle(p));
+                x.setSubStyleId(safeSubStyle(p));
+
+                x.setItem0(p.getItem0()); x.setItem1(p.getItem1()); x.setItem2(p.getItem2());
+                x.setItem3(p.getItem3()); x.setItem4(p.getItem4()); x.setItem5(p.getItem5()); x.setItem6(p.getItem6());
+
+                x.setLargestMultiKill(p.getLargestMultiKill());
                 return x;
-            }).collect(Collectors.toList()));
+            }).toList());
         }
         return dto;
     }
 
-
-    private static int nz(Integer v) { return v == null ? 0 : v; }
+    private static Integer safePrimaryStyle(RawMatch.Participant p) {
+        try {
+            return p.getPerks().getStyles().get(0).getStyle();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+    private static Integer safeSubStyle(RawMatch.Participant p) {
+        try { return p.getPerks().getStyles().get(1).getStyle(); } catch (Exception e) { return null; }
+    }
+    private static int nz(Integer v){ return v==null?0:v; }
 
     /** 게임명+태그로 최근 N개의 MatchDto */
     public Mono<List<MatchDto>> getRecentMatchesByRiotId(String gameName, String tagLine, int count) {
         return summonerService.getAccountDtoByGameNameAndTagLine(gameName, tagLine)
                 .flatMap(acc -> getRecentMatchIdsByPuuid(acc.getPuuid(), count))
                 .flatMapMany(reactor.core.publisher.Flux::fromIterable)
-                // ✅ 여기서 빈 Mono(=404 스킵)가 자동으로 걸러짐
-                .flatMap(this::getRawMatch)
+                // ✅ 순서 보장: IDs 순서대로 차례로 호출
+                .concatMap(this::getRawMatch)
                 .map(this::toMatchDto)
+                // ✅ 혹시 모를 타임스탬프 이슈 대비해서 한 번 더 정렬(최신 우선)
+                .sort(Comparator.comparing(MatchDto::getGameCreation).reversed())
                 .collectList();
     }
 
