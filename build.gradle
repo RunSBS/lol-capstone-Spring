@@ -30,6 +30,8 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
     // Riot API 요청시 비동기 구현을 위한 WebFlux 기능
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
+    // 로깅용 (Spring Boot 기본 포함이지만 혹시 누락 시 명시)
+    implementation 'org.springframework.boot:spring-boot-starter-logging'
     compileOnly 'org.projectlombok:lombok'
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
     runtimeOnly 'com.oracle.database.jdbc:ojdbc11'

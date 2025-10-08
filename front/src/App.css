@@ -189,3 +189,48 @@
     background: #36414a;
     opacity: 0.7;
 }
+/* ===================== 티어 엠블럼 크기/품질 ===================== */
+:root{
+    --emblem-size-rank: 56px;   /* 좌측 랭크 카드 크기 */
+    --emblem-size-match: 44px;  /* 우측 매치 카드 크기 */
+}
+
+/* 티어 엠블럼 공통 */
+img[src*="/images/medals/"],
+img[src*="/ranked-emblems/"],
+img[src*="/ranked/tiers/"]{
+    width: var(--emblem-size-rank);
+    height: var(--emblem-size-rank);
+    image-rendering: pixelated;   /* ✅ 표준/유효 값 */
+    backface-visibility: hidden;
+}
+
+/* 매치 카드 안에서는 조금 더 작게 */
+.matchBody img[src*="/images/medals/"],
+.matchBody img[src*="/ranked-emblems/"],
+.matchBody img[src*="/ranked/tiers/"]{
+    width: var(--emblem-size-match);
+    height: var(--emblem-size-match);
+    image-rendering: pixelated;   /* 일관성 유지 */
+    margin-right: 6px;
+}
+
+/* 티어 텍스트 정렬 보정(가독) */
+.matchBody .mutedSmall + div {
+    line-height: 1.1;
+}
+
+/* 랭크 패널의 티어 텍스트 살짝 키우기 */
+.card .mutedSmall + div + div {
+    font-size: 18px;
+    font-weight: 800;
+}
+
+/* 큰 화면에서 랭크 엠블럼 조금 더 키움 */
+@media (min-width: 1280px){
+    :root{
+        --emblem-size-rank: 64px;
+    }
+}
+
+

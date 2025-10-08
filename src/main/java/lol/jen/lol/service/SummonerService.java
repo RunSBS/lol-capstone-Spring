@@ -73,6 +73,9 @@ public class SummonerService {
                             SummonerDto sum = tuple.getT1();
                             List<LeagueEntryDto> leagues = tuple.getT2();
 
+                            // 👇 추가
+                            System.out.println("[SVC] leagues size=" + (leagues==null? -1: leagues.size()));
+
                             LeagueEntryDto solo = leagues.stream()
                                     .filter(l -> "RANKED_SOLO_5x5".equals(l.getQueueType()))
                                     .findFirst().orElse(null);

@@ -1,6 +1,67 @@
 // src/App.jsx
 import React, { useMemo, useState } from "react";
 import "./App.css";
+// 티어 슬러그 매핑
+const TIER_SLUG = { IRON:'iron', BRONZE:'bronze', SILVER:'silver', GOLD:'gold',
+    PLATINUM:'platinum', EMERALD:'emerald', DIAMOND:'diamond',
+    MASTER:'master', GRANDMASTER:'grandmaster', CHALLENGER:'challenger' };
+
+function tierEmblemUrls(tier) {
+    if (!tier) return [];
+    const slug = TIER_SLUG[String(tier).toUpperCase()];
+    if (!slug) return [];
+    return [
+        // CDragon 경로 후보들 (버전에 따라 위치가 조금씩 달라서 여럿 시도)
+        `https://raw.communitydragon.org/latest/game/assets/ux/ranked-emblems/league-emblem-${slug}.png`,
+        `https://raw.communitydragon.org/latest/game/assets/ux/ranked/tiers/league-tier-${slug}.png`,
+        // 필요시 다른 브랜치도 한 번 더 시도해봄 (pbe)
+        `https://raw.communitydragon.org/pbe/game/assets/ux/ranked-emblems/league-emblem-${slug}.png`,
+    ];
+}
+function buildOpggEmblemFallbackUrl(tier, rank) {
+    // tier, rank 값 안전하게 처리
+    const t = String(tier || "GOLD").toLowerCase();
+    const roman = String(rank || "").toUpperCase();
+
+    // 로마 숫자 → 숫자 매핑
+    const map = { I: 1, II: 2, III: 3, IV: 4 };
+    const n = map[roman] || 1;
+
+    // OP.GG용 엠블럼 이미지 URL
+    return `https://opgg-static.akamaized.net/images/medals/${t}_${n}.png?image=q_auto,f_webp,w_144`;
+}
+
+function EmblemImg({ tier, rank, size = 36 }) {
+    const urls = React.useMemo(() => {
+        if (!tier) return [];
+
+        const slug = TIER_SLUG[String(tier).toUpperCase()];
+        if (!slug) return [];
+
+        // 🔁 순서대로 시도: CDragon → PBE → OP.GG
+        return [
+            `https://raw.communitydragon.org/latest/game/assets/ux/ranked-emblems/league-emblem-${slug}.png`,
+            `https://raw.communitydragon.org/latest/game/assets/ux/ranked/tiers/league-tier-${slug}.png`,
+            `https://raw.communitydragon.org/pbe/game/assets/ux/ranked-emblems/league-emblem-${slug}.png`,
+            buildOpggEmblemFallbackUrl(slug, rank), // ✅ 마지막 폴백 (이게 제일 중요)
+        ];
+    }, [tier, rank]);
+
+    const [idx, setIdx] = React.useState(0);
+    if (!urls.length) return null;
+
+    return (
+        <Img
+            src={urls[idx]}
+            size={size}
+            round={0}
+            onErrorHide={false}
+            onError={() => {
+                setIdx((i) => (i + 1 < urls.length ? i + 1 : i));
+            }}
+        />
+    );
+}
 
 /* ===================== 상수/유틸 ===================== */
 const QUEUE_LABEL = {
@@ -20,7 +81,7 @@ const SPELL_KEY = {
     7: "SummonerHeal",
     11: "SummonerSmite",
     12: "SummonerTeleport",
-    13: "SummonerMana", // 거의 안 씀
+    13: "SummonerMana",
     14: "SummonerDot",
     21: "SummonerBarrier",
 };
@@ -77,7 +138,7 @@ function fmtDuration(seconds = 0) {
     return h > 0 ? `${h}:${p2(m)}:${p2(sec)}` : `${m}:${p2(sec)}`;
 }
 
-const ddVer = "15.18.1"; // 데이터 드래곤 버전
+const ddVer = "15.18.1";
 
 /* 이미지 URL 유틸 */
 const champImg = (name) =>
@@ -104,7 +165,7 @@ const multiKillLabel = (n) =>
     n >= 5 ? "펜타킬" : n === 4 ? "쿼드라킬" : n === 3 ? "트리플킬" : n === 2 ? "더블킬" : null;
 
 /* ===================== 작은 컴포넌트 ===================== */
-function Img({ src, alt, size = 20, round = 6, className, onErrorHide = true }) {
+function Img({ src, alt, size = 20, round = 6, className, onErrorHide = true, onError }) {
     if (!src) return <span style={{ width: size, height: size, display: "inline-block" }} />;
     return (
         <img
@@ -115,7 +176,8 @@ function Img({ src, alt, size = 20, round = 6, className, onErrorHide = true }) 
             className={className}
             style={{ borderRadius: round }}
             onError={(e) => {
-                if (onErrorHide) e.currentTarget.style.display = "none";
+                if (onError) onError(e);
+                else if (onErrorHide) e.currentTarget.style.display = "none";
             }}
         />
     );
@@ -151,16 +213,17 @@ function ItemsRow({ items = [], trinket }) {
     );
 }
 
-/* 참가자 띄우기 (블루/레드) */
 function TeamParticipants({ list = [], title }) {
     return (
         <div>
             <div className="mutedSmall" style={{ marginBottom: 4 }}>{title}</div>
             <div style={{ display: "grid", gap: 6 }}>
                 {list.map((p, idx) => {
-                    const name = p.riotIdGameName || p.summonerName || p.puuid?.slice(0, 6);
+                    const name = p.riotIdGameName && p.riotIdTagline
+                        ? `${p.riotIdGameName}#${p.riotIdTagline}`
+                        : (p.riotIdGameName || p.summonerName || "Unknown");
                     return (
-                        <div key={p.puuid || idx} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <div key={p.puuid || p.participantId || `${p.championName}-${idx}`} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                             <Img src={champImg(p.championName)} size={18} />
                             <div className="mutedSmall" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                                 {name}
@@ -173,8 +236,225 @@ function TeamParticipants({ list = [], title }) {
     );
 }
 
+/* ===================== 플로팅 상세 패널 ===================== */
+function DetailRow({ label, children }) {
+    return (
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <div className="mutedSmall" style={{ width: 90 }}>{label}</div>
+            <div>{children}</div>
+        </div>
+    );
+}
+// 🔧 추가: 이름 폴백 유틸 (PUUID 안보임)
+function getDisplayName(p, idxFallback = 0) {
+    // 1) Riot ID full (gameName#tagLine)
+    if (p?.riotIdGameName && p?.riotIdTagline) {
+        return `${p.riotIdGameName}#${p.riotIdTagline}`;
+    }
+    // 2) Riot ID gameName만 있는 경우
+    if (p?.riotIdGameName) return p.riotIdGameName;
+    // 3) 구 API 소환사명
+    if (p?.summonerName) return p.summonerName;
+    // 4) 마지막 폴백: 플레이어 넘버 (PUUID 미노출)
+    const no = p?.participantId ?? (idxFallback + 1);
+    return `Player ${no}`;
+}
+
+function ParticipantLine({ p }) {
+    return (
+        <div style={{ display: "grid", gridTemplateColumns: "24px 44px 1fr auto auto 220px", gap: 8, alignItems: "center" }}>
+            <Img src={champImg(p.championName)} size={24} />
+            <div style={{ display: "flex", gap: 6 }}>
+                <Img src={spellImg(p.spell1Id)} size={20} round={4} />
+                <Img src={spellImg(p.spell2Id)} size={20} round={4} />
+            </div>
+            <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {p.riotIdGameName && p.riotIdTagline
+                    ? `${p.riotIdGameName}#${p.riotIdTagline}`
+                    : (p.riotIdGameName || p.summonerName || "Unknown")}
+            </div>
+
+            <div className="mutedSmall" style={{ textAlign: "right" }}>
+                {p.kills}/{p.deaths}/{p.assists} · {p.kda} KDA
+            </div>
+            <div className="mutedSmall" style={{ textAlign: "right" }}>
+                KP {(Math.round((p.killParticipation ?? 0) * 1000) / 10).toFixed(1)}%
+            </div>
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <ItemsRow items={[p.item0, p.item1, p.item2, p.item3, p.item4, p.item5]} trinket={p.item6} />
+            </div>
+        </div>
+    );
+}
+
+function DetailPanel({ open, onClose, detail, loading, error }) {
+    if (!open) return null;
+
+    return (
+        <div
+            role="dialog"
+            aria-modal="true"
+            onClick={onClose}
+            style={{
+                position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)",
+                display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999
+            }}
+        >
+            <div
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                    width: "min(980px, 92vw)", maxHeight: "86vh", overflow: "auto",
+                    background: "#0b1220", color: "#e5e7eb", border: "1px solid #1f2937",
+                    borderRadius: 12, boxShadow: "0 12px 40px rgba(0,0,0,0.5)", padding: 16
+                }}
+            >
+                <div style={{ display: "flex", alignItems: "center" }}>
+                    <div style={{ fontWeight: 900, fontSize: 18, flex: 1 }}>
+                        매치 상세 {detail?.matchId ? `· ${detail.matchId}` : ""}
+                    </div>
+                    <button className="tabBtn" onClick={onClose}>닫기</button>
+                </div>
+
+                {loading ? (
+                    <div className="muted" style={{ padding: 20 }}>불러오는 중…</div>
+                ) : error ? (
+                    <div style={{ color: "#f87171", padding: 20 }}>로드 실패: {error}</div>
+                ) : !detail ? (
+                    <div className="muted" style={{ padding: 20 }}>데이터 없음</div>
+                ) : (
+                    <>
+                        {/* 상단: 기본 정보 */}
+                        <div className="card" style={{ padding: 12, marginTop: 10 }}>
+                            <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+                                <DetailRow label="큐 타입">{queueLabel(detail.queueId)}</DetailRow>
+                                <DetailRow label="게임 시간">{fmtDuration(detail.gameDuration)}</DetailRow>
+                                <DetailRow label="시작">{fmtDate(detail.gameCreation)}</DetailRow>
+                            </div>
+                        </div>
+
+                        {/* 팀 요약 */}
+                        <div className="card" style={{ padding: 12, marginTop: 10 }}>
+                            <div className="mutedSmall" style={{ marginBottom: 8 }}>팀 요약</div>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                                {detail.teams?.map((t) => (
+                                    <div key={t.teamId} className={t.win ? "winBorder" : "loseBorder"} style={{ borderRadius: 8, padding: 10 }}>
+                                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                                            <div style={{ fontWeight: 800 }}>
+                                                {t.teamId === 100 ? "블루 팀" : "레드 팀"} · {t.win ? "승리" : "패배"}
+                                            </div>
+                                            <div className="mutedSmall">팀킬 {t.championKills ?? "-"}</div>
+                                        </div>
+                                        <div className="mutedSmall">
+                                            바론 {t.objectives?.baron ?? 0} · 드래곤 {t.objectives?.dragon ?? 0} · 타워 {t.objectives?.tower ?? 0} · 억제기 {t.objectives?.inhibitor ?? 0}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* 참가자 10명 */}
+                        <div className="card" style={{ padding: 12, marginTop: 10 }}>
+                            <div className="mutedSmall" style={{ marginBottom: 8 }}>참가자</div>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8 }}>
+                                {detail.participants
+                                    ?.slice()
+                                    ?.sort((a, b) => (a.teamId - b.teamId) || (a.participantId - b.participantId))
+                                    ?.map((p, i) => <ParticipantLine key={p.puuid || i} p={p} />)}
+                            </div>
+                        </div>
+                    </>
+                )}
+            </div>
+        </div>
+    );
+}
+/* ===================== 랭크 패널 ===================== */
+function RankRow({ label, value }) {
+    return (
+        <div style={{ display: "grid", gridTemplateColumns: "80px 1fr", gap: 8 }}>
+            <div className="mutedSmall">{label}</div>
+            <div>{value}</div>
+        </div>
+    );
+}
+
+function RankCard({ title, entry }) {
+    if (!entry) {
+        return (
+            <div className="card" style={{ padding: 14 }}>
+                <div className="mutedSmall" style={{ marginBottom: 8 }}>{title}</div>
+                <div className="muted">Unranked</div>
+            </div>
+        );
+    }
+
+    const tierText = displayTier(entry.tier, entry.rank); // ex) "Grandmaster 1"
+    const emblem = tierEmblem(entry.tier);
+    const wr = winRate(entry.wins, entry.losses);
+
+    return (
+        <div className="card" style={{ padding: 14 }}>
+            <div className="mutedSmall" style={{ marginBottom: 8 }}>{title}</div>
+
+            {/* 🔽 티어 텍스트 + 이미지 나란히 표시 */}
+            <div style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "flex-start",
+                gap: 8,
+                marginBottom: 10
+            }}>
+                <div style={{ fontWeight: 800, fontSize: 18 }}>{tierText}</div>
+                <EmblemImg tier={entry.tier} rank={entry.rank} size={36} />
+            </div>
+
+            <div style={{ display: "grid", gap: 6 }}>
+                <RankRow label="LP" value={`${entry.leaguePoints} LP`} />
+                <RankRow label="승률" value={wr} />
+                <RankRow label="승패" value={`${entry.wins}승 ${entry.losses}패`} />
+                <RankRow label="핫스트릭" value={entry.hotStreak ? "예" : "아니오"} />
+                <RankRow label="베테랑" value={entry.veteran ? "예" : "아니오"} />
+                <RankRow label="신규 진입" value={entry.freshBlood ? "예" : "아니오"} />
+                <RankRow label="비활성" value={entry.inactive ? "예" : "아니오"} />
+            </div>
+        </div>
+    );
+}
+
+function RankPanel({ solo, flex }) {
+    const [rankTab, setRankTab] = React.useState("solo"); // 'solo' | 'flex'
+    const entry = rankTab === "solo" ? solo : flex;
+    const title = rankTab === "solo" ? "솔로 랭크" : "자유 랭크";
+
+    // 둘 다 없으면 전체 패널을 숨김
+    if (!solo && !flex) return null;
+
+    return (
+        <div style={{ marginTop: 10 }}>
+            <div className="tabs" style={{ gap: 6, marginBottom: 8 }}>
+                <button
+                    type="button"
+                    className={`tabBtn ${rankTab === "solo" ? "tabBtnActive" : ""}`}
+                    onClick={() => setRankTab("solo")}
+                >
+                    솔로랭크
+                </button>
+                <button
+                    type="button"
+                    className={`tabBtn ${rankTab === "flex" ? "tabBtnActive" : ""}`}
+                    onClick={() => setRankTab("flex")}
+                >
+                    자유랭크
+                </button>
+            </div>
+            <RankCard title={title} entry={entry} />
+        </div>
+    );
+}
+
+
 /* ===================== 카드 ===================== */
-function MatchCard({ match, focusPuuid, viewerRanks }) {
+function MatchCard({ match, focusPuuid, viewerRanks, onOpenDetail }) {
     const me = useMemo(() => {
         const list = Array.isArray(match.participants) ? match.participants : [];
         return list.find((p) => p?.puuid === focusPuuid) || list[0];
@@ -192,11 +472,28 @@ function MatchCard({ match, focusPuuid, viewerRanks }) {
     const mk = multiKillLabel(me.largestMultiKill || 0);
 
     const champ = me.championName || "Aatrox";
-    const viewerRankEntry =
-        match.queueId === 420 ? viewerRanks?.soloRanked : match.queueId === 440 ? viewerRanks?.flexRanked : null;
+    // 1순위: 해당 큐의 랭크, 2순위: 다른 큐, 3순위: TFT(원하면)
+    let viewerRankEntry = null;
 
-    const tierText = viewerRankEntry ? displayTier(viewerRankEntry.tier, viewerRankEntry.rank) : "-";
-    const tierImg = viewerRankEntry ? tierEmblem(viewerRankEntry.tier) : null;
+    if (match.queueId === 420) {
+        viewerRankEntry = viewerRanks?.soloRanked
+            ?? viewerRanks?.flexRanked
+            ?? viewerRanks?.tftRanked
+            ?? null;
+    } else if (match.queueId === 440) {
+        viewerRankEntry = viewerRanks?.flexRanked
+            ?? viewerRanks?.soloRanked
+            ?? viewerRanks?.tftRanked
+            ?? null;
+    } else {
+        // 일반/칼바람 등: 그냥 가장 대표 랭크(솔랭 우선) 보여주기
+        viewerRankEntry = viewerRanks?.soloRanked
+            ?? viewerRanks?.flexRanked
+            ?? viewerRanks?.tftRanked
+            ?? null;
+    }
+
+    const tierText = viewerRankEntry ? displayTier(viewerRankEntry.tier, viewerRankEntry.rank) : "Unranked";
 
     const blue = (match.participants || []).filter((p) => p.teamId === 100);
     const red = (match.participants || []).filter((p) => p.teamId === 200);
@@ -248,7 +545,7 @@ function MatchCard({ match, focusPuuid, viewerRanks }) {
                 <div style={{ flex: 1 }} />
 
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    {tierImg && <Img src={tierImg} size={28} round={0} />}
+                    <EmblemImg tier={viewerRankEntry?.tier} size={28} />
                     <div style={{ textAlign: "right" }}>
                         <div className="mutedSmall">티어</div>
                         <div>{tierText}</div>
@@ -267,7 +564,6 @@ function MatchCard({ match, focusPuuid, viewerRanks }) {
                 </div>
                 <div>
                     {mk && <span className="badge">{mk}</span>}
-                    {/* ACE/불운 등은 나중 단계에서 추가 */}
                 </div>
             </div>
 
@@ -277,9 +573,9 @@ function MatchCard({ match, focusPuuid, viewerRanks }) {
                 <TeamParticipants title="레드 팀" list={red} />
             </div>
 
-            {/* 플로팅(상세) 버튼 - 내용은 비워둠 */}
+            {/* 플로팅(상세) 버튼 - 여기서 호출 */}
             <div style={{ display: "flex", justifyContent: "flex-end", padding: "6px 10px" }}>
-                <button type="button" className="tabBtn" onClick={() => alert("상세 보기(플로팅)는 다음 단계에서 구현합니다.")}>
+                <button type="button" className="tabBtn" onClick={() => onOpenDetail?.(match.matchId)}>
                     상세 보기
                 </button>
             </div>
@@ -288,7 +584,7 @@ function MatchCard({ match, focusPuuid, viewerRanks }) {
 }
 
 /* ===================== 리스트/페이지 ===================== */
-function MatchList({ matches, focusPuuid, viewerRanks }) {
+function MatchList({ matches, focusPuuid, viewerRanks, onOpenDetail }) {
     if (!matches?.length) {
         return (
             <div className="card">
@@ -299,10 +595,45 @@ function MatchList({ matches, focusPuuid, viewerRanks }) {
     return (
         <div style={{ display: "grid", gap: 10 }}>
             {matches.map((m) => (
-                <MatchCard key={m.matchId} match={m} focusPuuid={focusPuuid} viewerRanks={viewerRanks} />
+                <MatchCard
+                    key={m.matchId}
+                    match={m}
+                    focusPuuid={focusPuuid}
+                    viewerRanks={viewerRanks}
+                    onOpenDetail={onOpenDetail}
+                />
             ))}
         </div>
     );
+}
+async function fetchJsonSafe(input, init) {
+    const res = await fetch(input, init);
+    const contentType = res.headers.get("content-type") || "";
+    const text = await res.text(); // 먼저 텍스트로 받기
+
+    if (!res.ok) {
+        // 서버가 에러 바디를 문자열로 보냈을 수도 있으니 함께 보여주기
+        const snippet = text ? `\n${text.slice(0, 500)}` : "";
+        throw new Error(`HTTP ${res.status}${snippet}`);
+    }
+
+    // 204 No Content 혹은 빈 바디
+    if (!text || text.trim().length === 0) {
+        // 백엔드가 비어 있는 바디를 돌려준 케이스
+        // 필요하면 여기서 null 반환하거나 에러로 처리
+        return null;
+    }
+
+    if (contentType.includes("application/json")) {
+        try {
+            return JSON.parse(text);
+        } catch (e) {
+            throw new Error(`JSON 파싱 실패: ${e.message}\n원문: ${text.slice(0, 500)}`);
+        }
+    } else {
+        // JSON이 아닌 경우 디버그에 도움 되도록 일부 보여주기
+        throw new Error(`응답이 JSON이 아님 (content-type: ${contentType})\n원문: ${text.slice(0, 500)}`);
+    }
 }
 
 function App() {
@@ -318,6 +649,12 @@ function App() {
 
     const [matchTab, setMatchTab] = useState("all");
 
+    // === 상세 패널 상태 ===
+    const [detailOpen, setDetailOpen] = useState(false);
+    const [detailLoading, setDetailLoading] = useState(false);
+    const [detailErr, setDetailErr] = useState(null);
+    const [detail, setDetail] = useState(null);
+
     const onSubmit = async (e) => {
         e.preventDefault();
         setErr(null);
@@ -331,12 +668,14 @@ function App() {
             const g = encodeURIComponent(gameName.trim());
             const t = encodeURIComponent(tagLine.trim());
 
-            const res1 = await fetch(`/summoner/view/${g}/${t}`, { method: "POST" });
+            const res1 = await fetch(`/api/summoner/view/${g}/${t}`, { method: "POST" });
             if (!res1.ok) throw new Error(`HTTP ${res1.status} - ${await res1.text()}`);
             const v = await res1.json();
+            console.log("view =", v);              // 👈 soloRanked / flexRanked 보이나?
+            console.log(v?.soloRanked, v?.flexRanked);
             setView(v);
 
-            const res2 = await fetch(`/match/recent?gameName=${g}&tagLine=${t}&count=10`);
+            const res2 = await fetch(`/api/match/recent?gameName=${g}&tagLine=${t}&count=10`);
             if (!res2.ok) throw new Error(`HTTP ${res2.status} - ${await res2.text()}`);
             const m = await res2.json();
             setMatches(Array.isArray(m) ? m : []);
@@ -347,6 +686,55 @@ function App() {
             setMatchLoading(false);
         }
     };
+
+    // 상세 열기
+    async function openMatchDetail(matchId) {
+        setDetailOpen(true);
+        setDetailLoading(true);
+        setDetailErr(null);
+        setDetail(null);
+        try {
+            if (!matchId) throw new Error("matchId 없음");
+
+            // 현재 리스트에서 동일한 매치 찾아 참가자 이름 맵 구성 (puuid → {g,t,s})
+            const summary = matches.find((m) => m.matchId === matchId);
+            const nameMap = new Map();
+            if (summary?.participants) {
+                summary.participants.forEach((p) => {
+                    nameMap.set(p.puuid, {
+                        g: p.riotIdGameName || null,
+                        t: p.riotIdTagline || null,
+                        s: p.summonerName || null,
+                    });
+                });
+            }
+
+            const url = `/api/match/${encodeURIComponent(matchId)}/detail?includeTimeline=false`;
+            const json = await fetchJsonSafe(url);
+            if (!json) throw new Error("서버가 비어 있는 응답을 반환함 (No Content)");
+
+            // 상세 응답 참가자에 닉네임/태그를 보충
+            const enriched = {
+                ...json,
+                participants: (json.participants || []).map((p) => {
+                    const nm = nameMap.get(p.puuid);
+                    return {
+                        ...p,
+                        riotIdGameName: p.riotIdGameName || nm?.g || null,
+                        riotIdTagline:  p.riotIdTagline  || nm?.t || null,
+                        summonerName:   p.summonerName   || nm?.s || null,
+                    };
+                }),
+            };
+
+            setDetail(enriched);
+        } catch (e) {
+            setDetailErr(String(e));
+        } finally {
+            setDetailLoading(false);
+        }
+    }
+
 
     // 탭 필터(솔랭/자랭/기타/전체)
     const QUEUE_SOLO = 420;
@@ -413,12 +801,10 @@ function App() {
                                 <div style={{ fontSize: 22, fontWeight: 900 }}>
                                     {view.gameName} <span className="muted">#{view.tagLine}</span>
                                 </div>
-                                <div style={{ margin: "6px 0" }}>
-                                    <span className="badge">PUUID</span> {view.puuid}
-                                </div>
                                 <div className="muted">마지막 수정: {fmtDate(view.revisionDate)}</div>
                             </div>
                         </div>
+                        <RankPanel solo={view.soloRanked} flex={view.flexRanked} />
 
                         {/* 전적 탭(필터) */}
                         <div className="tabs" style={{ gap: 6 }}>
@@ -460,11 +846,25 @@ function App() {
                         ) : matchErr ? (
                             <div style={{ color: "#f87171" }}>전적 로드 실패: {matchErr}</div>
                         ) : (
-                            <MatchList matches={filteredMatches} focusPuuid={view.puuid} viewerRanks={view} />
+                            <MatchList
+                                matches={filteredMatches}
+                                focusPuuid={view.puuid}
+                                viewerRanks={view}
+                                onOpenDetail={openMatchDetail}
+                            />
                         )}
                     </div>
                 </div>
             ) : null}
+
+            {/* 플로팅 상세 패널 */}
+            <DetailPanel
+                open={detailOpen}
+                onClose={() => setDetailOpen(false)}
+                detail={detail}
+                loading={detailLoading}
+                error={detailErr}
+            />
         </div>
     );
 }
