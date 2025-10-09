@@ -23,6 +23,7 @@ const router = createBrowserRouter([
       { path: '/community/write', element: <CommunityPage /> },
       { path: '/community/login', element: <CommunityPage /> },
       { path: '/community/register', element: <CommunityPage /> },
+      { path: '/community/admin', element: <CommunityPage /> },
     ],
   },
 ])

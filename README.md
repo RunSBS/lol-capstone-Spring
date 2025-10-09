@@ -1,6 +1,6 @@
 # OP.GG 클론 - React + Vite 기반
 
-이 레포는 OP.GG의 전적 검색 결과 페이지를 확장 가능한 구조로 리팩터링한 프로젝트입니다.
+이 레포는 OP.GG의 전적 검색 결과 페이지와 커뮤니티 기능을 포함한 확장 가능한 구조로 리팩터링한 프로젝트입니다.
 
 ## 📋 팀 협업 가이드
 
@@ -37,9 +37,21 @@ npm run dev
 
 ## 라우팅
 
+### 전적검색
 - `/` 홈(유저 검색)
 - `/summoner/:nickname` 소환사 전적 결과 페이지
-- `/community` 커뮤니티(향후 개발)
+
+### 커뮤니티
+- `/community` 커뮤니티 메인
+- `/community/free` 자유게시판
+- `/community/guide` 공략게시판
+- `/community/lolmuncheol` 롤문철
+- `/community/highrecommend` 추천글
+- `/community/post/:id` 게시글 상세
+- `/community/write` 게시글 작성
+- `/community/login` 로그인
+- `/community/register` 회원가입
+- `/community/admin` 관리자 페이지
 
 ## 📁 프로젝트 구조 (협업용)
 
@@ -53,7 +65,7 @@ src/
 
   components/                 # 공통 컴포넌트
     common/                   # 재사용 가능한 공통 컴포넌트
-      Header.jsx             # 헤더 (네비게이션)
+      Header.jsx             # 헤더 (네비게이션, 로그인 기능)
       Footer.jsx             # 푸터
     homepage/                # 홈페이지 전용
       PopularPosts.jsx       # 인기 게시글
@@ -69,40 +81,49 @@ src/
       MatchHistoryItem.jsx   # 매치 히스토리 아이템
       MatchDetails.jsx       # 매치 상세
       MainContent.jsx        # 메인 컨텐츠
+    community/               # 커뮤니티 전용 컴포넌트 ⭐ 커뮤니티 담당
+      BoardPage.jsx          # 게시판 목록
+      PostDetailPage.jsx     # 게시글 상세
+      WritePost.jsx          # 게시글 작성/수정
+      CommentSection.jsx     # 댓글 섹션
+      Login.jsx              # 로그인
+      Register.jsx           # 회원가입
+      AdminPage.jsx          # 관리자 페이지
 
   data/                      # 데이터 관련
     api.js                   # API 호출 함수 ⭐ 백엔드 담당
     mockData.js              # 목업 데이터
     ddragon.js               # Data Dragon 유틸
     normalize.js             # 데이터 정규화
+    communityApi.js          # 커뮤니티 API 함수
+    commentApi.js            # 댓글 API 함수
 
   styles/                    # 스타일
     summoner.css             # 전적검색 페이지 스타일
+    community.css            # 커뮤니티 페이지 스타일
 
   App.jsx                    # 메인 앱 컴포넌트
   main.jsx                   # 라우터 설정
   index.css                  # 글로벌 스타일
 ```
 
-### 확장 예정 구조 (커뮤니티 기능 추가)
+### 향후 확장 예정 구조
 ```
 src/
   components/
-    community/               # 커뮤니티 전용 컴포넌트 ⭐ 커뮤니티 담당
-      PostList.jsx          # 게시글 목록
-      PostItem.jsx          # 게시글 아이템
-      PostDetail.jsx        # 게시글 상세
-      PostForm.jsx          # 게시글 작성/수정
-      CommentList.jsx       # 댓글 목록
-      CommentItem.jsx       # 댓글 아이템
-      CommentForm.jsx       # 댓글 작성
+    community/               # 추가 커뮤니티 기능
       LikeButton.jsx        # 좋아요 버튼
+      SearchFilter.jsx      # 검색 필터
+      CategoryFilter.jsx    # 카테고리 필터
 
   data/
-    communityApi.js         # 커뮤니티 API 함수 ⭐ 백엔드 담당
+    userApi.js              # 사용자 관리 API 함수 ⭐ 백엔드 담당
+    notificationApi.js      # 알림 API 함수 ⭐ 백엔드 담당
 
-  styles/
-    community.css           # 커뮤니티 페이지 스타일 ⭐ 커뮤니티 담당
+  hooks/                    # 커스텀 훅
+    useAuth.js              # 인증 관련 훅
+    useLocalStorage.js      # 로컬스토리지 훅
+    useDebounce.js          # 디바운스 훅
 ```
 
 ## 🛠️ 개발 가이드라인
@@ -132,8 +153,9 @@ src/
 - **React Router DOM 7.9.3** - 라우팅
 - **Vite 7.1.7** - 빌드 도구
 - **ESLint** - 코드 린팅
+- **LocalStorage** - 클라이언트 사이드 데이터 저장
 
-### 추가 예정 (커뮤니티 기능)
+### 추가 예정
 - **상태 관리**: Context API 또는 Redux Toolkit
 - **HTTP 클라이언트**: Axios 또는 Fetch API
 - **UI 컴포넌트**: 필요시 추가 라이브러리 검토
@@ -148,6 +170,9 @@ src/
 - 아이콘은 `index.html`에서 Font Awesome CDN을 사용합니다.
 - ESLint 구성을 유지하며, 린트 에러가 없도록 작업했습니다.
 - 현재 백엔드 API는 Mock 데이터로 동작하며, 실제 서버 연동은 백엔드 담당자가 진행 예정입니다.
+- 커뮤니티 기능은 LocalStorage를 사용하여 클라이언트 사이드에서 동작합니다.
+- 관리자 계정: `admin1` / `1234` (자동 생성됨)
+- 로그인 상태는 Header에서 전역으로 관리됩니다.
 
 ---
 
@@ -181,15 +206,27 @@ src/
 - `src/components/summoner/MatchHistoryItem.jsx`: 매치 히스토리
 - `src/components/summoner/MatchDetails.jsx`: 매치 상세 정보
 
-### 🚧 개발 예정 기능
+### ✅ 완료된 기능 (커뮤니티)
 
-#### 커뮤니티 기능 (커뮤니티 담당자)
-- [ ] 게시판 목록 페이지
-- [ ] 게시글 상세 보기
-- [ ] 게시글 작성/수정/삭제
-- [ ] 댓글 기능
-- [ ] 좋아요/싫어요
-- [ ] 게시글 검색/필터링
+#### 커뮤니티 기능
+- `src/pages/CommunityPage.jsx`: 커뮤니티 메인 페이지
+- `src/components/community/BoardPage.jsx`: 게시판 목록 페이지
+- `src/components/community/PostDetailPage.jsx`: 게시글 상세 보기
+- `src/components/community/WritePost.jsx`: 게시글 작성/수정
+- `src/components/community/CommentSection.jsx`: 댓글 기능
+- `src/components/community/Login.jsx`: 로그인 기능
+- `src/components/community/Register.jsx`: 회원가입 기능
+- `src/components/community/AdminPage.jsx`: 관리자 페이지
+- 게시글 검색/필터링
+- 추천/반대 기능
+- 사용자 관리 (관리자)
+
+#### 데이터 관리
+- `src/data/communityApi.js`: 커뮤니티 API 함수 (LocalStorage 기반)
+- `src/data/commentApi.js`: 댓글 API 함수 (LocalStorage 기반)
+- `src/styles/community.css`: 커뮤니티 스타일
+
+### 🚧 개발 예정 기능
 
 #### 백엔드 서버 (백엔드 담당자)
 - [ ] Express.js 서버 구축
@@ -236,6 +273,13 @@ export default defineConfig({
 ### 입력/검색 정규화 규칙
 - **사용 유틸**: `normalizeRiotIdQuery()`
 - **입력 예시**: "닉네임 #kr1" → **출력**: "닉네임#KR1" (공백 제거, 태그 대문자)
+
+### 커뮤니티 기능 사용법
+- **회원가입**: `/community/register`에서 새 계정 생성
+- **로그인**: Header의 로그인 버튼 클릭 또는 `/community/login`
+- **게시글 작성**: 로그인 후 커뮤니티에서 "글쓰기" 버튼 클릭
+- **관리자 기능**: `admin1` 계정으로 로그인 후 "관리자 페이지" 버튼 클릭
+- **추천글**: 게시글에 `highercommend` 태그가 있으면 "추천글" 배지 표시
 
 ---
 
