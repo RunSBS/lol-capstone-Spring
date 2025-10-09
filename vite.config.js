@@ -12,6 +12,12 @@ export default defineConfig({
         // /api 접두어 제거하고 백엔드로 전달
         rewrite: (path) => path.replace(/^\/api/, ''),
       },
+      '/match' : {
+        target: 'http://localhost:8080', // 스프링
+        changeOrigin: true,
+        // /api 접두어 제거하고 백엔드로 전달
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      }
     },
   },
 });
