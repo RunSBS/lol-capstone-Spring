@@ -5,6 +5,7 @@ import PostDetailPage from "../components/community/PostDetailPage";
 import WritePost from "../components/community/WritePost";
 import Login from "../components/community/Login";
 import Register from "../components/community/Register";
+import AdminPage from "../components/community/AdminPage";
 import Header from "../components/common/Header";
 import Footer from "../components/common/Footer";
 
@@ -58,6 +59,10 @@ function CommunityPage() {
     
     if (path === '/community/register') {
       return <Register onRegister={() => setShowRegister(false)} />;
+    }
+    
+    if (path === '/community/admin') {
+      return <AdminPage currentUser={currentUser} onForceLogout={handleForceLogout} />;
     }
     
     if (path === '/community/write') {
@@ -117,9 +122,16 @@ function CommunityPage() {
 
           <div>
             {currentUser === adminId && (
-              <span style={{ marginLeft: 20, color: "#444" }}>
-                관리자 권한
-              </span>
+              <>
+                <Link to="/community/admin">
+                  <button style={{ marginLeft: 10, backgroundColor: "#e8a53e", color: "white", border: "none", padding: "8px 16px", borderRadius: "4px", cursor: "pointer" }}>
+                    관리자 페이지
+                  </button>
+                </Link>
+                <span style={{ marginLeft: 20, color: "#444" }}>
+                  관리자 권한
+                </span>
+              </>
             )}
           </div>
         </nav>
