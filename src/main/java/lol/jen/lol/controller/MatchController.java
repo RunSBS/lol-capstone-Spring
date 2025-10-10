@@ -43,7 +43,7 @@ public class MatchController {
                 .switchIfEmpty(Mono.just(ResponseEntity.notFound().build()));
     }
 
-    // MatchController.java
+    // 상세 보기 기능
     @GetMapping(value = "/{matchId}/detail", produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<ResponseEntity<MatchDetailDto>> getDetail(
             @PathVariable String matchId,
