@@ -6,7 +6,6 @@ import App from './App.jsx'
 import HomePage from './pages/HomePage.jsx'
 import SummonerPage from './pages/SummonerPage.jsx'
 import CommunityPage from './pages/CommunityPage.jsx'
-import UserProfilePage from './pages/UserProfilePage.jsx'
 
 const router = createBrowserRouter([
   {
@@ -25,7 +24,6 @@ const router = createBrowserRouter([
       { path: '/community/login', element: <CommunityPage /> },
       { path: '/community/register', element: <CommunityPage /> },
       { path: '/community/admin', element: <CommunityPage /> },
-      { path: '/user/:username', element: <UserProfilePage /> },
     ],
   },
 ])
