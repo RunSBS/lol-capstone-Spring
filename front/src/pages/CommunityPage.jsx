@@ -75,6 +75,9 @@ function CommunityPage() {
     }
     
     // 게시판 목록
+    if (path === '/community') {
+      return <BoardPage category="all" />;
+    }
     if (path === '/community/free') {
       return <BoardPage category="free" />;
     }
@@ -87,8 +90,8 @@ function CommunityPage() {
       return <BoardPage category="lolmuncheol" />;
     }
     
-    if (path === '/community/highercommend') {
-      return <BoardPage category="highercommend" />;
+    if (path === '/community/highrecommend') {
+      return <BoardPage category="highrecommend" />;
     }
     
     // 기본값: 자유게시판

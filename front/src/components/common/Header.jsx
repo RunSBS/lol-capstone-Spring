@@ -1,11 +1,11 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { normalizeRiotIdQuery } from '../../data/normalize.js'
-import AutocompleteSearch from './AutocompleteSearch.jsx'
 
 function Header() {
   const location = useLocation()
   const navigate = useNavigate()
+  const [keyword, setKeyword] = useState('')
   const [currentUser, setCurrentUser] = useState(null)
   const isSummonerPage = location.pathname.startsWith('/summoner')
 
@@ -32,6 +32,14 @@ function Header() {
       window.removeEventListener('loginStateChanged', handleStorageChange)
     }
   }, [])
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      const q = normalizeRiotIdQuery(keyword)
+      if (!q) return
+      navigate(`/summoner/${encodeURIComponent(q)}`)
+    }
+  }
 
   const handleLogout = () => {
     localStorage.removeItem('currentUser')
@@ -92,7 +100,15 @@ function Header() {
         <div className="header-container">
           <div className="search-section">
             <div className="country-selector">국가 Korea</div>
-            <AutocompleteSearch placeholder="플레이어 이름 + #KR1" />
+            <div className="search-bar">
+              <input
+                type="text"
+                placeholder="플레이어 이름 + #KR1"
+                value={keyword}
+                onChange={(e) => setKeyword(e.target.value)}
+                onKeyDown={handleKeyDown}
+              />
+            </div>
           </div>
         </div>
       )}
