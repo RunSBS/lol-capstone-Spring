@@ -156,6 +156,84 @@ function SummonerPage() {
     }
   }, [recent, ddVer, view])
 
+  // SummonerPage 내부에 추가 (transformedMatches 아래쯤)
+  const summaryData = useMemo(() => {
+    const games = transformedMatches || []
+    if (!games.length) {
+      return {
+        total: 0, wins: 0, losses: 0, winrate: 0,
+        avg: { kills: 0, deaths: 0, assists: 0, ratio: 0, kp: 0 },
+        playedChamps: [],
+        positions: []
+      }
+    }
+
+    const total = games.length
+    const wins = games.filter(g => g.result === '승리').length
+    const losses = total - wins
+    const winrate = Math.round((wins / total) * 100)
+
+    const sum = games.reduce((a, g) => {
+      a.k += g.kda.kills
+      a.d += g.kda.deaths
+      a.a += g.kda.assists
+      a.kp += Number(g.stats.killParticipation || 0)
+      return a
+    }, { k:0, d:0, a:0, kp:0 })
+
+    const avg = {
+      kills: (sum.k / total).toFixed(1),
+      deaths: (sum.d / total).toFixed(1),
+      assists: (sum.a / total).toFixed(1),
+      ratio: ((sum.k + sum.a) / Math.max(1, sum.d)).toFixed(2),
+      kp: Math.round(sum.kp / total)
+    }
+
+    // 챔피언별 집계 (상위 5개)
+    const byChamp = new Map()
+    for (const g of games) {
+      const key = g.champion.name
+      const rec = byChamp.get(key) || { name: key, games: 0, wins: 0, k:0, d:0, a:0, imageUrl: g.champion.imageUrl }
+      rec.games += 1
+      if (g.result === '승리') rec.wins += 1
+      rec.k += g.kda.kills
+      rec.d += g.kda.deaths
+      rec.a += g.kda.assists
+      byChamp.set(key, rec)
+    }
+    const playedChamps = Array.from(byChamp.values())
+        .sort((a,b) => b.games - a.games)
+        .slice(0, 5)
+        .map(c => ({
+          name: c.name,
+          imageUrl: c.imageUrl,
+          winrate: Math.round((c.wins / c.games) * 100) + '%',
+          games: `${c.games}게임`,
+          kda: (((c.k + c.a) / Math.max(1, c.d)).toFixed(2)) + ':1 평점'
+        }))
+
+    // 선호 포지션 (teamPosition 사용 권장)
+    const roleCount = { TOP:0, JNG:0, MID:0, ADC:0, SUP:0, UNKNOWN:0 }
+    for (const g of games) {
+      const me = g.rawParticipants?.find(p => p?.puuid === (view?.puuid || ''))
+      const role = (me?.teamPosition || 'UNKNOWN').toUpperCase()
+      roleCount[role] = (roleCount[role] || 0) + 1
+    }
+    const positions = ['TOP','JNG','MID','ADC','SUP'].map(role => {
+      const pct = Math.round((roleCount[role] * 100) / total)
+      const iconMap = {
+        TOP: 'https://s-lol-web.op.gg/images/icon/icon-position-top.svg',
+        JNG: 'https://s-lol-web.op.gg/images/icon/icon-position-jungle.svg',
+        MID: 'https://s-lol-web.op.gg/images/icon/icon-position-mid.svg',
+        ADC: 'https://s-lol-web.op.gg/images/icon/icon-position-adc.svg',
+        SUP: 'https://s-lol-web.op.gg/images/icon/icon-position-support.svg',
+      }
+      return { role, percentage: pct, icon: iconMap[role] }
+    })
+
+    return { total, wins, losses, winrate, avg, playedChamps, positions }
+  }, [transformedMatches, view])
+
   return (
     <>
       <Header />
@@ -175,8 +253,8 @@ function SummonerPage() {
         <GameModeNavigation />
         <div className="main-layout">
           <MainContent
-            summaryData={recentGamesSummaryData}
-            matches={transformedMatches.length ? transformedMatches : [winData, lossData]}
+            summaryData={summaryData}
+            matches={transformedMatches}
           />
           <div className="right-column">
             <RankedGameCard entry={view?.soloRanked} loading={loading} error={error} />
