@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import commentApi from "../../data/commentApi";
-import { Link } from "react-router-dom";
 
 const ADMIN_ID = "admin1"; // 관리자 아이디
 
@@ -9,7 +8,6 @@ function CommentSection({ postId, currentUser }) {
   const [text, setText] = useState("");
   const [editingCommentId, setEditingCommentId] = useState(null);
   const [editText, setEditText] = useState("");
-  const [userVotes, setUserVotes] = useState({}); // 댓글별 사용자 투표 상태
 
   const fetchComments = () => {
     commentApi.getCommentsByPostId(postId).then(setComments);
@@ -18,21 +16,6 @@ function CommentSection({ postId, currentUser }) {
   useEffect(() => {
     fetchComments();
   }, [postId]);
-
-  // 사용자 투표 상태 로드
-  useEffect(() => {
-    if (currentUser) {
-      const votes = {};
-      comments.forEach(comment => {
-        const voteKey = `comment-vote-${comment.id}-${currentUser}`;
-        const voteInfo = JSON.parse(localStorage.getItem(voteKey) || 'null');
-        if (voteInfo && voteInfo.date === new Date().toLocaleDateString()) {
-          votes[comment.id] = voteInfo.type;
-        }
-      });
-      setUserVotes(votes);
-    }
-  }, [comments, currentUser]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -90,49 +73,55 @@ function CommentSection({ postId, currentUser }) {
     fetchComments();
   };
 
-  const handleVoteToggle = async (commentId, type) => {
+  const increaseLike = async (id) => {
     if (!currentUser) {
       alert("로그인이 필요합니다.");
       return;
     }
-
-    const voteKey = `comment-vote-${commentId}-${currentUser}`;
-    const currentVote = userVotes[commentId];
-
     try {
-      if (currentVote === type) {
-        // 같은 버튼을 다시 누른 경우 - 취소
-        if (type === 'like') {
-          await commentApi.removeLikeComment(commentId, currentUser);
-        } else {
-          await commentApi.removeDislikeComment(commentId, currentUser);
-        }
-        localStorage.removeItem(voteKey);
-        setUserVotes(prev => ({ ...prev, [commentId]: null }));
-      } else {
-        // 다른 버튼을 누른 경우 - 기존 취소 후 새로 투표
-        if (currentVote === 'like') {
-          await commentApi.removeLikeComment(commentId, currentUser);
-        } else if (currentVote === 'dislike') {
-          await commentApi.removeDislikeComment(commentId, currentUser);
-        }
-        
-        if (type === 'like') {
-          await commentApi.likeComment(commentId, currentUser);
-        } else {
-          await commentApi.dislikeComment(commentId, currentUser);
-        }
-        
-        localStorage.setItem(voteKey, JSON.stringify({
-          date: new Date().toLocaleDateString(),
-          type: type
-        }));
-        setUserVotes(prev => ({ ...prev, [commentId]: type }));
-      }
-      
+      await commentApi.likeComment(id, currentUser);
       fetchComments();
     } catch (error) {
-      alert("투표 중 오류가 발생했습니다: " + error);
+      alert(error);
+    }
+  };
+
+  const decreaseLike = async (id) => {
+    if (!currentUser) {
+      alert("로그인이 필요합니다.");
+      return;
+    }
+    try {
+      await commentApi.removeLikeComment(id, currentUser);
+      fetchComments();
+    } catch (error) {
+      alert(error);
+    }
+  };
+
+  const increaseDislike = async (id) => {
+    if (!currentUser) {
+      alert("로그인이 필요합니다.");
+      return;
+    }
+    try {
+      await commentApi.dislikeComment(id, currentUser);
+      fetchComments();
+    } catch (error) {
+      alert(error);
+    }
+  };
+
+  const decreaseDislike = async (id) => {
+    if (!currentUser) {
+      alert("로그인이 필요합니다.");
+      return;
+    }
+    try {
+      await commentApi.removeDislikeComment(id, currentUser);
+      fetchComments();
+    } catch (error) {
+      alert(error);
     }
   };
 
@@ -142,18 +131,16 @@ function CommentSection({ postId, currentUser }) {
       {comments.map((c) => (
         <div key={c.id} style={{ marginBottom: 6, borderBottom: "1px solid #eee", paddingBottom: 4 }}>
           <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <div style={{ color: "#333" }}>
-              <Link to={`/user/${encodeURIComponent(c.writer)}`}><b>{c.writer}</b></Link> | {new Date(c.createdAt).toLocaleString()}
+            <div>
+              <b>{c.writer}</b> | {new Date(c.createdAt).toLocaleString()}
             </div>
-            <div style={{ marginTop: 8 }}>
-              <button onClick={() => handleVoteToggle(c.id, 'like')}>
-                {userVotes[c.id] === 'like' ? "👍 추천 취소" : "👍 추천"}
-              </button>
-              <span style={{ margin: "0 16px", color: "#333" }}>추천: {c.like || 0}</span>
-              <button onClick={() => handleVoteToggle(c.id, 'dislike')}>
-                {userVotes[c.id] === 'dislike' ? "👎 반대 취소" : "👎 반대"}
-              </button>
-              <span style={{ margin: "0 16px", color: "#333" }}>반대: {c.dislike || 0}</span>
+            <div>
+              추천: {c.like || 0} &nbsp;
+              <button onClick={() => increaseLike(c.id)}>👍</button>
+              <button onClick={() => decreaseLike(c.id)}>👎 취소</button>
+              &nbsp;&nbsp; 반대: {c.dislike || 0} &nbsp;
+              <button onClick={() => increaseDislike(c.id)}>👎</button>
+              <button onClick={() => decreaseDislike(c.id)}>👍 취소</button>
             </div>
           </div>
           {editingCommentId === c.id ? (
@@ -162,13 +149,7 @@ function CommentSection({ postId, currentUser }) {
                 value={editText}
                 onChange={(e) => setEditText(e.target.value)}
                 rows={3}
-                style={{ 
-                  width: "100%", 
-                  marginTop: 4,
-                  wordWrap: "break-word",
-                  wordBreak: "break-word",
-                  maxWidth: "100%"
-                }}
+                style={{ width: "100%", marginTop: 4 }}
               />
               <button onClick={() => saveEdit(c.id)} style={{ marginRight: 5 }}>
                 저장
@@ -177,14 +158,7 @@ function CommentSection({ postId, currentUser }) {
             </>
           ) : (
             <>
-              <div style={{ 
-                marginTop: 4, 
-                wordWrap: "break-word", 
-                wordBreak: "break-word", 
-                maxWidth: "100%",
-                whiteSpace: "pre-wrap",
-                color: "#333"
-              }}>{c.text}</div>
+              <div style={{ marginTop: 4 }}>{c.text}</div>
               {(c.writer === currentUser || currentUser === ADMIN_ID) && (
                 <>
                   <button onClick={() => startEdit(c.id, c.text)} style={{ marginTop: 4, marginRight: 5 }}>
@@ -208,13 +182,7 @@ function CommentSection({ postId, currentUser }) {
           value={text}
           onChange={(e) => setText(e.target.value)}
           rows={3}
-          style={{ 
-            width: "100%", 
-            resize: "none",
-            wordWrap: "break-word",
-            wordBreak: "break-word",
-            maxWidth: "100%"
-          }}
+          style={{ width: "100%", resize: "none" }}
         />
         <button type="submit" style={{ marginTop: 5 }}>
           등록
@@ -225,4 +193,3 @@ function CommentSection({ postId, currentUser }) {
 }
 
 export default CommentSection;
-

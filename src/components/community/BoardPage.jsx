@@ -23,9 +23,7 @@ function BoardPage({ category }) {
         const data = await boardApi.getPosts(0, 1000, cat);
         allPosts = allPosts.concat(data.content);
       }
-      posts = allPosts
-        .filter(post => post.tags && post.tags.includes("highrecommend"))
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      posts = allPosts.filter(post => post.tags && post.tags.includes("highrecommend"));
     } else {
       const data = await boardApi.getPosts(0, 100, category);
       posts = data.content;
@@ -120,7 +118,7 @@ function BoardPage({ category }) {
               <h4>{post.title}</h4>
             </Link>
             <div>
-              <Link to={`/user/${encodeURIComponent(post.writer)}`}>{post.writer}</Link> · {new Date(post.createdAt).toLocaleString()} · {post.category}
+              {post.writer} · {new Date(post.createdAt).toLocaleString()} · {post.category}
               {post.tags && post.tags.includes("highrecommend") && (
                 <span style={{
                   marginLeft: 8, padding: "2px 6px", fontSize: 12,

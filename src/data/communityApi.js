@@ -52,8 +52,9 @@ const boardApi = {
   getPosts: (page = 0, size = 10, category) =>
     new Promise((resolve) => {
       let posts = loadPosts(category);
-      // 항상 최신순 정렬 (카테고리 상관없이)
-      posts = posts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      if (category !== "all") {
+        posts = posts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      }
       const pagedPosts = posts.slice(page * size, (page + 1) * size);
       resolve({ content: pagedPosts, totalPages: 1 });
     }),
@@ -80,11 +81,6 @@ const boardApi = {
         comments: [],
         like: 0,
         dislike: 0,
-        // lolmuncheol specific fields
-        writerB: post.category === "lolmuncheol" ? (post.writerB || "") : undefined,
-        contentB: post.category === "lolmuncheol" ? (post.contentB || "") : undefined,
-        cheerA: post.category === "lolmuncheol" ? 0 : undefined,
-        cheerB: post.category === "lolmuncheol" ? 0 : undefined,
         tags: post.tags || [],
       };
       posts.push(newPost);
@@ -100,8 +96,7 @@ const boardApi = {
         const posts = loadPosts(category);
         const index = posts.findIndex((p) => p.id === Number(id));
         if (index !== -1) {
-          const isLol = posts[index].category === "lolmuncheol";
-          if ((isLol && requester === adminId) || (!isLol && (posts[index].writer === requester || requester === adminId))) {
+          if (posts[index].writer === requester || requester === adminId) {
             posts.splice(index, 1);
             savePosts(category, posts);
             deleted = true;
@@ -120,88 +115,13 @@ const boardApi = {
         const posts = loadPosts(category);
         const idx = posts.findIndex((p) => p.id === Number(id));
         if (idx !== -1) {
-          // For lolmuncheol, allow separate sides to be updated individually
-          if (posts[idx].category === "lolmuncheol") {
-            const draft = { ...posts[idx] };
-            if (typeof updatedPost.title === "string") draft.title = updatedPost.title;
-            if (typeof updatedPost.tags !== "undefined") draft.tags = updatedPost.tags;
-            if (typeof updatedPost.content === "string") draft.content = updatedPost.content; // writerA side
-            if (typeof updatedPost.contentB === "string") draft.contentB = updatedPost.contentB; // writerB side
-            posts[idx] = draft;
-          } else {
-            posts[idx] = { ...posts[idx], ...updatedPost };
-          }
+          posts[idx] = { ...posts[idx], ...updatedPost };
           savePosts(category, posts);
           updated = true;
         }
       });
       if (updated) resolve(true);
       else reject("수정 실패");
-    }),
-
-  // lolmuncheol cheer APIs
-  cheerA: (postId) =>
-    new Promise((resolve, reject) => {
-      const categories = ["lolmuncheol"];
-      let ok = false;
-      categories.forEach((cat) => {
-        const posts = loadPosts(cat);
-        const idx = posts.findIndex((p) => p.id === Number(postId));
-        if (idx !== -1) {
-          posts[idx].cheerA = (posts[idx].cheerA || 0) + 1;
-          savePosts(cat, posts);
-          ok = true;
-        }
-      });
-      if (ok) resolve(true); else reject("응원 실패");
-    }),
-
-  uncheerA: (postId) =>
-    new Promise((resolve, reject) => {
-      const categories = ["lolmuncheol"];
-      let ok = false;
-      categories.forEach((cat) => {
-        const posts = loadPosts(cat);
-        const idx = posts.findIndex((p) => p.id === Number(postId));
-        if (idx !== -1) {
-          posts[idx].cheerA = Math.max((posts[idx].cheerA || 1) - 1, 0);
-          savePosts(cat, posts);
-          ok = true;
-        }
-      });
-      if (ok) resolve(true); else reject("응원 취소 실패");
-    }),
-
-  cheerB: (postId) =>
-    new Promise((resolve, reject) => {
-      const categories = ["lolmuncheol"];
-      let ok = false;
-      categories.forEach((cat) => {
-        const posts = loadPosts(cat);
-        const idx = posts.findIndex((p) => p.id === Number(postId));
-        if (idx !== -1) {
-          posts[idx].cheerB = (posts[idx].cheerB || 0) + 1;
-          savePosts(cat, posts);
-          ok = true;
-        }
-      });
-      if (ok) resolve(true); else reject("응원 실패");
-    }),
-
-  uncheerB: (postId) =>
-    new Promise((resolve, reject) => {
-      const categories = ["lolmuncheol"];
-      let ok = false;
-      categories.forEach((cat) => {
-        const posts = loadPosts(cat);
-        const idx = posts.findIndex((p) => p.id === Number(postId));
-        if (idx !== -1) {
-          posts[idx].cheerB = Math.max((posts[idx].cheerB || 1) - 1, 0);
-          savePosts(cat, posts);
-          ok = true;
-        }
-      });
-      if (ok) resolve(true); else reject("응원 취소 실패");
     }),
 
   searchPosts: (keyword, category) =>
@@ -298,82 +218,6 @@ const boardApi = {
       });
       if (updated) resolve(true);
       else reject("반대 취소 실패");
-    }),
-
-  // 투표 관련 API
-  voteOnPost: (postId, optionIndex, userId) =>
-    new Promise((resolve, reject) => {
-      const categories = ["free", "guide", "lolmuncheol"];
-      let updated = false;
-      categories.forEach((cat) => {
-        const posts = loadPosts(cat);
-        const idx = posts.findIndex((p) => p.id === Number(postId));
-        if (idx !== -1 && posts[idx].vote) {
-          const vote = posts[idx].vote;
-          const isExpired = vote.hasEndTime && vote.endTime && new Date() > new Date(vote.endTime);
-          
-          if (isExpired) {
-            reject("투표가 종료되었습니다.");
-            return;
-          }
-
-          // 기존 투표 기록 확인
-          const voteKey = `vote-${postId}-${userId}`;
-          const existingVote = localStorage.getItem(voteKey);
-          
-          if (existingVote) {
-            reject("이미 투표하셨습니다.");
-            return;
-          }
-
-          // 투표 결과 업데이트
-          if (!vote.results) {
-            vote.results = {};
-          }
-          if (!vote.results[optionIndex]) {
-            vote.results[optionIndex] = 0;
-          }
-          vote.results[optionIndex]++;
-
-          // 투표 기록 저장
-          localStorage.setItem(voteKey, JSON.stringify({
-            optionIndex,
-            timestamp: new Date().toISOString()
-          }));
-
-          posts[idx].vote = vote;
-          savePosts(cat, posts);
-          updated = true;
-        }
-      });
-      if (updated) resolve(true);
-      else reject("투표 실패");
-    }),
-
-  getVoteResults: (postId, userId) =>
-    new Promise((resolve) => {
-      const categories = ["free", "guide", "lolmuncheol"];
-      let voteData = null;
-      let userVote = null;
-
-      categories.forEach((cat) => {
-        const posts = loadPosts(cat);
-        const post = posts.find((p) => p.id === Number(postId));
-        if (post && post.vote) {
-          voteData = post.vote;
-        }
-      });
-
-      if (userId) {
-        const voteKey = `vote-${postId}-${userId}`;
-        const existingVote = localStorage.getItem(voteKey);
-        if (existingVote) {
-          const voteInfo = JSON.parse(existingVote);
-          userVote = voteInfo.optionIndex;
-        }
-      }
-
-      resolve({ voteData, userVote });
     }),
 };
 
