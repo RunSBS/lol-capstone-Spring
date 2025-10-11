@@ -22,7 +22,7 @@ function MainContent({ summaryData, matches }) {
           </div>
           <RecentGamesSummary data={summaryData} />
           <div className="match-history-list">
-            {matches.map((match) => (
+            {filtered.map((match) => (
               <MatchHistoryItem key={match.id} matchData={match} />
             ))}
           </div>

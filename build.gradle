@@ -26,15 +26,23 @@ repositories {
 }
 
 dependencies {
+    // Security, jwt 25-10-11
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
+    runtimeOnly    'io.jsonwebtoken:jjwt-impl:0.12.6'
+    runtimeOnly    'io.jsonwebtoken:jjwt-jackson:0.12.6'
+
     implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
     implementation 'org.springframework.boot:spring-boot-starter-web'
     // Riot API 요청시 비동기 구현을 위한 WebFlux 기능
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
     // 로깅용 (Spring Boot 기본 포함이지만 혹시 누락 시 명시)
     implementation 'org.springframework.boot:spring-boot-starter-logging'
+    // jpa 25-10-11
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     compileOnly 'org.projectlombok:lombok'
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
-    runtimeOnly 'com.oracle.database.jdbc:ojdbc11'
+    runtimeOnly 'com.oracle.database.jdbc:ojdbc11:23.9.0.25.07'
     annotationProcessor 'org.projectlombok:lombok'
     providedRuntime 'org.springframework.boot:spring-boot-starter-tomcat'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'

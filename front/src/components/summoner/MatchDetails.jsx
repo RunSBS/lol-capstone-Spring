@@ -1,4 +1,6 @@
 // 중단 매치 상세 표
+import {normalizeFromRawParticipants} from "../../data/normalizeFromRawParticipants.js";
+
 function MatchDetails({ matchData }) {
   // 입력 데이터 정규화 (목데이터/실데이터 모두 지원)
   const players = Array.isArray(matchData?.detailedPlayers) && matchData.detailedPlayers.length
@@ -107,41 +109,5 @@ function MatchDetails({ matchData }) {
 }
 
 export default MatchDetails
-
-// rawParticipants(riot) → 상세 표 렌더링용 포맷으로 변환
-function normalizeFromRawParticipants(matchData) {
-  const list = Array.isArray(matchData?.rawParticipants) ? matchData.rawParticipants : []
-  const ver = matchData?.ddVer || '15.18.1'
-  const toChampImg = (name) => `https://ddragon.leagueoflegends.com/cdn/${ver}/img/champion/${name || 'Aatrox'}.png`
-  const toItem = (id) => (id || id === 0) ? `https://ddragon.leagueoflegends.com/cdn/${ver}/img/item/${id}.png` : null
-  return list.map((p) => ({
-    team: p?.teamId === 100 ? 'loss' : 'win', // 화면 스타일 유지(블루=패배, 레드=승리) - 실제 승패는 상단에 표시됨
-    name: p?.summonerName || p?.riotIdGameName || '-',
-    tier: '',
-    champion: { name: p?.championName || 'Aatrox', level: p?.champLevel ?? 0, imageUrl: toChampImg(p?.championName) },
-    spells: [null, null],
-    runes: [null, null],
-    kda: `${p?.kills ?? 0}/${p?.deaths ?? 0}/${p?.assists ?? 0}`,
-    kp: '',
-    kdaRatio: safeKdaRatio(p?.kills, p?.deaths, p?.assists),
-    damageDealt: p?.totalDamageDealtToChampions ?? 0,
-    cs: (p?.totalMinionsKilled ?? 0) + (p?.neutralMinionsKilled ?? 0),
-    cspm: computeCsPerMinute(p, matchData?.gameDurationSec),
-    items: [toItem(p?.item0), toItem(p?.item1), toItem(p?.item2), toItem(p?.item3), toItem(p?.item4), toItem(p?.item5)],
-    trinket: toItem(p?.item6) || '',
-    gold: p?.goldEarned,
-  }))
-}
-
-function safeKdaRatio(k = 0, d = 0, a = 0) {
-  const denom = d === 0 ? 1 : d
-  return `${((k + a) / denom).toFixed(2)}:1`
-}
-
-function computeCsPerMinute(p, gameDurationSec) {
-  const cs = (p?.totalMinionsKilled ?? 0) + (p?.neutralMinionsKilled ?? 0)
-  const m = Math.max(1, Math.floor((Number(gameDurationSec) || 0) / 60))
-  return (cs / m).toFixed(1)
-}
 
 
