@@ -15,8 +15,7 @@ import MainContent from '../components/summoner/MainContent.jsx'
 // 백엔드 API 호출 유틸
 import { fetchSummonerView, fetchRecentMatches, fetchDDragonVersion } from '../data/api.js'
 // Data Dragon 아이콘 URL 유틸
-import { buildChampionSquareUrl, buildItemIconUrl, tryBuildSummonerSpellIconUrl, tryBuildRuneIconUrl, loadSpellMap, loadRuneMap } from '../data/ddragon.js'
-
+import { buildChampionSquareUrl, buildItemIconUrl, tryBuildSummonerSpellIconUrl, tryBuildRuneIconUrl, buildRuneStyleIcon, loadSpellMap, loadRuneMap } from '../data/ddragon.js'
 function SummonerPage() {
   // URL 파라미터에서 gameName#tagLine 분리
   const { nickname } = useParams()
@@ -101,6 +100,14 @@ function SummonerPage() {
       const day = Math.floor(hr / 24)
       return `${day}일 전`
     }
+    const queueTypeMap = {
+      420: 'RANKED_SOLO_5x5',
+      440: 'RANKED_FLEX_SR',
+      400: 'NORMAL_BLIND',
+      430: 'NORMAL_DRAFT',
+      450: 'ARAM',
+    }
+
     try {
       return (recent || []).map((m) => {
         const list = Array.isArray(m?.participants) ? m.participants : []
@@ -118,12 +125,28 @@ function SummonerPage() {
         const items = itemIds.map((id) => (id || id === 0) ? buildItemIconUrl(ver, id) : null)
         const trinket = (me?.item6 || me?.item6 === 0) ? buildItemIconUrl(ver, me.item6) : ''
 
-        // 스펠/룬은 추후 매핑 예정. 현재 placeholder
-        const spells = [tryBuildSummonerSpellIconUrl(ver, me?.summoner1Id), tryBuildSummonerSpellIconUrl(ver, me?.summoner2Id)]
-        const runes = [tryBuildRuneIconUrl(me?.perks?.styles?.[0]?.selections?.[0]?.perk), tryBuildRuneIconUrl(me?.perks?.styles?.[1]?.style)]
+        // 스펠 아이콘
+        const spells = [
+            tryBuildSummonerSpellIconUrl(ver, me?.summoner1Id),
+            tryBuildSummonerSpellIconUrl(ver, me?.summoner2Id),
+          ]
+        // 룬 아이콘 (styles 배열 순서 보장 X → description으로 구분)
+        const styles = Array.isArray(me?.perks?.styles) ? me.perks.styles : []
+        const primary = styles.find(s => s?.description === 'primaryStyle')
+        const sub     = styles.find(s => s?.description === 'subStyle')
 
+        const primaryStyleId = primary?.style ?? null
+        const subStyleId     = sub?.style ?? null
+        const keystoneId     = primary?.selections?.[0]?.perk ?? null
+
+        // 아이콘 URL 생성 (빈 값은 제거)
+        const runes = []
+        if (keystoneId)     runes.push(tryBuildRuneIconUrl(keystoneId))
+        if (subStyleId)     runes.push(buildRuneStyleIcon(subStyleId))
         return {
           id: m.matchId,
+          queueId: m.queueId,
+          queueType: queueTypeMap[m.queueId] || 'OTHER',
           gameType: m.gameMode || 'CLASSIC',
           timeAgo: timeAgo(m.gameCreation),
           result: isWin ? '승리' : '패배',
