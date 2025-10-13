@@ -23,6 +23,16 @@ export async function fetchRecentMatches(gameName, tagLine, count = 10) {
   return res.json()
 }
 
+export async function fetchMatchDetail(matchId, includeTimeline = false) {
+  const id = encodeURIComponent(matchId)
+  const res = await fetch(`/match/${id}/detail?includeTimeline=${includeTimeline ? 'true' : 'false'}`)
+  if (!res.ok) {
+    const text = await safeText(res)
+    throw new Error(`GET detail failed: ${res.status} ${text}`)
+  }
+  return res.json()
+}
+
 async function safeText(res) {
   try { return await res.text() } catch { return '' }
 }

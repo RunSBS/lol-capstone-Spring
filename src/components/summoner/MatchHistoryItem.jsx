@@ -1,14 +1,25 @@
 // 중단 매치 히스토리 아이템
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import MatchDetails from './MatchDetails.jsx'
 
 function MatchHistoryItem({ matchData }) {
-  const { id, gameType, timeAgo, result, duration, champion, kda, items, trinket, teams, stats } = matchData
+  const { gameType, timeAgo, result, duration, champion = {}, kda, items = [], trinket, teams = [], stats } = matchData || {}
   const [expanded, setExpanded] = useState(false)
   const isWin = result === '승리'
   const kdaRatio = ((kda.kills + kda.assists) / (kda.deaths === 0 ? 1 : kda.deaths)).toFixed(2)
-  const team1 = teams.filter(p => p.team === 1)
-  const team2 = teams.filter(p => p.team === 2)
+  const team1 = (teams || []).filter(p => p.team === 1)
+  const team2 = (teams || []).filter(p => p.team === 2)
+
+  // 안전한 아이콘 렌더링: falsy 값/숫자 ID가 올 경우를 대비
+  const spellIcons = useMemo(() => {
+    const s = Array.isArray(champion.spells) ? champion.spells : []
+    return s.filter(Boolean)
+  }, [champion.spells])
+
+  const runeIcons = useMemo(() => {
+    const r = Array.isArray(champion.runes) ? champion.runes : []
+    return r.filter(Boolean)
+  }, [champion.runes])
 
   return (
     <div className="match-item-wrapper">
@@ -27,12 +38,14 @@ function MatchHistoryItem({ matchData }) {
           </div>
           <div className="spells-runes">
             <div className="spells">
-              <img src={champion.spells[0]} alt="spell 1" />
-              <img src={champion.spells[1]} alt="spell 2" />
+              {spellIcons.map((src, i) => (
+                <img key={i} src={src} alt={`spell ${i + 1}`} />
+              ))}
             </div>
             <div className="runes">
-              <img src={champion.runes[0]} alt="rune 1" />
-              <img src={champion.runes[1]} alt="rune 2" />
+              {runeIcons.map((src, i) => (
+                <img key={i} src={src} alt={`rune ${i + 1}`} />
+              ))}
             </div>
           </div>
           <div className="kda-section">
@@ -47,10 +60,10 @@ function MatchHistoryItem({ matchData }) {
           <span>{stats.rank}</span>
         </div>
         <div className="item-build">
-          {items.slice(0, 6).map((item, index) => (
+          {Array.from({ length: 6 }, (_, i) => items[i] || '').map((item, index) => (
             item ? <img key={index} src={item} alt={`item ${index}`} /> : <div key={index} className="empty-item"></div>
           ))}
-          <img src={trinket} alt="trinket" className="trinket" />
+          {trinket ? <img src={trinket} alt="trinket" className="trinket" /> : <div className="empty-item trinket"></div>}
         </div>
         <div className="player-lists">
           <div className="team">{team1.map((p, i) => <div key={i} className="player"><img src={p.champion} alt={p.name}/><span>{p.name}</span></div>)}</div>
