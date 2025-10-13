@@ -23,8 +23,8 @@ function MatchDetails({ matchData }) {
 
   // 입력 데이터 정규화 (목데이터/실데이터 모두 지원)
   const basePlayers = Array.isArray(matchData?.detailedPlayers) && matchData.detailedPlayers.length
-    ? matchData.detailedPlayers
-    : normalizeFromRawParticipants(matchData)
+      ? matchData.detailedPlayers
+      : normalizeFromRawParticipants(matchData)
 
   // 필요 시 상세 호출: 현재 데이터에 피해량이 전부 0이면 detail API 조회 시도
   useEffect(() => {
@@ -117,6 +117,8 @@ function MatchDetails({ matchData }) {
               style={{ width: `${Math.min(100, Math.max(0, ((player.damageDealt || 0) / maxDamage) * 100))}%` }}
             ></div>
           </div>
+          {/* 받은 피해 보조 표기 */}
+          <div className="damage-taken-text">{Number(player.damageTaken || 0).toLocaleString()}</div>
         </div>
         <div className="cs-details">
           <p>{player.cs}</p>
@@ -148,7 +150,7 @@ function MatchDetails({ matchData }) {
         <div className="table-header">
           <span className="header-item">패배 ({lossSideLabel || '-'} )</span>
           <span className="header-item">KDA</span>
-          <span className="header-item">피해량</span>
+          <span className="header-item">피해량 / 받은 피해량</span>
           <span className="header-item">CS</span>
           <span className="header-item">골드</span>
           <span className="header-item">아이템</span>

@@ -41,4 +41,8 @@ public class ParticipantDto {
 
     // 배지(멀티킬)
     private Integer largestMultiKill;
+
+    // ✅ 추가: 핵심 값
+    private int totalDamageDealtToChampions;
+    private int totalDamageTaken;
 }

@@ -53,5 +53,9 @@ public class RawMatch {
         private Integer largestMultiKill;                          // 멀티킬 ( 2=더블, 3=트리플, 4=쿼드라, 5=펜타)
 
         private Perks perks;                                       // 룬, 특성 정보(Perks)
+
+        // ✅ 추가: "챔피언에게 가한/받은" 피해 총합
+        private Integer totalDamageDealtToChampions; // 핵심
+        private Integer totalDamageTaken;            // 핵심
     }
 }

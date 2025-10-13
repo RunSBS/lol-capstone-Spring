@@ -111,6 +111,9 @@ public class MatchService {
                 x.setKeystoneId(safeKeystone(p));        // ★ 추가
                 x.setPerkIds(allPerkIds(p));             // ★ 추가
 
+                x.setTotalDamageDealtToChampions(nz(p.getTotalDamageDealtToChampions()));
+                x.setTotalDamageTaken(nz(p.getTotalDamageTaken()));
+
                 x.setItem0(p.getItem0()); x.setItem1(p.getItem1()); x.setItem2(p.getItem2());
                 x.setItem3(p.getItem3()); x.setItem4(p.getItem4()); x.setItem5(p.getItem5()); x.setItem6(p.getItem6());
 
