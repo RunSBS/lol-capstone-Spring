@@ -15,7 +15,7 @@ import MainContent from '../components/summoner/MainContent.jsx'
 // 백엔드 API 호출 유틸
 import { fetchSummonerView, fetchRecentMatches, fetchDDragonVersion } from '../data/api.js'
 // Data Dragon 아이콘 URL 유틸
-import { buildChampionSquareUrl, buildItemIconUrl, tryBuildSummonerSpellIconUrl, tryBuildRuneIconUrl, buildRuneStyleIcon, loadSpellMap, loadRuneMap } from '../data/ddragon.js'
+import { buildChampionSquareUrl, buildItemIconUrl, tryBuildSummonerSpellIconUrl, tryBuildRuneIconUrl, buildRuneStyleIcon, loadSpellMap, loadRuneMap, inferStyleIdFromPerkId, getStyleStaticIcon } from '../data/ddragon.js'
 function SummonerPage() {
   // URL 파라미터에서 gameName#tagLine 분리
   const { nickname } = useParams()
@@ -116,7 +116,7 @@ function SummonerPage() {
         const k = me?.kills ?? 0
         const d = me?.deaths ?? 0
         const a = me?.assists ?? 0
-        const cs = me?.totalMinionsKilled ?? 0
+        const cs = (me?.csTotal != null ? me.csTotal : (me?.cs != null ? me.cs : ((me?.totalMinionsKilled ?? 0) + (me?.neutralMinionsKilled ?? 0))))
         const champ = me?.championName || 'Aatrox'
         const team1 = list.filter((p) => p?.teamId === 100).map((p) => ({ team: 1, champion: toChampionImg(p.championName || 'Aatrox'), name: p.summonerName || p.riotIdGameName || '-' }))
         const team2 = list.filter((p) => p?.teamId === 200).map((p) => ({ team: 2, champion: toChampionImg(p.championName || 'Aatrox'), name: p.summonerName || p.riotIdGameName || '-' }))
@@ -131,18 +131,34 @@ function SummonerPage() {
             tryBuildSummonerSpellIconUrl(ver, me?.summoner2Id),
           ]
         // 룬 아이콘 (styles 배열 순서 보장 X → description으로 구분)
+        // 룬 정보: 표준 perks.styles 우선, 없으면 백엔드가 주는 대체 필드(primaryStyleId/subStyleId/keystoneId/perkIds[0]) 사용
         const styles = Array.isArray(me?.perks?.styles) ? me.perks.styles : []
         const primary = styles.find(s => s?.description === 'primaryStyle')
         const sub     = styles.find(s => s?.description === 'subStyle')
 
-        const primaryStyleId = primary?.style ?? null
-        const subStyleId     = sub?.style ?? null
-        const keystoneId     = primary?.selections?.[0]?.perk ?? null
+        const primaryStyleIdRaw = (primary?.style ?? me?.primaryStyleId ?? me?.primaryStyle ?? null)
+        const subStyleIdRaw     = (sub?.style     ?? me?.subStyleId     ?? me?.perkSubStyle ?? null)
+        const keystoneId        = (primary?.selections?.[0]?.perk ?? me?.keystoneId ?? (Array.isArray(me?.perkIds) ? me.perkIds[0] : null))
+
+        // 부족한 값 보정: keystone/perkIds 기반으로 스타일 유추
+        let primaryStyleId = primaryStyleIdRaw
+        if (!primaryStyleId && keystoneId) {
+          const inf = inferStyleIdFromPerkId(keystoneId)
+          if (inf) primaryStyleId = inf
+        }
+        let subStyleId = subStyleIdRaw
+        if (!subStyleId) {
+          const pids = Array.isArray(me?.perkIds) ? me.perkIds : []
+          for (const pid of pids) {
+            const st = inferStyleIdFromPerkId(pid)
+            if (st && st !== primaryStyleId) { subStyleId = st; break; }
+          }
+        }
 
         // 아이콘 URL 생성 (빈 값은 제거)
         const runes = []
-        if (keystoneId)     runes.push(tryBuildRuneIconUrl(keystoneId))
-        if (subStyleId)     runes.push(buildRuneStyleIcon(subStyleId))
+        if (keystoneId) runes.push(tryBuildRuneIconUrl(keystoneId))
+        if (subStyleId || primaryStyleId) runes.push(getStyleStaticIcon(subStyleId || primaryStyleId))
         return {
           id: m.matchId,
           queueId: m.queueId,

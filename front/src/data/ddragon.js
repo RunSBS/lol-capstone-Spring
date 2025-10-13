@@ -14,8 +14,9 @@ export function buildChampionSquareUrl(version, championName) {
 
 export function buildItemIconUrl(version, itemId) {
   const safeVer = version || '15.18.1';
-  if (!itemId && itemId !== 0) return '';
-  return `https://ddragon.leagueoflegends.com/cdn/${safeVer}/img/item/${itemId}.png`;
+  const idNum = Number(itemId);
+  if (!Number.isFinite(idNum) || idNum <= 0) return '';
+  return `https://ddragon.leagueoflegends.com/cdn/${safeVer}/img/item/${idNum}.png`;
 }
 
 // ===== 캐시 =====
@@ -31,7 +32,7 @@ const STYLE_720X_BY_ID = {
   8000: 'perk-images/Styles/7201_Precision.png',   // Precision
   8100: 'perk-images/Styles/7200_Domination.png',  // Domination
   8200: 'perk-images/Styles/7203_Sorcery.png',     // Sorcery
-  8300: 'perk-images/Styles/7202_Whimsy.png',      // Inspiration (레거시 명칭 Whimsy)
+  8300: 'perk-images/Styles/7202_Inspiration.png', // Inspiration
   8400: 'perk-images/Styles/7204_Resolve.png',     // Resolve
 };
 
@@ -78,7 +79,42 @@ export function tryBuildRuneIconUrl(perkId, fallback = PLACEHOLDER_IMG) {
   // loadRuneMap()가 채운 runePerkMapByVer에서 찾기
   const maps = Array.from(runePerkMapByVer.values());
   const rel = maps.find((m) => m.has(id))?.get(id);
-  return rel ? `https://ddragon.leagueoflegends.com/cdn/img/${rel}` : fallback;
+  if (rel) {
+    return `https://ddragon.leagueoflegends.com/cdn/img/${rel}`;
+  }
+
+  // 하드코딩 폴백: 특정 키스톤(특히 Sorcery)이 간헐적으로 매핑되지 않을 때
+  const HARDCODED_PERK_ICON_BY_ID = {
+    // Sorcery (마법)
+    8214: 'perk-images/Styles/Sorcery/SummonAery/SummonAery.png', // 콩콩이 소환
+    8229: 'perk-images/Styles/Sorcery/ArcaneComet/ArcaneComet.png', // 신비로운 유성
+    8230: 'perk-images/Styles/Sorcery/PhaseRush/PhaseRush.png', // 난입
+    // Domination (지배) 대표 키스톤들(예비)
+    8112: 'perk-images/Styles/Domination/Electrocute/Electrocute.png',
+    8128: 'perk-images/Styles/Domination/DarkHarvest/DarkHarvest.png',
+    9923: 'perk-images/Styles/Domination/HailOfBlades/HailOfBlades.png',
+    // Precision (정밀) 대표 키스톤들(예비)
+    8005: 'perk-images/Styles/Precision/PressTheAttack/PressTheAttack.png',
+    8008: 'perk-images/Styles/Precision/LethalTempo/LethalTempoTemp.png',
+    8021: 'perk-images/Styles/Precision/FleetFootwork/FleetFootwork.png',
+    8010: 'perk-images/Styles/Precision/Conqueror/Conqueror.png',
+    // Resolve (결의) 대표 키스톤들(예비)
+    8437: 'perk-images/Styles/Resolve/GraspOfTheUndying/GraspOfTheUndying.png',
+    8439: 'perk-images/Styles/Resolve/VeteranAftershock/VeteranAftershock.png',
+    8465: 'perk-images/Styles/Resolve/Guardian/Guardian.png',
+    // Inspiration (영감) 대표 키스톤들(예비)
+    8351: 'perk-images/Styles/Inspiration/GlacialAugment/GlacialAugment.png',
+    8360: 'perk-images/Styles/Inspiration/UnsealedSpellbook/UnsealedSpellbook.png',
+    8369: 'perk-images/Styles/Domination/FirstStrike/FirstStrike.png', // First Strike가 Domination 경로에 위치하지만 영감 계열 키스톤
+  };
+  if (HARDCODED_PERK_ICON_BY_ID[id]) {
+    return `https://ddragon.leagueoflegends.com/cdn/img/${HARDCODED_PERK_ICON_BY_ID[id]}`;
+  }
+
+  try {
+    console.debug('[DEBUG_LOG] Rune icon not resolved for perkId=', id);
+  } catch {}
+  return fallback;
 }
 
 // 스타일(트리) 아이콘: 720x 고정 매핑 → runesReforged.style.icon → placeholder
@@ -101,6 +137,30 @@ export function buildRuneStyleIcon(styleId, fallback = PLACEHOLDER_IMG) {
 
   // 3) 최종 폴백
   return fallback;
+}
+
+// 보조 스타일 추론: perkId의 아이콘 경로에 포함된 스타일 이름으로 스타일 ID 유추
+export function inferStyleIdFromPerkId(perkId) {
+  if (perkId == null) return null;
+  const id = Number(perkId);
+  if (!Number.isFinite(id)) return null;
+  const maps = Array.from(runePerkMapByVer.values());
+  const rel = maps.find((m) => m.has(id))?.get(id) || '';
+  const s = String(rel);
+  if (!s) return null;
+  // 경로 예: perk-images/Styles/Precision/Conqueror/Conqueror.png
+  if (s.includes('/Precision/')) return 8000;
+  if (s.includes('/Domination/')) return 8100;
+  if (s.includes('/Sorcery/')) return 8200;
+  if (s.includes('/Inspiration/')) return 8300;
+  if (s.includes('/Resolve/')) return 8400;
+  const lower = s.toLowerCase();
+  if (lower.includes('/precision/')) return 8000;
+  if (lower.includes('/domination/')) return 8100;
+  if (lower.includes('/sorcery/')) return 8200;
+  if (lower.includes('/inspiration/')) return 8300;
+  if (lower.includes('/resolve/')) return 8400;
+  return null;
 }
 
 // 룬 아이콘/스타일 아이콘 매핑 로더
@@ -156,4 +216,25 @@ export function buildOpggEmblemFallbackUrl(tier, rank) {
   const map = { I: 1, II: 2, III: 3, IV: 4 };
   const n = map[roman] || 1;
   return `https://opgg-static.akamaized.net/images/medals/${t}_${n}.png?image=q_auto,f_webp,w_144`;
+}
+
+
+// 정적 720x 스타일 아이콘 URL 반환 (styleId: 8000~8400)
+export function getStyleStaticIcon(styleId, fallback = PLACEHOLDER_IMG) {
+  const id = Number(styleId)
+  if (!Number.isFinite(id)) return fallback
+  // 1) runesReforged의 style.icon 경로 우선 사용 (CDN AccessDenied 회피)
+  const maps = Array.from(runeStyleMapByVer.values())
+  const rel = maps.find((m) => m.has(id))?.get(id)
+  if (rel) {
+    return `https://ddragon.leagueoflegends.com/cdn/img/${rel}`
+  }
+  // 2) 720x 고정 경로 폴백
+  const path720 = STYLE_720X_BY_ID[id]
+  if (path720) {
+    return `https://ddragon.leagueoflegends.com/cdn/img/${path720}`
+  }
+  try { console.debug('[DEBUG_LOG] Unknown styleId for icon:', id) } catch {}
+  // 3) 최종 폴백
+  return fallback
 }
