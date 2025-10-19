@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import Header from '../components/common/Header.jsx'
 import '../styles/summoner.css'
 import PopularPosts from '../components/homepage/PopularPosts.jsx'
+import TokenRanking from '../components/homepage/TokenRanking.jsx'
 import Footer from '../components/common/Footer.jsx'
 import { normalizeRiotIdQuery } from '../data/normalize.js'
 
@@ -40,7 +41,7 @@ function HomePage() {
             <PopularPosts />
           </div>
           <aside className="home-ad">
-            <img src="https://images.unsplash.com/photo-1521737604893-d14cc237f11d?q=80&w=800&auto=format&fit=crop" alt="광고" />
+            <TokenRanking />
           </aside>
         </div>
       </div>
