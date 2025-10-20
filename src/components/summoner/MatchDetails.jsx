@@ -1,22 +1,11 @@
-import { tryBuildSummonerSpellIconUrl, tryBuildRuneIconUrl, loadRuneMap } from '../../data/ddragon.js'
-import { useEffect, useState } from 'react'
+// 중단 매치 상세 표
+import {normalizeFromRawParticipants} from "../../data/normalizeFromRawParticipants.js";
 
 function MatchDetails({ matchData }) {
-  const [runeReadyTick, setRuneReadyTick] = useState(0);
-
-  useEffect(() => {
-    const ver = matchData?.ddVer || '15.18.1';
-    loadRuneMap(ver)
-        .then(() => setRuneReadyTick(t => t + 1)) // 맵 준비되면 리렌더 트리거
-        .catch(() => {});
-  }, [matchData?.ddVer]);
-
-  // ... 아래 players 계산은 그대로 두되,
-  // normalizeFromRawParticipants()가 리렌더 때 다시 실행되도록
-  // runeReadyTick을 의존성으로 포함시켜줘.
+  // 입력 데이터 정규화 (목데이터/실데이터 모두 지원)
   const players = Array.isArray(matchData?.detailedPlayers) && matchData.detailedPlayers.length
-      ? matchData.detailedPlayers
-      : normalizeFromRawParticipants(matchData, runeReadyTick);
+    ? matchData.detailedPlayers
+    : normalizeFromRawParticipants(matchData)
   const lossTeam = players.filter(p => p.team === 'loss')
   const winTeam = players.filter(p => p.team === 'win')
   // 그래프 최대값: 해당 게임에서 가장 큰 가한 피해량(최소 1 보장)
@@ -44,10 +33,12 @@ function MatchDetails({ matchData }) {
         </div>
         <div className="spells-runes">
           <div className="spells">
-            {player.spells.map((s, i) => s ? <img key={i} src={s} alt="" /> : <div key={i} className="empty-spell" />)}
+            <img src={player.spells[0]} />
+            <img src={player.spells[1]} />
           </div>
           <div className="runes">
-            {player.runes.map((r, i) => r ? <img key={i} src={r} alt="" /> : <div key={i} className="empty-rune" />)}
+            <img src={player.runes[0]} />
+            <img src={player.runes[1]} />
           </div>
         </div>
         <div className="player-name-tier">
@@ -118,64 +109,5 @@ function MatchDetails({ matchData }) {
 }
 
 export default MatchDetails
-
-// rawParticipants(riot) → 상세 표 렌더링용 포맷으로 변환
-function normalizeFromRawParticipants(matchData, _runeReadyTick) {
-  const list = Array.isArray(matchData?.rawParticipants) ? matchData.rawParticipants : []
-  const ver = matchData?.ddVer || '15.18.1'
-  const toChampImg = (name) => `https://ddragon.leagueoflegends.com/cdn/${ver}/img/champion/${name || 'Aatrox'}.png`
-  const toItem = (id) => (Number(id) > 0) ? `https://ddragon.leagueoflegends.com/cdn/${ver}/img/item/${id}.png` : null
-
-  return list.map((p) => {
-    // ⚠️ styles 순서가 고정이 아님 → description으로 식별
-    const styles = Array.isArray(p?.perks?.styles) ? p.perks.styles : []
-    const primary = styles.find(s => (s?.description || '').toLowerCase() === 'primarystyle') || styles[0]
-    const sub     = styles.find(s => (s?.description || '').toLowerCase() === 'substyle')     || styles[1]
-    // 주룬(keystone)은 primary.selections의 첫 번째가 보통 맞음
-    const primaryKeystoneId = Number(primary?.selections?.[0]?.perk) || null
-    const secondaryStyleId  = Number(sub?.style) || null
-
-    const spells = [
-      tryBuildSummonerSpellIconUrl(ver, p?.summoner1Id),
-      tryBuildSummonerSpellIconUrl(ver, p?.summoner2Id),
-    ]
-    const runes = [
-      primaryKeystoneId ? tryBuildRuneIconUrl(primaryKeystoneId) : null,
-      secondaryStyleId  ? tryBuildRuneIconUrl(secondaryStyleId)  : null,
-    ]
-
-    return {
-      team: p?.teamId === 100 ? 'loss' : 'win',
-      name: p?.summonerName || p?.riotIdGameName || '-',
-      tier: '',
-      champion: { name: p?.championName || 'Aatrox', level: p?.champLevel ?? 0, imageUrl: toChampImg(p?.championName) },
-      spells,
-      runes,
-      kda: `${p?.kills ?? 0}/${p?.deaths ?? 0}/${p?.assists ?? 0}`,
-      kp: '',
-      kdaRatio: safeKdaRatio(p?.kills, p?.deaths, p?.assists),
-      damageDealt: p?.totalDamageDealtToChampions ?? 0,
-      cs: (p?.totalMinionsKilled ?? 0) + (p?.neutralMinionsKilled ?? 0),
-      cspm: computeCsPerMinute(p, matchData?.gameDurationSec),
-      items: [toItem(p?.item0), toItem(p?.item1), toItem(p?.item2), toItem(p?.item3), toItem(p?.item4), toItem(p?.item5)],
-      trinket: toItem(p?.item6) || '',
-      gold: p?.goldEarned,
-    }
-  })
-}
-
-
-
-
-function safeKdaRatio(k = 0, d = 0, a = 0) {
-  const denom = d === 0 ? 1 : d
-  return `${((k + a) / denom).toFixed(2)}:1`
-}
-
-function computeCsPerMinute(p, gameDurationSec) {
-  const cs = (p?.totalMinionsKilled ?? 0) + (p?.neutralMinionsKilled ?? 0)
-  const m = Math.max(1, Math.floor((Number(gameDurationSec) || 0) / 60))
-  return (cs / m).toFixed(1)
-}
 
 

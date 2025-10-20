@@ -23,7 +23,9 @@ function BoardPage({ category }) {
         const data = await boardApi.getPosts(0, 1000, cat);
         allPosts = allPosts.concat(data.content);
       }
-      posts = allPosts.filter(post => post.tags && post.tags.includes("highrecommend"));
+      posts = allPosts
+        .filter(post => post.tags && post.tags.includes("highrecommend"))
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     } else {
       const data = await boardApi.getPosts(0, 100, category);
       posts = data.content;
@@ -84,6 +86,12 @@ function BoardPage({ category }) {
           case "title":
             filtered = data.content.filter(p => p.title.includes(searchKeyword));
             break;
+          case "content":
+            filtered = data.content.filter(p => 
+              (p.content && p.content.includes(searchKeyword)) || 
+              (p.contentB && p.contentB.includes(searchKeyword))
+            );
+            break;
           case "comment":
             const commentsJson = localStorage.getItem("dummyComments");
             const comments = JSON.parse(commentsJson || "[]");
@@ -118,7 +126,7 @@ function BoardPage({ category }) {
               <h4>{post.title}</h4>
             </Link>
             <div>
-              {post.writer} · {new Date(post.createdAt).toLocaleString()} · {post.category}
+              <a href={`/user/${encodeURIComponent(post.writer)}`} target="_blank" rel="noopener noreferrer">{post.writer}</a> · {new Date(post.createdAt).toLocaleString()} · {post.category}
               {post.tags && post.tags.includes("highrecommend") && (
                 <span style={{
                   marginLeft: 8, padding: "2px 6px", fontSize: 12,
@@ -130,6 +138,36 @@ function BoardPage({ category }) {
             </div>
             <div style={{ marginTop: 8 }}>
               추천: {post.like || 0} / 반대: {post.dislike || 0}
+              {post.vote && post.vote.results && post.vote.options && (
+                <div style={{ marginTop: 4, fontSize: '12px', color: '#666' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {post.vote.options.map((option, index) => {
+                      const votes = post.vote.results[index] || 0;
+                      const totalVotes = Object.values(post.vote.results).reduce((sum, count) => sum + count, 0);
+                      const percentage = totalVotes > 0 ? Math.round((votes / totalVotes) * 100) : 0;
+                      
+                      return (
+                        <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                          <div 
+                            style={{
+                              width: '8px',
+                              height: '8px',
+                              borderRadius: '50%',
+                              backgroundColor: index === 0 ? '#007bff' : '#dc3545'
+                            }}
+                          />
+                          <span style={{ color: '#666' }}>
+                            {percentage}%
+                          </span>
+                        </div>
+                      );
+                    })}
+                    <span style={{ color: '#28a745', fontWeight: 'bold' }}>
+                      총 투표: {Object.values(post.vote.results).reduce((sum, count) => sum + count, 0)}표
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
           <div style={{
@@ -153,6 +191,7 @@ function BoardPage({ category }) {
           <option value="all">전체</option>
           <option value="writer">작성자</option>
           <option value="title">제목</option>
+          <option value="content">본문</option>
           <option value="comment">댓글</option>
         </select>
         <button onClick={handleSearch}>검색</button>

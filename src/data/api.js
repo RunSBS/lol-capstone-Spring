@@ -40,21 +40,4 @@ export async function fetchDDragonVersion() {
   }
 }
 
-// 자동완성 검색어 API 호출
-export async function fetchAutocompleteKeywords(query) {
-  try {
-    const res = await fetch(`https://api.example.com/keywords?q=${encodeURIComponent(query)}`)
-    if (!res.ok) {
-      // 실제 API가 없으므로 목업 데이터 반환 (mockData.js에서 import)
-      const { getFilteredAutocompleteData } = await import('./mockData.js')
-      return getFilteredAutocompleteData(query)
-    }
-    return res.json()
-  } catch {
-    // 에러 시 목업 데이터 반환 (mockData.js에서 import)
-    const { getFilteredAutocompleteData } = await import('./mockData.js')
-    return getFilteredAutocompleteData(query)
-  }
-}
-
 
