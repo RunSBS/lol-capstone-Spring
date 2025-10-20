@@ -93,7 +93,11 @@ function Header() {
             <Link to="/community/lolmuncheol">롤문철</Link>
             <Link to="/community/highrecommend">추천글</Link>
           </div>
-          <a href="#">마이페이지</a>
+          {currentUser ? (
+            <a href={`/user/${currentUser}`} target="_blank" rel="noopener noreferrer">마이페이지</a>
+          ) : (
+            <a href="#" onClick={() => navigate('/community/login')}>마이페이지</a>
+          )}
         </div>
       </nav>
       {isSummonerPage && (
