@@ -1,5 +1,17 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
+import StickerShop from "../components/common/StickerShop";
+import StickerInventory from "../components/common/StickerInventory";
+import StickerBanner from "../components/common/StickerBanner";
+import { 
+  purchaseSticker, 
+  useSticker, 
+  removeStickerFromBanner, 
+  deleteSticker,
+  addStickerToBanner,
+  removeStickerFromBannerById,
+  updateBannerSticker
+} from "../utils/stickerUtils";
 
 function loadUser(username) {
   const usersJson = localStorage.getItem("users") || "[]";
@@ -39,6 +51,11 @@ export default function UserProfilePage() {
   const [editing, setEditing] = useState(false);
   const [showBorderShop, setShowBorderShop] = useState(false);
   const [showBannerShop, setShowBannerShop] = useState(false);
+  const [showStickerShop, setShowStickerShop] = useState(false);
+  const [showStickerInventory, setShowStickerInventory] = useState(false);
+  const [selectedStickerId, setSelectedStickerId] = useState(null);
+  const [selectedStickerImageUrl, setSelectedStickerImageUrl] = useState(null);
+  const [isStickerEditMode, setIsStickerEditMode] = useState(false);
   const isOwner = currentUser === username;
 
   // 테두리 상점 데이터
@@ -218,6 +235,93 @@ export default function UserProfilePage() {
     alert("배너가 적용되었습니다!");
   };
 
+  // 스티커 구매 함수
+  const handleStickerPurchase = (sticker) => {
+    try {
+      const updatedUser = purchaseSticker(user, sticker, (newUser) => {
+        setUser(newUser);
+        saveUser(newUser);
+      });
+      alert(`${sticker.name} 스티커를 구매했습니다!`);
+    } catch (error) {
+      alert(error.message);
+    }
+  };
+
+  // 스티커 인벤토리에서 선택
+  const handleStickerInventory = (sticker) => {
+    console.log('Sticker selected from inventory:', sticker);
+    setSelectedStickerId(sticker.id);
+    setSelectedStickerImageUrl(sticker.image || null);
+    setIsStickerEditMode(true);
+  };
+
+  // 스티커를 배너에 추가
+  const handleStickerAdd = (sticker) => {
+    try {
+      console.log('Adding sticker to banner:', sticker);
+      
+      // 스티커 사용 (인벤토리에서 차감)
+      const userAfterUse = useSticker(user, sticker.stickerId, () => {});
+      
+      // 배너에 스티커 추가
+      const updatedUser = {
+        ...userAfterUse,
+        bannerStickers: [...(userAfterUse.bannerStickers || []), sticker]
+      };
+      
+      setUser(updatedUser);
+      saveUser(updatedUser);
+      
+      setSelectedStickerId(null);
+      setIsStickerEditMode(false);
+      
+      console.log('Sticker added successfully');
+    } catch (error) {
+      console.error('Error adding sticker:', error);
+      alert(error.message);
+    }
+  };
+
+  // 배너 스티커 업데이트
+  const handleStickerUpdate = (updatedSticker) => {
+    updateBannerSticker(user, updatedSticker, (newUser) => {
+      setUser(newUser);
+      saveUser(newUser);
+    });
+  };
+
+  // 배너에서 스티커 제거
+  const handleStickerRemove = (stickerId) => {
+    const sticker = user.bannerStickers?.find(s => s.id === stickerId);
+    if (sticker) {
+      // 스티커를 인벤토리로 복구
+      removeStickerFromBanner(user, sticker.stickerId, (newUser) => {
+        setUser(newUser);
+        saveUser(newUser);
+      });
+    }
+
+    // 배너에서 스티커 제거
+    removeStickerFromBannerById(user, stickerId, (newUser) => {
+      setUser(newUser);
+      saveUser(newUser);
+    });
+  };
+
+  // 스티커 인벤토리에서 삭제
+  const handleStickerDelete = (stickerId) => {
+    try {
+      deleteSticker(user, stickerId, (newUser) => {
+        setUser(newUser);
+        saveUser(newUser);
+      });
+      alert("스티커가 삭제되었습니다!");
+    } catch (error) {
+      alert(error.message);
+    }
+  };
+
   // 테두리 스타일 가져오기
   const getBorderStyle = (borderId) => {
     const styles = {
@@ -262,33 +366,31 @@ export default function UserProfilePage() {
       </div>
       
       {/* 배너 배경 */}
-      <div style={{
-        position: "relative",
-        backgroundImage: `url(${bannerShop.find(b => b.id === (user.currentBanner || "default"))?.image})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
-        borderRadius: "12px",
-        padding: "20px",
-        marginBottom: "20px",
-        minHeight: "200px",
-        display: "flex",
-        alignItems: "center",
-        gap: "20px"
-      }}>
-        {/* 배너 오버레이 */}
-        <div style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: "rgba(0, 0, 0, 0.4)",
-          borderRadius: "12px"
-        }} />
+      <div style={{ marginBottom: "20px" }}>
+        <StickerBanner
+          bannerImage={bannerShop.find(b => b.id === (user.currentBanner || "default"))?.image}
+          stickers={user.bannerStickers || []}
+          onStickerAdd={handleStickerAdd}
+          onStickerUpdate={handleStickerUpdate}
+          onStickerRemove={handleStickerRemove}
+          selectedStickerId={selectedStickerId}
+          selectedStickerImageUrl={selectedStickerImageUrl}
+          isEditMode={isStickerEditMode}
+        />
         
         {/* 프로필 정보 */}
-        <div style={{ position: "relative", zIndex: 1, display: "flex", gap: 16, alignItems: "center" }}>
+        <div style={{ 
+          position: "relative", 
+          zIndex: 1, 
+          display: "flex", 
+          gap: 16, 
+          alignItems: "center",
+          marginTop: "20px",
+          padding: "20px",
+          backgroundColor: "rgba(0, 0, 0, 0.7)",
+          borderRadius: "12px",
+          color: "white"
+        }}>
           <div>
             {user.avatar ? (
               <img 
@@ -325,7 +427,7 @@ export default function UserProfilePage() {
               </div>
             )}
           </div>
-          <div style={{ flex: 1, color: "white" }}>
+          <div style={{ flex: 1 }}>
             <div style={{ marginBottom: 8 }}>
               <b>닉네임:</b> {user.username}
             </div>
@@ -573,6 +675,104 @@ export default function UserProfilePage() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* 스티커 상점 */}
+      {isOwner && (
+        <div style={{ marginTop: 30, border: "1px solid #ddd", borderRadius: 8, padding: 20 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+            <h3>스티커 상점</h3>
+            <button 
+              onClick={() => setShowStickerShop(!showStickerShop)}
+              style={{ 
+                padding: "8px 16px", 
+                backgroundColor: showStickerShop ? "#dc3545" : "#28a745", 
+                color: "white", 
+                border: "none", 
+                borderRadius: 4,
+                cursor: "pointer"
+              }}
+            >
+              {showStickerShop ? "상점 닫기" : "스티커 상점 열기"}
+            </button>
+          </div>
+
+          {showStickerShop && (
+            <StickerShop
+              user={user}
+              onStickerPurchase={handleStickerPurchase}
+              onStickerInventory={handleStickerInventory}
+            />
+          )}
+        </div>
+      )}
+
+      {/* 스티커 보유탭 */}
+      {isOwner && (
+        <div style={{ marginTop: 30, border: "1px solid #ddd", borderRadius: 8, padding: 20 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+            <h3>스티커 보유탭</h3>
+            <button 
+              onClick={() => setShowStickerInventory(!showStickerInventory)}
+              style={{ 
+                padding: "8px 16px", 
+                backgroundColor: showStickerInventory ? "#dc3545" : "#6f42c1", 
+                color: "white", 
+                border: "none", 
+                borderRadius: 4,
+                cursor: "pointer"
+              }}
+            >
+              {showStickerInventory ? "보유탭 닫기" : "스티커 보유탭 열기"}
+            </button>
+          </div>
+
+          {showStickerInventory && (
+            <StickerInventory
+              user={user}
+              onStickerSelect={handleStickerInventory}
+              onStickerRemove={handleStickerDelete}
+            />
+          )}
+        </div>
+      )}
+
+      {/* 스티커 편집 모드 안내 */}
+      {isStickerEditMode && (
+        <div style={{
+          position: "fixed",
+          top: "20px",
+          right: "20px",
+          backgroundColor: "#007bff",
+          color: "white",
+          padding: "10px 15px",
+          borderRadius: "8px",
+          zIndex: 1000,
+          boxShadow: "0 4px 12px rgba(0,0,0,0.3)"
+        }}>
+          <div style={{ fontWeight: "bold", marginBottom: "5px" }}>스티커 편집 모드</div>
+          <div style={{ fontSize: "12px" }}>
+            배너를 클릭하여 스티커를 배치하세요
+          </div>
+          <button
+            onClick={() => {
+              setIsStickerEditMode(false);
+              setSelectedStickerId(null);
+            }}
+            style={{
+              marginTop: "8px",
+              padding: "4px 8px",
+              backgroundColor: "rgba(255,255,255,0.2)",
+              color: "white",
+              border: "1px solid rgba(255,255,255,0.3)",
+              borderRadius: "4px",
+              cursor: "pointer",
+              fontSize: "10px"
+            }}
+          >
+            편집 모드 종료
+          </button>
         </div>
       )}
     </div>

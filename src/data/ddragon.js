@@ -157,3 +157,214 @@ export function buildOpggEmblemFallbackUrl(tier, rank) {
   const n = map[roman] || 1;
   return `https://opgg-static.akamaized.net/images/medals/${t}_${n}.png?image=q_auto,f_webp,w_144`;
 }
+
+// ===== 스티커 (감정표현) =====
+
+// 스티커 URL 빌더 (CommunityDragon 감정표현 에셋)
+export function buildStickerUrl(stickerId, size = 'small') {
+  const sizeMap = {
+    small: '32x32',
+    medium: '64x64', 
+    large: '128x128'
+  };
+  const sizeStr = sizeMap[size] || '32x32';
+  return `https://raw.communitydragon.org/latest/game/assets/ux/emotes/${stickerId}.png`;
+}
+
+// 스티커 데이터 로더 (감정표현 목록)
+export async function loadStickers() {
+  try {
+    // CommunityDragon에서 감정표현 데이터 가져오기
+    const res = await fetch('https://raw.communitydragon.org/latest/game/data/ux/emotes/emotes.bin.json');
+    if (!res.ok) throw new Error('Failed to fetch stickers');
+    const data = await res.json();
+    
+    // 스티커 목록 생성 (실제로는 더 복잡한 파싱이 필요할 수 있음)
+    const stickers = [
+      {
+        id: 'emote_01',
+        name: '기쁨',
+        description: '기쁜 감정표현',
+        price: 50,
+        category: 'emotion',
+        image: buildStickerUrl('emote_01')
+      },
+      {
+        id: 'emote_02', 
+        name: '슬픔',
+        description: '슬픈 감정표현',
+        price: 50,
+        category: 'emotion',
+        image: buildStickerUrl('emote_02')
+      },
+      {
+        id: 'emote_03',
+        name: '화남',
+        description: '화난 감정표현', 
+        price: 50,
+        category: 'emotion',
+        image: buildStickerUrl('emote_03')
+      },
+      {
+        id: 'emote_04',
+        name: '놀람',
+        description: '놀란 감정표현',
+        price: 50,
+        category: 'emotion',
+        image: buildStickerUrl('emote_04')
+      },
+      {
+        id: 'emote_05',
+        name: '사랑',
+        description: '사랑 감정표현',
+        price: 100,
+        category: 'emotion',
+        image: buildStickerUrl('emote_05')
+      },
+      {
+        id: 'emote_06',
+        name: '웃음',
+        description: '웃는 감정표현',
+        price: 75,
+        category: 'emotion',
+        image: buildStickerUrl('emote_06')
+      },
+      {
+        id: 'emote_07',
+        name: '승리',
+        description: '승리 감정표현',
+        price: 150,
+        category: 'victory',
+        image: buildStickerUrl('emote_07')
+      },
+      {
+        id: 'emote_08',
+        name: '패배',
+        description: '패배 감정표현',
+        price: 100,
+        category: 'defeat',
+        image: buildStickerUrl('emote_08')
+      }
+    ];
+    
+    return stickers;
+  } catch (error) {
+    console.warn('Failed to load stickers, using fallback data:', error);
+    // 폴백 데이터 반환
+    return [
+      {
+        id: 'emote_01',
+        name: '기쁨',
+        description: '기쁜 감정표현',
+        price: 50,
+        category: 'emotion',
+        image: 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Ahri.png'
+      },
+      {
+        id: 'emote_02', 
+        name: '슬픔',
+        description: '슬픈 감정표현',
+        price: 50,
+        category: 'emotion',
+        image: 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Yasuo.png'
+      },
+      {
+        id: 'emote_03',
+        name: '화남',
+        description: '화난 감정표현', 
+        price: 50,
+        category: 'emotion',
+        image: 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Jinx.png'
+      },
+      {
+        id: 'emote_04',
+        name: '놀람',
+        description: '놀란 감정표현',
+        price: 50,
+        category: 'emotion',
+        image: 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Lux.png'
+      },
+      {
+        id: 'emote_05',
+        name: '사랑',
+        description: '사랑 감정표현',
+        price: 100,
+        category: 'emotion',
+        image: 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Thresh.png'
+      },
+      {
+        id: 'emote_06',
+        name: '웃음',
+        description: '웃는 감정표현',
+        price: 75,
+        category: 'emotion',
+        image: 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Zed.png'
+      },
+      {
+        id: 'emote_07',
+        name: '승리',
+        description: '승리 감정표현',
+        price: 150,
+        category: 'victory',
+        image: 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Darius.png'
+      },
+      {
+        id: 'emote_08',
+        name: '패배',
+        description: '패배 감정표현',
+        price: 100,
+        category: 'defeat',
+        image: 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Aatrox.png'
+      }
+    ];
+  }
+}
+
+// CommunityDragon 기반 감정표현(에모트) 목록 로더
+// 참고: latest/plugins/rcp-be-lol-game-data/global/default/v1/emotes.json
+export async function loadEmotes() {
+  try {
+    const res = await fetch(
+      'https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/emotes.json'
+    );
+    if (!res.ok) throw new Error('Failed to fetch emotes');
+    const arr = await res.json();
+
+    // arr: [{ id, name, inventoryIcon, ... }]
+    // 이미지 경로는 inventoryIcon을 그대로 latest/plugins/... prefix와 결합
+    const toImgUrl = (inventoryIcon) => {
+      if (!inventoryIcon) return PLACEHOLDER_IMG;
+      const norm = String(inventoryIcon).replace(/^\/+/, '');
+      // 경우 1) 이미 plugins/rcp-be-lol-game-data/... 로 시작
+      if (/^plugins\//i.test(norm)) {
+        return `https://raw.communitydragon.org/latest/${norm}`;
+      }
+      // 경우 2) lol-game-data/ 로 시작 (일반적인 inventoryIcon)
+      if (/^lol-game-data\//i.test(norm)) {
+        return `https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/${norm}`;
+      }
+      // 그 외: game/assets/ux/emotes/ 같은 절대 게임 경로일 수 있음
+      if (/^game\//i.test(norm)) {
+        return `https://raw.communitydragon.org/latest/${norm}`;
+      }
+      // 마지막 폴백: 그대로 plugins 경로에 붙임
+      return `https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/${norm}`;
+    };
+
+    const emotes = (arr || [])
+      .filter((e) => e && (e.inventoryIcon || e.name))
+      .map((e) => ({
+        id: `emote_${e.id}`,
+        name: e.name || `Emote ${e.id}`,
+        description: '공식 감정표현(에모트)',
+        price: 75,
+        category: 'emote',
+        image: toImgUrl(e.inventoryIcon),
+      }));
+
+    return emotes;
+  } catch (err) {
+    console.warn('Failed to load emotes, fallback to empty list:', err);
+    return [];
+  }
+}
