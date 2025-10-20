@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import AttendanceModal from "../common/AttendanceModal.jsx";
+import { processAttendance } from "../../utils/attendanceUtils.js";
 
 function Login({ onLogin, onShowRegister }) {
   const navigate = useNavigate();
@@ -7,6 +9,8 @@ function Login({ onLogin, onShowRegister }) {
     username: "",
     password: ""
   });
+  const [showAttendanceModal, setShowAttendanceModal] = useState(false);
+  const [attendanceTokens, setAttendanceTokens] = useState(0);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -21,9 +25,18 @@ function Login({ onLogin, onShowRegister }) {
     if (user) {
       localStorage.setItem("currentUser", formData.username);
       onLogin(formData.username);
-      // 로그인 상태 변경 이벤트 발생
-      window.dispatchEvent(new Event('loginStateChanged'));
-      navigate(-1); // 이전 페이지로 돌아가기
+      
+      // 출석 보상 체크
+      const attendanceResult = processAttendance(formData.username);
+      if (attendanceResult.attended) {
+        setAttendanceTokens(attendanceResult.tokensEarned);
+        setShowAttendanceModal(true);
+        // 출석 보상이 있는 경우 페이지 이동은 팝업이 닫힐 때 처리
+      } else {
+        // 출석 보상이 없는 경우 즉시 페이지 이동
+        window.dispatchEvent(new Event('loginStateChanged'));
+        navigate(-1);
+      }
     } else {
       alert("아이디 또는 비밀번호가 올바르지 않습니다.");
     }
@@ -35,6 +48,13 @@ function Login({ onLogin, onShowRegister }) {
       ...prev,
       [name]: value
     }));
+  };
+
+  const handleAttendanceModalClose = () => {
+    setShowAttendanceModal(false);
+    // 팝업이 닫힌 후 페이지 이동
+    window.dispatchEvent(new Event('loginStateChanged'));
+    navigate(-1);
   };
 
   return (
@@ -116,6 +136,13 @@ function Login({ onLogin, onShowRegister }) {
           </button>
         </div>
       </form>
+      
+      {/* 출석 보상 모달 */}
+      <AttendanceModal 
+        isOpen={showAttendanceModal}
+        onClose={handleAttendanceModalClose}
+        tokensEarned={attendanceTokens}
+      />
     </div>
   );
 }

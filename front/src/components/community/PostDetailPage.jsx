@@ -134,6 +134,22 @@ function PostDetailPage({ currentUser, adminId, postId }) {
 
     try {
       await boardApi.voteOnPost(id, optionIndex, currentUser);
+      
+      // 롤문철 카테고리인 경우 투표 시 자동으로 추천
+      if (post && post.category === "lolmuncheol") {
+        try {
+          await boardApi.likePost(post.id);
+          setLike(prev => prev + 1);
+          setUserVoted("like");
+          localStorage.setItem(
+            getVoteKey(),
+            JSON.stringify({ type: "like", date: new Date().toLocaleDateString() })
+          );
+        } catch (likeError) {
+          console.log("자동 추천 실패:", likeError);
+        }
+      }
+      
       alert("투표가 완료되었습니다.");
       
       // 투표 결과 다시 로드
@@ -142,6 +158,39 @@ function PostDetailPage({ currentUser, adminId, postId }) {
       setUserVoteOption(userVote);
     } catch (error) {
       alert("투표 중 오류가 발생했습니다: " + error);
+    }
+  };
+
+  // 투표 취소 핸들러
+  const handleVoteCancel = async () => {
+    if (!currentUser) {
+      alert("로그인이 필요합니다.");
+      return;
+    }
+
+    try {
+      await boardApi.removeVoteFromPost(id, currentUser);
+      
+      // 롤문철 카테고리인 경우 투표 취소 시 자동으로 추천도 취소
+      if (post && post.category === "lolmuncheol") {
+        try {
+          await boardApi.removeLikePost(post.id);
+          setLike(prev => Math.max(prev - 1, 0));
+          setUserVoted(null);
+          localStorage.removeItem(getVoteKey());
+        } catch (likeError) {
+          console.log("자동 추천 취소 실패:", likeError);
+        }
+      }
+      
+      alert("투표가 취소되었습니다.");
+      
+      // 투표 결과 다시 로드
+      const { voteData, userVote } = await boardApi.getVoteResults(id, currentUser);
+      setVoteData(voteData);
+      setUserVoteOption(userVote);
+    } catch (error) {
+      alert("투표 취소 중 오류가 발생했습니다: " + error);
     }
   };
 
@@ -225,7 +274,7 @@ function PostDetailPage({ currentUser, adminId, postId }) {
         <h2>{post.title}</h2>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
       <div>
-        <Link to={`/user/${encodeURIComponent(post.writer)}`}><b>{post.writer}</b></Link> vs <Link to={`/user/${encodeURIComponent(post.writerB || "작성자B")}`}><b>{post.writerB || "작성자B"}</b></Link> | {new Date(post.createdAt).toLocaleString()}
+        <a href={`/user/${encodeURIComponent(post.writer)}`} target="_blank" rel="noopener noreferrer"><b>{post.writer}</b></a> vs <a href={`/user/${encodeURIComponent(post.writerB || "작성자B")}`} target="_blank" rel="noopener noreferrer"><b>{post.writerB || "작성자B"}</b></a> | {new Date(post.createdAt).toLocaleString()}
       </div>
           {canEdit && (
             <div>
@@ -287,15 +336,29 @@ function PostDetailPage({ currentUser, adminId, postId }) {
           </div>
         </div>
 
-        {/* cheer area */}
-        <div style={{ marginTop: 16, textAlign: "center" }}>
-          <LolmuncheolCheer
-            post={post}
+        {/* 투표 섹션 */}
+        {voteData && (
+          <VoteDisplay 
+            voteData={voteData} 
+            userVoteOption={userVoteOption}
+            onVoteSubmit={handleVoteSubmit}
+            onVoteCancel={handleVoteCancel}
             currentUser={currentUser}
-            onPostUpdate={(updated) => setPost(updated)}
           />
+        )}
+
+        {/* 추천/반대 버튼 */}
+        <div style={{ margin: "24px 0", textAlign: "center" }}>
+          <button onClick={() => handleVoteToggle("like")}>
+            {userVoted === "like" ? "👍 추천 취소" : "👍 추천"}
+          </button>
+          <span style={{ margin: "0 16px" }}>추천: {like}</span>
+          <button onClick={() => handleVoteToggle("dislike")}>
+            {userVoted === "dislike" ? "👎 반대 취소" : "👎 반대"}
+          </button>
+          <span style={{ margin: "0 16px" }}>반대: {dislike}</span>
         </div>
-        {/* cheer area will be added later */}
+        
         <CommentSection postId={post.id} currentUser={currentUser} />
       </div>
     );
@@ -305,7 +368,7 @@ function PostDetailPage({ currentUser, adminId, postId }) {
     <div>
       <h2>{post.title}</h2>
       <div>
-        <Link to={`/user/${encodeURIComponent(post.writer)}`}><b>{post.writer}</b></Link> | {new Date(post.createdAt).toLocaleString()}
+        <a href={`/user/${encodeURIComponent(post.writer)}`} target="_blank" rel="noopener noreferrer"><b>{post.writer}</b></a> | {new Date(post.createdAt).toLocaleString()}
       </div>
       {canEdit && (
         <>
@@ -335,6 +398,7 @@ function PostDetailPage({ currentUser, adminId, postId }) {
           voteData={voteData} 
           userVoteOption={userVoteOption}
           onVoteSubmit={handleVoteSubmit}
+          onVoteCancel={handleVoteCancel}
           currentUser={currentUser}
         />
       )}
@@ -355,7 +419,7 @@ function PostDetailPage({ currentUser, adminId, postId }) {
 }
 
 // 투표 표시 컴포넌트
-function VoteDisplay({ voteData, userVoteOption, onVoteSubmit, currentUser }) {
+function VoteDisplay({ voteData, userVoteOption, onVoteSubmit, onVoteCancel, currentUser }) {
   const [selectedOption, setSelectedOption] = useState(userVoteOption);
   const [hasVoted, setHasVoted] = useState(userVoteOption !== null);
 
@@ -372,6 +436,12 @@ function VoteDisplay({ voteData, userVoteOption, onVoteSubmit, currentUser }) {
     
     await onVoteSubmit(selectedOption);
     setHasVoted(true);
+  };
+
+  const handleVoteCancel = async () => {
+    await onVoteCancel();
+    setHasVoted(false);
+    setSelectedOption(null);
   };
 
   const getTotalVotes = () => {
@@ -505,7 +575,29 @@ function VoteDisplay({ voteData, userVoteOption, onVoteSubmit, currentUser }) {
         </button>
       )}
 
-      {hasVoted && (
+      {hasVoted && !isExpired && (
+        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+          <p style={{ color: "#28a745", fontWeight: "bold", margin: 0 }}>
+            ✓ 투표가 완료되었습니다.
+          </p>
+          <button
+            onClick={handleVoteCancel}
+            style={{
+              padding: "8px 16px",
+              backgroundColor: "#dc3545",
+              color: "white",
+              border: "none",
+              borderRadius: 4,
+              cursor: "pointer",
+              fontSize: "0.9em"
+            }}
+          >
+            투표 취소
+          </button>
+        </div>
+      )}
+
+      {hasVoted && isExpired && (
         <p style={{ color: "#28a745", fontWeight: "bold" }}>
           ✓ 투표가 완료되었습니다.
         </p>
@@ -515,103 +607,4 @@ function VoteDisplay({ voteData, userVoteOption, onVoteSubmit, currentUser }) {
 }
 
 export default PostDetailPage;
-// Inline component for Lolmuncheol cheer UI/logic
-function LolmuncheolCheer({ post, currentUser, onPostUpdate }) {
-  const [cheerA, setCheerA] = React.useState(post.cheerA || 0);
-  const [cheerB, setCheerB] = React.useState(post.cheerB || 0);
-
-  React.useEffect(() => {
-    setCheerA(post.cheerA || 0);
-    setCheerB(post.cheerB || 0);
-  }, [post.cheerA, post.cheerB]);
-
-  const key = `lolmuncheol-cheer-${post.id}-${currentUser || "guest"}`;
-  const read = () => {
-    try {
-      const raw = localStorage.getItem(key);
-      if (!raw) return null;
-      const parsed = JSON.parse(raw);
-      if (parsed.date === new Date().toLocaleDateString()) return parsed; // { side: 'A'|'B' }
-      localStorage.removeItem(key);
-      return null;
-    } catch {
-      return null;
-    }
-  };
-  const write = (side) => localStorage.setItem(key, JSON.stringify({ side, date: new Date().toLocaleDateString() }));
-  const clear = () => localStorage.removeItem(key);
-
-  const vote = read();
-  const side = vote?.side;
-
-  const onCheerA = async () => {
-    if (!currentUser) { alert("로그인이 필요합니다."); return; }
-    if (side === 'B') { alert("이미 B를 응원했습니다. 먼저 취소해주세요."); return; }
-    if (side === 'A') { alert("이미 A를 응원했습니다."); return; }
-    setCheerA((v) => v + 1);
-    try {
-      await boardApi.cheerA(post.id);
-      write('A');
-      onPostUpdate?.({ ...post, cheerA: (post.cheerA || 0) + 1 });
-    } catch (e) {
-      setCheerA((v) => Math.max(v - 1, 0));
-      alert(e);
-    }
-  };
-
-  const onUncheerA = async () => {
-    if (!currentUser) { alert("로그인이 필요합니다."); return; }
-    if (side !== 'A') { alert("본인이 응원한 A만 취소할 수 있습니다."); return; }
-    setCheerA((v) => Math.max(v - 1, 0));
-    try {
-      await boardApi.uncheerA(post.id);
-      clear();
-      onPostUpdate?.({ ...post, cheerA: Math.max((post.cheerA || 1) - 1, 0) });
-    } catch (e) {
-      setCheerA((v) => v + 1);
-      alert(e);
-    }
-  };
-
-  const onCheerB = async () => {
-    if (!currentUser) { alert("로그인이 필요합니다."); return; }
-    if (side === 'A') { alert("이미 A를 응원했습니다. 먼저 취소해주세요."); return; }
-    if (side === 'B') { alert("이미 B를 응원했습니다."); return; }
-    setCheerB((v) => v + 1);
-    try {
-      await boardApi.cheerB(post.id);
-      write('B');
-      onPostUpdate?.({ ...post, cheerB: (post.cheerB || 0) + 1 });
-    } catch (e) {
-      setCheerB((v) => Math.max(v - 1, 0));
-      alert(e);
-    }
-  };
-
-  const onUncheerB = async () => {
-    if (!currentUser) { alert("로그인이 필요합니다."); return; }
-    if (side !== 'B') { alert("본인이 응원한 B만 취소할 수 있습니다."); return; }
-    setCheerB((v) => Math.max(v - 1, 0));
-    try {
-      await boardApi.uncheerB(post.id);
-      clear();
-      onPostUpdate?.({ ...post, cheerB: Math.max((post.cheerB || 1) - 1, 0) });
-    } catch (e) {
-      setCheerB((v) => v + 1);
-      alert(e);
-    }
-  };
-
-  return (
-    <div>
-      <button onClick={onCheerA} style={{ marginRight: 8 }}>A 응원</button>
-      <span style={{ marginRight: 16 }}>A 응원수: {cheerA || 0}</span>
-      <button onClick={onUncheerA} style={{ marginRight: 24 }}>A 응원 취소</button>
-
-      <button onClick={onCheerB} style={{ marginRight: 8 }}>B 응원</button>
-      <span style={{ marginRight: 16 }}>B 응원수: {cheerB || 0}</span>
-      <button onClick={onUncheerB}>B 응원 취소</button>
-    </div>
-  );
-}
 

@@ -143,7 +143,7 @@ function CommentSection({ postId, currentUser }) {
         <div key={c.id} style={{ marginBottom: 6, borderBottom: "1px solid #eee", paddingBottom: 4 }}>
           <div style={{ display: "flex", justifyContent: "space-between" }}>
             <div style={{ color: "#333" }}>
-              <Link to={`/user/${encodeURIComponent(c.writer)}`}><b>{c.writer}</b></Link> | {new Date(c.createdAt).toLocaleString()}
+              <a href={`/user/${encodeURIComponent(c.writer)}`} target="_blank" rel="noopener noreferrer"><b>{c.writer}</b></a> | {new Date(c.createdAt).toLocaleString()}
             </div>
             <div style={{ marginTop: 8 }}>
               <button onClick={() => handleVoteToggle(c.id, 'like')}>

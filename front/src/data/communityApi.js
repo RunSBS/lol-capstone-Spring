@@ -83,8 +83,6 @@ const boardApi = {
         // lolmuncheol specific fields
         writerB: post.category === "lolmuncheol" ? (post.writerB || "") : undefined,
         contentB: post.category === "lolmuncheol" ? (post.contentB || "") : undefined,
-        cheerA: post.category === "lolmuncheol" ? 0 : undefined,
-        cheerB: post.category === "lolmuncheol" ? 0 : undefined,
         tags: post.tags || [],
       };
       posts.push(newPost);
@@ -139,70 +137,6 @@ const boardApi = {
       else reject("수정 실패");
     }),
 
-  // lolmuncheol cheer APIs
-  cheerA: (postId) =>
-    new Promise((resolve, reject) => {
-      const categories = ["lolmuncheol"];
-      let ok = false;
-      categories.forEach((cat) => {
-        const posts = loadPosts(cat);
-        const idx = posts.findIndex((p) => p.id === Number(postId));
-        if (idx !== -1) {
-          posts[idx].cheerA = (posts[idx].cheerA || 0) + 1;
-          savePosts(cat, posts);
-          ok = true;
-        }
-      });
-      if (ok) resolve(true); else reject("응원 실패");
-    }),
-
-  uncheerA: (postId) =>
-    new Promise((resolve, reject) => {
-      const categories = ["lolmuncheol"];
-      let ok = false;
-      categories.forEach((cat) => {
-        const posts = loadPosts(cat);
-        const idx = posts.findIndex((p) => p.id === Number(postId));
-        if (idx !== -1) {
-          posts[idx].cheerA = Math.max((posts[idx].cheerA || 1) - 1, 0);
-          savePosts(cat, posts);
-          ok = true;
-        }
-      });
-      if (ok) resolve(true); else reject("응원 취소 실패");
-    }),
-
-  cheerB: (postId) =>
-    new Promise((resolve, reject) => {
-      const categories = ["lolmuncheol"];
-      let ok = false;
-      categories.forEach((cat) => {
-        const posts = loadPosts(cat);
-        const idx = posts.findIndex((p) => p.id === Number(postId));
-        if (idx !== -1) {
-          posts[idx].cheerB = (posts[idx].cheerB || 0) + 1;
-          savePosts(cat, posts);
-          ok = true;
-        }
-      });
-      if (ok) resolve(true); else reject("응원 실패");
-    }),
-
-  uncheerB: (postId) =>
-    new Promise((resolve, reject) => {
-      const categories = ["lolmuncheol"];
-      let ok = false;
-      categories.forEach((cat) => {
-        const posts = loadPosts(cat);
-        const idx = posts.findIndex((p) => p.id === Number(postId));
-        if (idx !== -1) {
-          posts[idx].cheerB = Math.max((posts[idx].cheerB || 1) - 1, 0);
-          savePosts(cat, posts);
-          ok = true;
-        }
-      });
-      if (ok) resolve(true); else reject("응원 취소 실패");
-    }),
 
   searchPosts: (keyword, category) =>
     new Promise((resolve) => {
@@ -374,6 +308,57 @@ const boardApi = {
       }
 
       resolve({ voteData, userVote });
+    }),
+
+  // 투표 취소 API
+  removeVoteFromPost: (postId, userId) =>
+    new Promise((resolve, reject) => {
+      const categories = ["free", "guide", "lolmuncheol"];
+      let updated = false;
+      categories.forEach((cat) => {
+        const posts = loadPosts(cat);
+        const idx = posts.findIndex((p) => p.id === Number(postId));
+        if (idx !== -1 && posts[idx].vote) {
+          const vote = posts[idx].vote;
+          const isExpired = vote.hasEndTime && vote.endTime && new Date() > new Date(vote.endTime);
+          
+          if (isExpired) {
+            reject("투표가 종료되었습니다.");
+            return;
+          }
+
+          // 기존 투표 기록 확인
+          const voteKey = `vote-${postId}-${userId}`;
+          const existingVote = localStorage.getItem(voteKey);
+          
+          if (!existingVote) {
+            reject("투표한 기록이 없습니다.");
+            return;
+          }
+
+          try {
+            const voteData = JSON.parse(existingVote);
+            const optionIndex = voteData.optionIndex;
+
+            // 투표 결과에서 차감
+            if (vote.results && vote.results[optionIndex] && vote.results[optionIndex] > 0) {
+              vote.results[optionIndex]--;
+            }
+
+            // 투표 기록 삭제
+            localStorage.removeItem(voteKey);
+
+            posts[idx].vote = vote;
+            savePosts(cat, posts);
+            updated = true;
+          } catch (error) {
+            reject("투표 취소 중 오류가 발생했습니다.");
+            return;
+          }
+        }
+      });
+      if (updated) resolve(true);
+      else reject("투표 취소 실패");
     }),
 };
 
