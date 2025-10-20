@@ -52,7 +52,7 @@ function Header() {
       <div className="header-container">
         <div className="top-bar">
           <div className="top-bar-left">
-            <Link to="/" className="logo">OP.GG</Link>
+            <Link to="/" className="logo">DJ.GG</Link>
             <nav className="top-bar-nav">
               <a href="#">전적</a>
               <a href="#">이스포츠</a>
