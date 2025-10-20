@@ -23,6 +23,9 @@ public class User {
     @Column(name="PASSWORD_HASH", nullable = false, length = 200)
     private String passwordHash;
 
+    @Column(nullable = false)
+    private Long token = 0L; // 기본값 0, 포인트형 재화
+
     @Column(nullable = false, length = 20)
     private String role = "USER";
 }
