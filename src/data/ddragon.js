@@ -1,4 +1,30 @@
 
+// Data Dragon / CommunityDragon 아이콘 URL 유틸
+
+// 사용 규칙
+// - version(ddVer): fetchDDragonVersion() 로드 결과를 그대로 전달합니다. (예: "15.18.1")
+// - championName: Riot 챔피언 영문 키 (예: "Ahri"). 공백/특수문자 없는 표준 키를 기대합니다.
+// - itemId: 정수 아이템 ID. Match-V5 participants.item0~item6 그대로 사용 가능합니다.
+// - spellId / perkId: 숫자 ID. 스펠/룬은 파일명이 키 문자열 기반이라 추가 매핑이 필요합니다.
+export function buildChampionSquareUrl(version, championName) {
+  const safeVer = version || '15.18.1';
+  const key = championName || 'Aatrox';
+  return `https://ddragon.leagueoflegends.com/cdn/${safeVer}/img/champion/${key}.png`;
+}
+
+export function buildItemIconUrl(version, itemId) {
+  const safeVer = version || '15.18.1';
+  const idNum = Number(itemId);
+  if (!Number.isFinite(idNum) || idNum <= 0) return ''; // 빈 슬롯 처리
+  return `https://ddragon.leagueoflegends.com/cdn/${safeVer}/img/item/${idNum}.png`;
+}
+
+const spellMapCache = new Map();      // key: `${ver}|${lang}` -> Map<number, spellKey>
+const runePerkMapByVer  = new Map();  // ver -> Map<perkId, iconPath>
+const runeStyleMapByVer = new Map();  // ver -> Map<styleId, iconPath>
+
+export const PLACEHOLDER_IMG = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
+
 const STYLE_720X_BY_ID = {
   8000: 'perk-images/Styles/7201_Precision.png',   // Precision
   8100: 'perk-images/Styles/7200_Domination.png',  // Domination
