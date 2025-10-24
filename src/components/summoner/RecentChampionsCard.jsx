@@ -18,23 +18,6 @@ function RecentChampionsCard({ data }) {
         {currentData.length > 0 ? (
           currentData.map((champ, index) => (
             <li key={index}>
-            <img src={champ.imageUrl} alt={champ.name} className="champ-icon"/>
-            <div className="champ-details">
-              <p className="champ-name">{champ.name}</p>
-              <p className="champ-cs">CS {champ.cs || 0}</p>
-            </div>
-            <div className="champ-kda-stats">
-              <p className="kda-ratio">{champ.kdaRatio}</p>
-              <p className="kda-numbers">{champ.kdaNumbers}</p>
-            </div>
-            <div className="champ-winrate-stats">
-              <p className={`winrate ${champ.winrate === '100%' ? 'winrate-perfect' : ''}`}>{champ.winrate}</p>
-              <p className="games-played">{champ.games}</p>
-            </div>
-          </li>
-        {currentData.length > 0 ? (
-          currentData.map((champ, index) => (
-            <li key={index}>
               <img src={champ.imageUrl} alt={champ.name} className="champ-icon"/>
               <div className="champ-details">
                 <p className="champ-name">{champ.name}</p>

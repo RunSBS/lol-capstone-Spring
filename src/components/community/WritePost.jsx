@@ -471,17 +471,6 @@ function WritePost({ currentUser }) {
                 }
               }
             }}
-            style={{
-              minHeight: "280px",
-              lineHeight: "1.5",
-              color: "#333",
-              backgroundColor: "white",
-              outline: "none",
-              border: "none",
-              padding: "10px",
-              fontFamily: "inherit",
-              fontSize: "14px"
-            }}
             dangerouslySetInnerHTML={{ 
               __html: renderContentWithMedia(formData.content) 
             }}
