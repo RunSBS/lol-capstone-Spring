@@ -134,6 +134,7 @@ function PostDetailPage({ currentUser, adminId, postId }) {
 
     try {
       await boardApi.voteOnPost(id, optionIndex, currentUser);
+<<<<<<< HEAD
       
       // 롤문철 카테고리인 경우 투표 시 자동으로 추천
       if (post && post.category === "lolmuncheol") {
@@ -150,6 +151,8 @@ function PostDetailPage({ currentUser, adminId, postId }) {
         }
       }
       
+=======
+>>>>>>> friend/summoner2
       alert("투표가 완료되었습니다.");
       
       // 투표 결과 다시 로드
@@ -161,6 +164,7 @@ function PostDetailPage({ currentUser, adminId, postId }) {
     }
   };
 
+<<<<<<< HEAD
   // 투표 취소 핸들러
   const handleVoteCancel = async () => {
     if (!currentUser) {
@@ -194,6 +198,8 @@ function PostDetailPage({ currentUser, adminId, postId }) {
     }
   };
 
+=======
+>>>>>>> friend/summoner2
   // 미디어 태그를 실제 미디어로 변환하는 함수
   const renderContentWithMedia = (content) => {
     if (!content) return '';
@@ -274,7 +280,11 @@ function PostDetailPage({ currentUser, adminId, postId }) {
         <h2>{post.title}</h2>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
       <div>
+<<<<<<< HEAD
         <a href={`/user/${encodeURIComponent(post.writer)}`} target="_blank" rel="noopener noreferrer"><b>{post.writer}</b></a> vs <a href={`/user/${encodeURIComponent(post.writerB || "작성자B")}`} target="_blank" rel="noopener noreferrer"><b>{post.writerB || "작성자B"}</b></a> | {new Date(post.createdAt).toLocaleString()}
+=======
+        <Link to={`/user/${encodeURIComponent(post.writer)}`}><b>{post.writer}</b></Link> vs <Link to={`/user/${encodeURIComponent(post.writerB || "작성자B")}`}><b>{post.writerB || "작성자B"}</b></Link> | {new Date(post.createdAt).toLocaleString()}
+>>>>>>> friend/summoner2
       </div>
           {canEdit && (
             <div>
@@ -336,6 +346,7 @@ function PostDetailPage({ currentUser, adminId, postId }) {
           </div>
         </div>
 
+<<<<<<< HEAD
         {/* 투표 섹션 */}
         {voteData && (
           <VoteDisplay 
@@ -359,6 +370,17 @@ function PostDetailPage({ currentUser, adminId, postId }) {
           <span style={{ margin: "0 16px" }}>반대: {dislike}</span>
         </div>
         
+=======
+        {/* cheer area */}
+        <div style={{ marginTop: 16, textAlign: "center" }}>
+          <LolmuncheolCheer
+            post={post}
+            currentUser={currentUser}
+            onPostUpdate={(updated) => setPost(updated)}
+          />
+        </div>
+        {/* cheer area will be added later */}
+>>>>>>> friend/summoner2
         <CommentSection postId={post.id} currentUser={currentUser} />
       </div>
     );
@@ -368,7 +390,11 @@ function PostDetailPage({ currentUser, adminId, postId }) {
     <div>
       <h2>{post.title}</h2>
       <div>
+<<<<<<< HEAD
         <a href={`/user/${encodeURIComponent(post.writer)}`} target="_blank" rel="noopener noreferrer"><b>{post.writer}</b></a> | {new Date(post.createdAt).toLocaleString()}
+=======
+        <Link to={`/user/${encodeURIComponent(post.writer)}`}><b>{post.writer}</b></Link> | {new Date(post.createdAt).toLocaleString()}
+>>>>>>> friend/summoner2
       </div>
       {canEdit && (
         <>
@@ -398,7 +424,10 @@ function PostDetailPage({ currentUser, adminId, postId }) {
           voteData={voteData} 
           userVoteOption={userVoteOption}
           onVoteSubmit={handleVoteSubmit}
+<<<<<<< HEAD
           onVoteCancel={handleVoteCancel}
+=======
+>>>>>>> friend/summoner2
           currentUser={currentUser}
         />
       )}
@@ -419,7 +448,11 @@ function PostDetailPage({ currentUser, adminId, postId }) {
 }
 
 // 투표 표시 컴포넌트
+<<<<<<< HEAD
 function VoteDisplay({ voteData, userVoteOption, onVoteSubmit, onVoteCancel, currentUser }) {
+=======
+function VoteDisplay({ voteData, userVoteOption, onVoteSubmit, currentUser }) {
+>>>>>>> friend/summoner2
   const [selectedOption, setSelectedOption] = useState(userVoteOption);
   const [hasVoted, setHasVoted] = useState(userVoteOption !== null);
 
@@ -438,12 +471,15 @@ function VoteDisplay({ voteData, userVoteOption, onVoteSubmit, onVoteCancel, cur
     setHasVoted(true);
   };
 
+<<<<<<< HEAD
   const handleVoteCancel = async () => {
     await onVoteCancel();
     setHasVoted(false);
     setSelectedOption(null);
   };
 
+=======
+>>>>>>> friend/summoner2
   const getTotalVotes = () => {
     if (!voteData.results) return 0;
     return Object.values(voteData.results).reduce((sum, count) => sum + count, 0);
@@ -575,6 +611,7 @@ function VoteDisplay({ voteData, userVoteOption, onVoteSubmit, onVoteCancel, cur
         </button>
       )}
 
+<<<<<<< HEAD
       {hasVoted && !isExpired && (
         <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
           <p style={{ color: "#28a745", fontWeight: "bold", margin: 0 }}>
@@ -598,6 +635,9 @@ function VoteDisplay({ voteData, userVoteOption, onVoteSubmit, onVoteCancel, cur
       )}
 
       {hasVoted && isExpired && (
+=======
+      {hasVoted && (
+>>>>>>> friend/summoner2
         <p style={{ color: "#28a745", fontWeight: "bold" }}>
           ✓ 투표가 완료되었습니다.
         </p>
@@ -607,4 +647,106 @@ function VoteDisplay({ voteData, userVoteOption, onVoteSubmit, onVoteCancel, cur
 }
 
 export default PostDetailPage;
+<<<<<<< HEAD
+=======
+// Inline component for Lolmuncheol cheer UI/logic
+function LolmuncheolCheer({ post, currentUser, onPostUpdate }) {
+  const [cheerA, setCheerA] = React.useState(post.cheerA || 0);
+  const [cheerB, setCheerB] = React.useState(post.cheerB || 0);
+
+  React.useEffect(() => {
+    setCheerA(post.cheerA || 0);
+    setCheerB(post.cheerB || 0);
+  }, [post.cheerA, post.cheerB]);
+
+  const key = `lolmuncheol-cheer-${post.id}-${currentUser || "guest"}`;
+  const read = () => {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (parsed.date === new Date().toLocaleDateString()) return parsed; // { side: 'A'|'B' }
+      localStorage.removeItem(key);
+      return null;
+    } catch {
+      return null;
+    }
+  };
+  const write = (side) => localStorage.setItem(key, JSON.stringify({ side, date: new Date().toLocaleDateString() }));
+  const clear = () => localStorage.removeItem(key);
+
+  const vote = read();
+  const side = vote?.side;
+
+  const onCheerA = async () => {
+    if (!currentUser) { alert("로그인이 필요합니다."); return; }
+    if (side === 'B') { alert("이미 B를 응원했습니다. 먼저 취소해주세요."); return; }
+    if (side === 'A') { alert("이미 A를 응원했습니다."); return; }
+    setCheerA((v) => v + 1);
+    try {
+      await boardApi.cheerA(post.id);
+      write('A');
+      onPostUpdate?.({ ...post, cheerA: (post.cheerA || 0) + 1 });
+    } catch (e) {
+      setCheerA((v) => Math.max(v - 1, 0));
+      alert(e);
+    }
+  };
+
+  const onUncheerA = async () => {
+    if (!currentUser) { alert("로그인이 필요합니다."); return; }
+    if (side !== 'A') { alert("본인이 응원한 A만 취소할 수 있습니다."); return; }
+    setCheerA((v) => Math.max(v - 1, 0));
+    try {
+      await boardApi.uncheerA(post.id);
+      clear();
+      onPostUpdate?.({ ...post, cheerA: Math.max((post.cheerA || 1) - 1, 0) });
+    } catch (e) {
+      setCheerA((v) => v + 1);
+      alert(e);
+    }
+  };
+
+  const onCheerB = async () => {
+    if (!currentUser) { alert("로그인이 필요합니다."); return; }
+    if (side === 'A') { alert("이미 A를 응원했습니다. 먼저 취소해주세요."); return; }
+    if (side === 'B') { alert("이미 B를 응원했습니다."); return; }
+    setCheerB((v) => v + 1);
+    try {
+      await boardApi.cheerB(post.id);
+      write('B');
+      onPostUpdate?.({ ...post, cheerB: (post.cheerB || 0) + 1 });
+    } catch (e) {
+      setCheerB((v) => Math.max(v - 1, 0));
+      alert(e);
+    }
+  };
+
+  const onUncheerB = async () => {
+    if (!currentUser) { alert("로그인이 필요합니다."); return; }
+    if (side !== 'B') { alert("본인이 응원한 B만 취소할 수 있습니다."); return; }
+    setCheerB((v) => Math.max(v - 1, 0));
+    try {
+      await boardApi.uncheerB(post.id);
+      clear();
+      onPostUpdate?.({ ...post, cheerB: Math.max((post.cheerB || 1) - 1, 0) });
+    } catch (e) {
+      setCheerB((v) => v + 1);
+      alert(e);
+    }
+  };
+
+  return (
+    <div>
+      <button onClick={onCheerA} style={{ marginRight: 8 }}>A 응원</button>
+      <span style={{ marginRight: 16 }}>A 응원수: {cheerA || 0}</span>
+      <button onClick={onUncheerA} style={{ marginRight: 24 }}>A 응원 취소</button>
+
+      <button onClick={onCheerB} style={{ marginRight: 8 }}>B 응원</button>
+      <span style={{ marginRight: 16 }}>B 응원수: {cheerB || 0}</span>
+      <button onClick={onUncheerB}>B 응원 취소</button>
+    </div>
+  );
+}
+>>>>>>> friend/summoner2
 

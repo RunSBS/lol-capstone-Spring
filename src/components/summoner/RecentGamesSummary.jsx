@@ -8,6 +8,12 @@ function RecentGamesSummary({ data }) {
   const playedChamps = data?.playedChamps ?? []
   const positions = data?.positions ?? []
 
+<<<<<<< HEAD
+=======
+  console.log('RecentGamesSummary - data:', data)
+  console.log('RecentGamesSummary - positions:', positions)
+
+>>>>>>> friend/summoner2
   return (
       <div className="recent-games-summary">
         <div className="summary-body">
