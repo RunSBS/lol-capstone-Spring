@@ -318,3 +318,4 @@ export function getStyleStaticIcon(styleId, fallback = PLACEHOLDER_IMG) {
   // 3) 최종 폴백
   return fallback
 }
+
