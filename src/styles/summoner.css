@@ -35,11 +35,7 @@ body {
 .main-nav a { color: white; text-decoration: none; padding: 12px 5px; }
 .search-section { display: flex; align-items: center; gap: 12px; padding: 15px 20px; }
 .country-selector { background-color: var(--color-input-bg); border: 1px solid var(--color-input-border); padding: 12px 16px; border-radius: 8px; font-size: 13px; color: var(--color-text-light); cursor: pointer; line-height: 20px; }
-<<<<<<< HEAD
-.search-bar { flex-grow: 1; background-color: var(--color-input-bg); border: 1px solid var(--color-input-border); padding: 12px 16px; border-radius: 8px; display: flex; align-items: center; }
-=======
 .search-bar { flex-grow: 1; background-color: var(--color-input-bg); border: 1px solid var(--color-input-border); padding: 12px 16px; border-radius: 8px; display: flex; align-items: center; position: relative; }
->>>>>>> friend/summoner2
 .search-bar input { background: none; border: none; outline: none; width: 100%; color: var(--color-text); font-size: 14px; }
 .country-selector:hover, .search-bar:hover { border-color: #3a4158; }
 .search-bar:focus-within { border-color: var(--color-win); box-shadow: 0 0 0 3px rgba(83,131,232,0.15); }
@@ -253,7 +249,6 @@ body {
 .footer-copyright { line-height: 1.6; }
 
 /* 자동완성 검색 스타일 */
-<<<<<<< HEAD
 .autocomplete-search-container {
   position: relative;
   flex-grow: 1;
@@ -294,21 +289,15 @@ body {
 .search-loading {
   position: absolute;
   right: 16px;
-=======
-.search-loading {
-  position: absolute;
-  right: 16px;
   top: 50%;
   transform: translateY(-50%);
->>>>>>> friend/summoner2
   font-size: 12px;
   color: var(--color-text-light);
 }
 
 .autocomplete-suggestions {
   position: absolute;
-<<<<<<< HEAD
-  top: 100%;
+  top: calc(100% + 4px);
   left: 0;
   right: 0;
   background-color: #36393f;
@@ -317,35 +306,11 @@ body {
   border-radius: 0 0 8px 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   z-index: 1000;
-  max-height: 400px;
-=======
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
-  background-color: #2F3136;
-  border: 1px solid #3A3C42;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  z-index: 1000;
   max-height: 300px;
->>>>>>> friend/summoner2
   overflow-y: auto;
 }
 
 .suggestions-header {
-<<<<<<< HEAD
-  padding: 12px 16px;
-  background-color: #2f3136;
-  border-bottom: 1px solid var(--color-border);
-  font-size: 14px;
-  font-weight: bold;
-  color: var(--color-text);
-  text-align: left;
-}
-
-.suggestions-list {
-  background-color: #36393f;
-=======
   padding: 12px 16px 8px 16px;
   font-weight: bold;
   font-size: 16px;
@@ -355,50 +320,31 @@ body {
 
 .suggestions-list {
   padding: 0;
->>>>>>> friend/summoner2
 }
 
 .suggestion-item {
   display: flex;
   align-items: center;
-<<<<<<< HEAD
   gap: 12px;
   padding: 12px 16px;
   cursor: pointer;
-  border-bottom: 1px solid #2f3136;
   transition: background-color 0.2s ease;
+  border-bottom: 1px solid #3A3C42;
 }
 
 .suggestion-item:hover,
 .suggestion-item.selected {
   background-color: #40444b;
-=======
-  padding: 12px 16px;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-  border-bottom: 1px solid #3A3C42;
->>>>>>> friend/summoner2
 }
 
 .suggestion-item:last-child {
   border-bottom: none;
 }
 
-<<<<<<< HEAD
-.suggestion-profile-icon {
-  width: 40px;
-  height: 40px;
-=======
-.suggestion-item:hover,
-.suggestion-item.selected {
-  background-color: #3A3C42;
-}
-
 .suggestion-profile-icon {
   width: 40px;
   height: 40px;
   margin-right: 12px;
->>>>>>> friend/summoner2
   flex-shrink: 0;
 }
 
@@ -410,21 +356,13 @@ body {
 }
 
 .suggestion-content {
-<<<<<<< HEAD
-  flex-grow: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-=======
   flex: 1;
   min-width: 0;
->>>>>>> friend/summoner2
 }
 
 .suggestion-name {
   display: flex;
   align-items: center;
-<<<<<<< HEAD
   gap: 4px;
   font-size: 14px;
   font-weight: bold;

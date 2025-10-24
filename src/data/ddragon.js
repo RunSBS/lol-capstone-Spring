@@ -14,24 +14,14 @@ export function buildChampionSquareUrl(version, championName) {
 export function buildItemIconUrl(version, itemId) {
   const safeVer = version || '15.18.1';
   const idNum = Number(itemId);
-<<<<<<< HEAD
   if (!Number.isFinite(idNum) || idNum <= 0) return ''; // 빈 슬롯 처리
-=======
-  if (!Number.isFinite(idNum) || idNum <= 0) return '';
->>>>>>> friend/summoner2
   return `https://ddragon.leagueoflegends.com/cdn/${safeVer}/img/item/${idNum}.png`;
 }
 
 // ===== 캐시 =====
-<<<<<<< HEAD
 const spellMapCache = new Map();      // key: `${ver}|${lang}` -> Map<number, spellKey>
 const runePerkMapByVer  = new Map();  // ver -> Map<perkId, iconPath>
 const runeStyleMapByVer = new Map();  // ver -> Map<styleId, iconPath>
-=======
-const spellMapCache = new Map(); // key: `${ver}|${lang}` value: Map<number, stringId>
-const runePerkMapByVer  = new Map(); // ver -> Map<perkId, iconPath>
-const runeStyleMapByVer = new Map(); // ver -> Map<styleId, iconPath>
->>>>>>> friend/summoner2
 
 // ===== 상수 =====
 export const PLACEHOLDER_IMG = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
@@ -41,11 +31,7 @@ const STYLE_720X_BY_ID = {
   8000: 'perk-images/Styles/7201_Precision.png',   // Precision
   8100: 'perk-images/Styles/7200_Domination.png',  // Domination
   8200: 'perk-images/Styles/7203_Sorcery.png',     // Sorcery
-<<<<<<< HEAD
   8300: 'perk-images/Styles/7202_Inspiration.png', // Inspiration (레거시 Whimsy 명칭 대응은 아래에서 처리)
-=======
-  8300: 'perk-images/Styles/7202_Inspiration.png', // Inspiration
->>>>>>> friend/summoner2
   8400: 'perk-images/Styles/7204_Resolve.png',     // Resolve
 };
 
@@ -84,41 +70,19 @@ export async function loadSpellMap(version, lang = 'en_US') {
 
 // ===== 룬(퍼크/스타일) 아이콘 =====
 
-<<<<<<< HEAD
-// 개별 퍼크 아이콘: runesReforged.json의 r.icon을 그대로 사용
-=======
 // 개별 퍼크 아이콘: runesReforged.json의 r.icon을 그대로 사용 (예: perk-images/Styles/Precision/Conqueror/Conqueror.png)
->>>>>>> friend/summoner2
 export function tryBuildRuneIconUrl(perkId, fallback = PLACEHOLDER_IMG) {
   if (perkId == null) return fallback;
   const id = Number(perkId);
 
-<<<<<<< HEAD
   // 1) loadRuneMap()가 채운 runePerkMapByVer에서 찾기
-  const maps = Array.from(runePerkMapByVer.values());
-  const rel = maps.find((m) => m.has(id))?.get(id);
-  if (rel) return `https://ddragon.leagueoflegends.com/cdn/img/${rel}`;
-
-  // 2) 하드코딩 폴백: 드문 누락 대응
-  const HARDCODED_PERK_ICON_BY_ID = {
-    // Sorcery
-    8214: 'perk-images/Styles/Sorcery/SummonAery/SummonAery.png',
-    8229: 'perk-images/Styles/Sorcery/ArcaneComet/ArcaneComet.png',
-    8230: 'perk-images/Styles/Sorcery/PhaseRush/PhaseRush.png',
-    // Domination
-    8112: 'perk-images/Styles/Domination/Electrocute/Electrocute.png',
-    8128: 'perk-images/Styles/Domination/DarkHarvest/DarkHarvest.png',
-    9923: 'perk-images/Styles/Domination/HailOfBlades/HailOfBlades.png',
-    // Precision
-=======
-  // loadRuneMap()가 채운 runePerkMapByVer에서 찾기
   const maps = Array.from(runePerkMapByVer.values());
   const rel = maps.find((m) => m.has(id))?.get(id);
   if (rel) {
     return `https://ddragon.leagueoflegends.com/cdn/img/${rel}`;
   }
 
-  // 하드코딩 폴백: 특정 키스톤(특히 Sorcery)이 간헐적으로 매핑되지 않을 때
+  // 2) 하드코딩 폴백: 특정 키스톤(특히 Sorcery)이 간헐적으로 매핑되지 않을 때
   const HARDCODED_PERK_ICON_BY_ID = {
     // Sorcery (마법)
     8214: 'perk-images/Styles/Sorcery/SummonAery/SummonAery.png', // 콩콩이 소환
@@ -129,22 +93,10 @@ export function tryBuildRuneIconUrl(perkId, fallback = PLACEHOLDER_IMG) {
     8128: 'perk-images/Styles/Domination/DarkHarvest/DarkHarvest.png',
     9923: 'perk-images/Styles/Domination/HailOfBlades/HailOfBlades.png',
     // Precision (정밀) 대표 키스톤들(예비)
->>>>>>> friend/summoner2
     8005: 'perk-images/Styles/Precision/PressTheAttack/PressTheAttack.png',
     8008: 'perk-images/Styles/Precision/LethalTempo/LethalTempoTemp.png',
     8021: 'perk-images/Styles/Precision/FleetFootwork/FleetFootwork.png',
     8010: 'perk-images/Styles/Precision/Conqueror/Conqueror.png',
-<<<<<<< HEAD
-    // Resolve
-    8437: 'perk-images/Styles/Resolve/GraspOfTheUndying/GraspOfTheUndying.png',
-    8439: 'perk-images/Styles/Resolve/VeteranAftershock/VeteranAftershock.png',
-    8465: 'perk-images/Styles/Resolve/Guardian/Guardian.png',
-    // Inspiration
-    8351: 'perk-images/Styles/Inspiration/GlacialAugment/GlacialAugment.png',
-    8360: 'perk-images/Styles/Inspiration/UnsealedSpellbook/UnsealedSpellbook.png',
-    // First Strike (경로가 Domination 하위에 존재하는 케이스 대응)
-    8369: 'perk-images/Styles/Domination/FirstStrike/FirstStrike.png',
-=======
     // Resolve (결의) 대표 키스톤들(예비)
     8437: 'perk-images/Styles/Resolve/GraspOfTheUndying/GraspOfTheUndying.png',
     8439: 'perk-images/Styles/Resolve/VeteranAftershock/VeteranAftershock.png',
@@ -153,19 +105,14 @@ export function tryBuildRuneIconUrl(perkId, fallback = PLACEHOLDER_IMG) {
     8351: 'perk-images/Styles/Inspiration/GlacialAugment/GlacialAugment.png',
     8360: 'perk-images/Styles/Inspiration/UnsealedSpellbook/UnsealedSpellbook.png',
     8369: 'perk-images/Styles/Domination/FirstStrike/FirstStrike.png', // First Strike가 Domination 경로에 위치하지만 영감 계열 키스톤
->>>>>>> friend/summoner2
   };
   if (HARDCODED_PERK_ICON_BY_ID[id]) {
     return `https://ddragon.leagueoflegends.com/cdn/img/${HARDCODED_PERK_ICON_BY_ID[id]}`;
   }
 
-<<<<<<< HEAD
-  try { console.debug('[DEBUG_LOG] Rune icon not resolved for perkId=', id); } catch {}
-=======
   try {
     console.debug('[DEBUG_LOG] Rune icon not resolved for perkId=', id);
   } catch {}
->>>>>>> friend/summoner2
   return fallback;
 }
 
@@ -176,24 +123,16 @@ export function buildRuneStyleIcon(styleId, fallback = PLACEHOLDER_IMG) {
 
   // 1) 720x 고정 매핑 우선
   const path720 = STYLE_720X_BY_ID[id];
-<<<<<<< HEAD
-  if (path720) return `https://ddragon.leagueoflegends.com/cdn/img/${path720}`;
-=======
   if (path720) {
     return `https://ddragon.leagueoflegends.com/cdn/img/${path720}`;
   }
->>>>>>> friend/summoner2
 
   // 2) runesReforged.json에서 로드된 style.icon 경로 폴백
   const maps = Array.from(runeStyleMapByVer.values());
   const rel = maps.find((m) => m.has(id))?.get(id);
-<<<<<<< HEAD
-  if (rel) return `https://ddragon.leagueoflegends.com/cdn/img/${rel}`;
-=======
   if (rel) {
     return `https://ddragon.leagueoflegends.com/cdn/img/${rel}`;
   }
->>>>>>> friend/summoner2
 
   // 3) 최종 폴백
   return fallback;
