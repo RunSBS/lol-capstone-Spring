@@ -6,7 +6,6 @@ function MasteryCard({ data }) {
     <div className="info-card">
       <h3>숙련도</h3>
       <div className="mastery-champions">
-<<<<<<< HEAD
         {displayData.length > 0 ? (
           displayData.map((champ, index) => (
             <div key={index} className="mastery-champion-item">
