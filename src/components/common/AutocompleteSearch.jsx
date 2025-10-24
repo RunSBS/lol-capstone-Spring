@@ -178,18 +178,16 @@ function AutocompleteSearch({
 
   return (
     <div className="autocomplete-search-container">
-      <div className="search-bar">
-        <input
-          ref={inputRef}
-          type="text"
-          placeholder={placeholder}
-          value={keyword}
-          onChange={handleInputChange}
-          onKeyDown={handleKeyDown}
-          autoComplete="off"
-        />
-        {loading && <div className="search-loading">검색 중...</div>}
-      </div>
+      <input
+        ref={inputRef}
+        type="text"
+        placeholder={placeholder}
+        value={keyword}
+        onChange={handleInputChange}
+        onKeyDown={handleKeyDown}
+        autoComplete="off"
+      />
+      {loading && <div className="search-loading">검색 중...</div>}
       
       {showSuggestions && suggestions.length > 0 && (
         <div ref={suggestionsRef} className="autocomplete-suggestions">
