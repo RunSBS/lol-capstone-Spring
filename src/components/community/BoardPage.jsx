@@ -132,7 +132,6 @@ function BoardPage({ category }) {
             </div>
             <div style={{ marginTop: 8 }}>
               추천: {post.like || 0} / 반대: {post.dislike || 0}
-<<<<<<< HEAD
               {post.vote && post.vote.results && post.vote.options && (
                 <div style={{ marginTop: 4, fontSize: '12px', color: '#666' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
