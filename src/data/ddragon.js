@@ -202,20 +202,14 @@ export async function loadRuneMap(version, lang = 'en_US') {
 }
 
 // ===== 랭크 엠블렘 =====
-<<<<<<< HEAD
-=======
 
 // 랭크 엠블렘 URL 빌더(CommunityDragon)
->>>>>>> friend/summoner2
 export function buildRankEmblemUrl(tier) {
   const t = String(tier || 'GOLD').toLowerCase();
   return `https://raw.communitydragon.org/latest/game/assets/ux/ranked-emblems/league-emblem-${t}.png`;
 }
 
-<<<<<<< HEAD
-=======
 // OPGG 엠블렘 폴백 URL (커뮤니티드래곤 onError 시 1회 사용)
->>>>>>> friend/summoner2
 export function buildOpggEmblemFallbackUrl(tier, rank) {
   const t = String(tier || 'GOLD').toLowerCase();
   const roman = String(rank || '').toUpperCase();
@@ -224,7 +218,6 @@ export function buildOpggEmblemFallbackUrl(tier, rank) {
   return `https://opgg-static.akamaized.net/images/medals/${t}_${n}.png?image=q_auto,f_webp,w_144`;
 }
 
-<<<<<<< HEAD
 // ===== 스티커(감정표현) =====
 export function buildStickerUrl(stickerId, size = 'small') {
   const sizeMap = { small: '32x32', medium: '64x64', large: '128x128' };
@@ -305,7 +298,6 @@ export async function loadEmotes() {
     console.warn('Failed to load emotes, fallback to empty list:', err);
     return [];
   }
-=======
 
 // 정적 720x 스타일 아이콘 URL 반환 (styleId: 8000~8400)
 export function getStyleStaticIcon(styleId, fallback = PLACEHOLDER_IMG) {
@@ -325,5 +317,4 @@ export function getStyleStaticIcon(styleId, fallback = PLACEHOLDER_IMG) {
   try { console.debug('[DEBUG_LOG] Unknown styleId for icon:', id) } catch {}
   // 3) 최종 폴백
   return fallback
->>>>>>> friend/summoner2
 }
