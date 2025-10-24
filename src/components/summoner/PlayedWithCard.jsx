@@ -6,9 +6,9 @@ function PlayedWithCard({ data }) {
     <div className="info-card played-with-box">
       <h3>같은 팀으로 게임한 소환사들 (최근 게임)</h3>
       <ul className="played-with-list">
-<<<<<<< HEAD
-        {data.map((player, index) => (
-          <li key={index}>
+        {displayData.length > 0 ? (
+          displayData.map((player, index) => (
+            <li key={index}>
             <img src={player.iconUrl} alt={player.name} />
             <div className="player-info">
               <p className="player-name-tag">{player.name} <span>{player.tag}</span></p>
