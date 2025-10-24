@@ -86,15 +86,6 @@ function BoardPage({ category }) {
           case "title":
             filtered = data.content.filter(p => p.title.includes(searchKeyword));
             break;
-<<<<<<< HEAD
-          case "content":
-            filtered = data.content.filter(p => 
-              (p.content && p.content.includes(searchKeyword)) || 
-              (p.contentB && p.contentB.includes(searchKeyword))
-            );
-            break;
-=======
->>>>>>> friend/summoner2
           case "comment":
             const commentsJson = localStorage.getItem("dummyComments");
             const comments = JSON.parse(commentsJson || "[]");
@@ -129,11 +120,7 @@ function BoardPage({ category }) {
               <h4>{post.title}</h4>
             </Link>
             <div>
-<<<<<<< HEAD
-              <a href={`/user/${encodeURIComponent(post.writer)}`} target="_blank" rel="noopener noreferrer">{post.writer}</a> · {new Date(post.createdAt).toLocaleString()} · {post.category}
-=======
               <Link to={`/user/${encodeURIComponent(post.writer)}`}>{post.writer}</Link> · {new Date(post.createdAt).toLocaleString()} · {post.category}
->>>>>>> friend/summoner2
               {post.tags && post.tags.includes("highrecommend") && (
                 <span style={{
                   marginLeft: 8, padding: "2px 6px", fontSize: 12,
@@ -176,8 +163,6 @@ function BoardPage({ category }) {
                   </div>
                 </div>
               )}
-=======
->>>>>>> friend/summoner2
             </div>
           </div>
           <div style={{
@@ -201,10 +186,6 @@ function BoardPage({ category }) {
           <option value="all">전체</option>
           <option value="writer">작성자</option>
           <option value="title">제목</option>
-<<<<<<< HEAD
-          <option value="content">본문</option>
-=======
->>>>>>> friend/summoner2
           <option value="comment">댓글</option>
         </select>
         <button onClick={handleSearch}>검색</button>
