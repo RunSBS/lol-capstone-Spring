@@ -138,61 +138,12 @@ export function buildRuneStyleIcon(styleId, fallback = PLACEHOLDER_IMG) {
   return fallback;
 }
 
-<<<<<<< HEAD
-// 정적 720x/동적 아이콘 통합 접근자 (styleId: 8000~8400)
-export function getStyleStaticIcon(styleId, fallback = PLACEHOLDER_IMG) {
-  const id = Number(styleId);
-  if (!Number.isFinite(id)) return fallback;
-  // 먼저 runesReforged의 style.icon 경로 (CDN AccessDenied 회피)
-  const maps = Array.from(runeStyleMapByVer.values());
-  const rel = maps.find((m) => m.has(id))?.get(id);
-  if (rel) return `https://ddragon.leagueoflegends.com/cdn/img/${rel}`;
-  // 720x 고정 경로 폴백
-  const path720 = STYLE_720X_BY_ID[id];
-  if (path720) return `https://ddragon.leagueoflegends.com/cdn/img/${path720}`;
-  try { console.debug('[DEBUG_LOG] Unknown styleId for icon:', id); } catch {}
-  return fallback;
-}
-
-// perkId -> styleId 추론 (아이콘 경로 기반 + 키스톤 폴백)
-const KEYSTONE_STYLE_BY_PERK = {
-  // Precision
-  8005: 8000, 8008: 8000, 8010: 8000, 8021: 8000,
-  // Domination
-  8112: 8100, 8124: 8100, 8128: 8100, 9923: 8100,
-  // Sorcery
-  8214: 8200, 8229: 8200, 8230: 8200,
-  // Resolve
-  8437: 8400, 8439: 8400, 8465: 8400,
-  // Inspiration
-  8351: 8300, 8360: 8300, 8369: 8300, // First Strike
-};
-
-=======
 // 보조 스타일 추론: perkId의 아이콘 경로에 포함된 스타일 이름으로 스타일 ID 유추
->>>>>>> friend/summoner2
 export function inferStyleIdFromPerkId(perkId) {
   if (perkId == null) return null;
   const id = Number(perkId);
   if (!Number.isFinite(id)) return null;
-<<<<<<< HEAD
 
-  // 1) runesReforged 아이콘 경로에서 스타일 추론
-  const perkMaps = Array.from(runePerkMapByVer.values());
-  const rel = perkMaps.find((m) => m.has(id))?.get(id) || '';
-  if (rel) {
-    const p = String(rel);
-    if (p.includes('/Precision/')   || p.toLowerCase().includes('/precision/'))   return 8000;
-    if (p.includes('/Domination/')  || p.toLowerCase().includes('/domination/'))  return 8100;
-    if (p.includes('/Sorcery/')     || p.toLowerCase().includes('/sorcery/'))     return 8200;
-    if (p.includes('/Inspiration/') || p.toLowerCase().includes('/inspiration/') || p.includes('/Whimsy/')) return 8300; // 레거시 Whimsy 대응
-    if (p.includes('/Resolve/')     || p.toLowerCase().includes('/resolve/'))     return 8400;
-  }
-
-  // 2) 대표 키스톤 정적 매핑 폴백
-  if (KEYSTONE_STYLE_BY_PERK[id]) return KEYSTONE_STYLE_BY_PERK[id];
-
-=======
   const maps = Array.from(runePerkMapByVer.values());
   const rel = maps.find((m) => m.has(id))?.get(id) || '';
   const s = String(rel);
@@ -209,7 +160,6 @@ export function inferStyleIdFromPerkId(perkId) {
   if (lower.includes('/sorcery/')) return 8200;
   if (lower.includes('/inspiration/')) return 8300;
   if (lower.includes('/resolve/')) return 8400;
->>>>>>> friend/summoner2
   return null;
 }
 
