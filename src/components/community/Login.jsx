@@ -1,10 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-<<<<<<< HEAD
 import AttendanceModal from "../common/AttendanceModal.jsx";
 import { processAttendance } from "../../utils/attendanceUtils.js";
-=======
->>>>>>> friend/summoner2
 
 function Login({ onLogin, onShowRegister }) {
   const navigate = useNavigate();
@@ -12,11 +9,8 @@ function Login({ onLogin, onShowRegister }) {
     username: "",
     password: ""
   });
-<<<<<<< HEAD
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
   const [attendanceTokens, setAttendanceTokens] = useState(0);
-=======
->>>>>>> friend/summoner2
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -31,7 +25,6 @@ function Login({ onLogin, onShowRegister }) {
     if (user) {
       localStorage.setItem("currentUser", formData.username);
       onLogin(formData.username);
-<<<<<<< HEAD
       
       // 출석 보상 체크
       const attendanceResult = processAttendance(formData.username);
@@ -44,11 +37,6 @@ function Login({ onLogin, onShowRegister }) {
         window.dispatchEvent(new Event('loginStateChanged'));
         navigate(-1);
       }
-=======
-      // 로그인 상태 변경 이벤트 발생
-      window.dispatchEvent(new Event('loginStateChanged'));
-      navigate(-1); // 이전 페이지로 돌아가기
->>>>>>> friend/summoner2
     } else {
       alert("아이디 또는 비밀번호가 올바르지 않습니다.");
     }
