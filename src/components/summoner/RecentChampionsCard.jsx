@@ -15,9 +15,9 @@ function RecentChampionsCard({ data }) {
         <button className={`tab-btn ${activeTab === 'flex' ? 'active' : ''}`} onClick={() => setActiveTab('flex')}>자유 랭크</button>
       </div>
       <ul className="champion-stats-list">
-<<<<<<< HEAD
-        {data.map((champ, index) => (
-          <li key={index}>
+        {currentData.length > 0 ? (
+          currentData.map((champ, index) => (
+            <li key={index}>
             <img src={champ.imageUrl} alt={champ.name} className="champ-icon"/>
             <div className="champ-details">
               <p className="champ-name">{champ.name}</p>
