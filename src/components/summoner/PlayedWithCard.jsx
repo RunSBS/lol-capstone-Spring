@@ -1,11 +1,7 @@
 // 같은 팀으로 게임한 소환사들 (최근 게임)
 function PlayedWithCard({ data }) {
-<<<<<<< HEAD
-=======
   // 데이터가 없거나 빈 배열인 경우 디폴트 데이터 사용
   const displayData = data && data.length > 0 ? data : []
-  
->>>>>>> friend/summoner2
   return (
     <div className="info-card played-with-box">
       <h3>같은 팀으로 게임한 소환사들 (최근 게임)</h3>
@@ -23,8 +19,6 @@ function PlayedWithCard({ data }) {
               <p className="player-winrate" style={{color: player.winrate >= 60 ? 'var(--color-loss)' : player.winrate >= 50 ? 'var(--color-win)' : 'var(--color-text-light)' }}>{player.winrate}%</p>
             </div>
           </li>
-        ))}
-=======
         {displayData.length > 0 ? (
           displayData.map((player, index) => (
             <li key={index}>
@@ -44,7 +38,6 @@ function PlayedWithCard({ data }) {
             <p>함께 플레이한 소환사 데이터를 불러올 수 없습니다.</p>
           </li>
         )}
->>>>>>> friend/summoner2
       </ul>
     </div>
   )
