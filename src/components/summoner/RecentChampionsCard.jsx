@@ -2,14 +2,10 @@
 import { useState } from 'react'
 
 function RecentChampionsCard({ data }) {
-<<<<<<< HEAD
-  const [activeTab, setActiveTab] = useState('solo')
-=======
   const [activeTab, setActiveTab] = useState('season')
 
   // 현재 활성 탭에 따른 데이터 선택
   const currentData = data?.[activeTab] || []
->>>>>>> friend/summoner2
 
   return (
     <div className="info-card recent-champions-card">
@@ -36,8 +32,6 @@ function RecentChampionsCard({ data }) {
               <p className="games-played">{champ.games}</p>
             </div>
           </li>
-        ))}
-=======
         {currentData.length > 0 ? (
           currentData.map((champ, index) => (
             <li key={index}>
@@ -61,7 +55,6 @@ function RecentChampionsCard({ data }) {
             <p>해당 모드에서 플레이한 챔피언이 없습니다.</p>
           </li>
         )}
->>>>>>> friend/summoner2
       </ul>
       <a href="#" className="view-more-link">더 보기 + 다른 시즌 보기 <i className="fa-solid fa-chevron-right"></i></a>
     </div>
