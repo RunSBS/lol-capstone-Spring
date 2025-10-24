@@ -9,7 +9,7 @@ function RankedGameCard({ entry, loading, error }) {
   const losses = entry?.losses ?? 3
   const winrate = (wins + losses) > 0 ? Math.round((wins / (wins + losses)) * 100) : 0
   // 엠블렘: CommunityDragon 사용, 실패 시 OPGG 폴백 1회
-  const emblemTier = (entry?.tier || 'GOLD').toLowerCase()
+  const emblemTier = entry?.tier || 'Gold'
   const emblemUrl = buildRankEmblemUrl(emblemTier)
   return (
     <div className="info-card">
