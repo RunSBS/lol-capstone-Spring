@@ -83,11 +83,8 @@ const boardApi = {
         // lolmuncheol specific fields
         writerB: post.category === "lolmuncheol" ? (post.writerB || "") : undefined,
         contentB: post.category === "lolmuncheol" ? (post.contentB || "") : undefined,
-<<<<<<< HEAD
-=======
         cheerA: post.category === "lolmuncheol" ? 0 : undefined,
         cheerB: post.category === "lolmuncheol" ? 0 : undefined,
->>>>>>> friend/summoner2
         tags: post.tags || [],
       };
       posts.push(newPost);
@@ -142,8 +139,6 @@ const boardApi = {
       else reject("수정 실패");
     }),
 
-<<<<<<< HEAD
-=======
   // lolmuncheol cheer APIs
   cheerA: (postId) =>
     new Promise((resolve, reject) => {
@@ -208,7 +203,6 @@ const boardApi = {
       });
       if (ok) resolve(true); else reject("응원 취소 실패");
     }),
->>>>>>> friend/summoner2
 
   searchPosts: (keyword, category) =>
     new Promise((resolve) => {
@@ -381,7 +375,6 @@ const boardApi = {
 
       resolve({ voteData, userVote });
     }),
-<<<<<<< HEAD
 
   // 투표 취소 API
   removeVoteFromPost: (postId, userId) =>
@@ -433,8 +426,6 @@ const boardApi = {
       if (updated) resolve(true);
       else reject("투표 취소 실패");
     }),
-=======
->>>>>>> friend/summoner2
 };
 
 export default boardApi;

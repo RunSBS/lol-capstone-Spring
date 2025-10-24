@@ -134,7 +134,6 @@ function PostDetailPage({ currentUser, adminId, postId }) {
 
     try {
       await boardApi.voteOnPost(id, optionIndex, currentUser);
-<<<<<<< HEAD
       
       // 롤문철 카테고리인 경우 투표 시 자동으로 추천
       if (post && post.category === "lolmuncheol") {
@@ -151,8 +150,6 @@ function PostDetailPage({ currentUser, adminId, postId }) {
         }
       }
       
-=======
->>>>>>> friend/summoner2
       alert("투표가 완료되었습니다.");
       
       // 투표 결과 다시 로드
@@ -164,7 +161,6 @@ function PostDetailPage({ currentUser, adminId, postId }) {
     }
   };
 
-<<<<<<< HEAD
   // 투표 취소 핸들러
   const handleVoteCancel = async () => {
     if (!currentUser) {
@@ -198,8 +194,6 @@ function PostDetailPage({ currentUser, adminId, postId }) {
     }
   };
 
-=======
->>>>>>> friend/summoner2
   // 미디어 태그를 실제 미디어로 변환하는 함수
   const renderContentWithMedia = (content) => {
     if (!content) return '';
@@ -280,11 +274,7 @@ function PostDetailPage({ currentUser, adminId, postId }) {
         <h2>{post.title}</h2>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
       <div>
-<<<<<<< HEAD
-        <a href={`/user/${encodeURIComponent(post.writer)}`} target="_blank" rel="noopener noreferrer"><b>{post.writer}</b></a> vs <a href={`/user/${encodeURIComponent(post.writerB || "작성자B")}`} target="_blank" rel="noopener noreferrer"><b>{post.writerB || "작성자B"}</b></a> | {new Date(post.createdAt).toLocaleString()}
-=======
         <Link to={`/user/${encodeURIComponent(post.writer)}`}><b>{post.writer}</b></Link> vs <Link to={`/user/${encodeURIComponent(post.writerB || "작성자B")}`}><b>{post.writerB || "작성자B"}</b></Link> | {new Date(post.createdAt).toLocaleString()}
->>>>>>> friend/summoner2
       </div>
           {canEdit && (
             <div>
@@ -346,7 +336,6 @@ function PostDetailPage({ currentUser, adminId, postId }) {
           </div>
         </div>
 
-<<<<<<< HEAD
         {/* 투표 섹션 */}
         {voteData && (
           <VoteDisplay 
@@ -370,7 +359,6 @@ function PostDetailPage({ currentUser, adminId, postId }) {
           <span style={{ margin: "0 16px" }}>반대: {dislike}</span>
         </div>
         
-=======
         {/* cheer area */}
         <div style={{ marginTop: 16, textAlign: "center" }}>
           <LolmuncheolCheer
@@ -379,8 +367,6 @@ function PostDetailPage({ currentUser, adminId, postId }) {
             onPostUpdate={(updated) => setPost(updated)}
           />
         </div>
-        {/* cheer area will be added later */}
->>>>>>> friend/summoner2
         <CommentSection postId={post.id} currentUser={currentUser} />
       </div>
     );
@@ -390,11 +376,7 @@ function PostDetailPage({ currentUser, adminId, postId }) {
     <div>
       <h2>{post.title}</h2>
       <div>
-<<<<<<< HEAD
-        <a href={`/user/${encodeURIComponent(post.writer)}`} target="_blank" rel="noopener noreferrer"><b>{post.writer}</b></a> | {new Date(post.createdAt).toLocaleString()}
-=======
         <Link to={`/user/${encodeURIComponent(post.writer)}`}><b>{post.writer}</b></Link> | {new Date(post.createdAt).toLocaleString()}
->>>>>>> friend/summoner2
       </div>
       {canEdit && (
         <>
@@ -424,10 +406,7 @@ function PostDetailPage({ currentUser, adminId, postId }) {
           voteData={voteData} 
           userVoteOption={userVoteOption}
           onVoteSubmit={handleVoteSubmit}
-<<<<<<< HEAD
           onVoteCancel={handleVoteCancel}
-=======
->>>>>>> friend/summoner2
           currentUser={currentUser}
         />
       )}
@@ -448,11 +427,7 @@ function PostDetailPage({ currentUser, adminId, postId }) {
 }
 
 // 투표 표시 컴포넌트
-<<<<<<< HEAD
 function VoteDisplay({ voteData, userVoteOption, onVoteSubmit, onVoteCancel, currentUser }) {
-=======
-function VoteDisplay({ voteData, userVoteOption, onVoteSubmit, currentUser }) {
->>>>>>> friend/summoner2
   const [selectedOption, setSelectedOption] = useState(userVoteOption);
   const [hasVoted, setHasVoted] = useState(userVoteOption !== null);
 
@@ -471,15 +446,12 @@ function VoteDisplay({ voteData, userVoteOption, onVoteSubmit, currentUser }) {
     setHasVoted(true);
   };
 
-<<<<<<< HEAD
   const handleVoteCancel = async () => {
     await onVoteCancel();
     setHasVoted(false);
     setSelectedOption(null);
   };
 
-=======
->>>>>>> friend/summoner2
   const getTotalVotes = () => {
     if (!voteData.results) return 0;
     return Object.values(voteData.results).reduce((sum, count) => sum + count, 0);
@@ -611,7 +583,6 @@ function VoteDisplay({ voteData, userVoteOption, onVoteSubmit, currentUser }) {
         </button>
       )}
 
-<<<<<<< HEAD
       {hasVoted && !isExpired && (
         <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
           <p style={{ color: "#28a745", fontWeight: "bold", margin: 0 }}>
@@ -635,9 +606,6 @@ function VoteDisplay({ voteData, userVoteOption, onVoteSubmit, currentUser }) {
       )}
 
       {hasVoted && isExpired && (
-=======
-      {hasVoted && (
->>>>>>> friend/summoner2
         <p style={{ color: "#28a745", fontWeight: "bold" }}>
           ✓ 투표가 완료되었습니다.
         </p>
@@ -647,8 +615,7 @@ function VoteDisplay({ voteData, userVoteOption, onVoteSubmit, currentUser }) {
 }
 
 export default PostDetailPage;
-<<<<<<< HEAD
-=======
+
 // Inline component for Lolmuncheol cheer UI/logic
 function LolmuncheolCheer({ post, currentUser, onPostUpdate }) {
   const [cheerA, setCheerA] = React.useState(post.cheerA || 0);
@@ -748,5 +715,4 @@ function LolmuncheolCheer({ post, currentUser, onPostUpdate }) {
     </div>
   );
 }
->>>>>>> friend/summoner2
 

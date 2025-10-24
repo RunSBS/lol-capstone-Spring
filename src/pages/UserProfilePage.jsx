@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-<<<<<<< HEAD
 import { useParams, Link } from "react-router-dom";
 import StickerShop from "../components/common/StickerShop";
 import StickerInventory from "../components/common/StickerInventory";
@@ -13,14 +12,9 @@ import {
   removeStickerFromBannerById,
   updateBannerSticker
 } from "../utils/stickerUtils";
-=======
-import { useParams } from "react-router-dom";
->>>>>>> friend/summoner2
 
 function loadUser(username) {
   const usersJson = localStorage.getItem("users") || "[]";
-  const users = JSON.parse(usersJson);
-<<<<<<< HEAD
   const user = users.find(u => u.username === username) || { username, password: "", bio: "", tokens: 0, avatar: "" };
   
   // admin1 계정의 토큰을 9999로 설정
@@ -39,9 +33,6 @@ function loadUser(username) {
   }
   
   return user;
-=======
-  return users.find(u => u.username === username) || { username, password: "", bio: "", tokens: 0, avatar: "" };
->>>>>>> friend/summoner2
 }
 
 function saveUser(user) {

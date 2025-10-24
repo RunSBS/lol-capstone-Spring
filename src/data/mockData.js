@@ -55,8 +55,6 @@ export const recentGamesSummaryData = {
   ],
 }
 
-<<<<<<< HEAD
-=======
 // 자동완성 검색용 목업 데이터
 export const autocompleteMockData = [
   { id: 1, name: 'Hide on bush', tag: 'KR1', level: 100, profileIconId: 5465, tier: 'Challenger', rank: 'I', lp: 1234, ddVer: '15.18.1' },
@@ -205,6 +203,4 @@ export const mockMatchData = [
     detailedPlayers: detailedPlayersData // MatchDetails에서 사용할 수 있도록 추가
   }
 ]
-
->>>>>>> friend/summoner2
 
