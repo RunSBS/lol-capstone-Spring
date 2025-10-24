@@ -8,8 +8,6 @@ function RecentGamesSummary({ data }) {
   const playedChamps = data?.playedChamps ?? []
   const positions = data?.positions ?? []
 
-  console.log('RecentGamesSummary - data:', data)
-  console.log('RecentGamesSummary - positions:', positions)
   return (
       <div className="recent-games-summary">
         <div className="summary-body">

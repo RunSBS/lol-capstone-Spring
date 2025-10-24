@@ -35,9 +35,6 @@ function SummonerPage() {
       gameName: name || '', 
       tagLine: (tag || 'KR1').toLowerCase() // 태그가 없으면 기본값 KR1 사용
     }
-    console.log('SummonerPage - nickname:', nickname)
-    console.log('SummonerPage - decoded:', decoded)
-    console.log('SummonerPage - parsed:', result)
     return result
   }, [nickname])
 
@@ -134,8 +131,6 @@ function SummonerPage() {
       450: 'ARAM',
     }
 
-    console.log('transformedMatches - recent:', recent)
-    console.log('transformedMatches - view:', view)
     try {
       return (recent || []).map((m) => {
         const list = Array.isArray(m?.participants) ? m.participants : []
@@ -221,12 +216,9 @@ function SummonerPage() {
         }
       })
     } catch (e) {
-      console.log('transformedMatches error:', e)
       return []
     }
   }, [recent, ddVer, view])
-
-  console.log('transformedMatches result:', transformedMatches)
   // SummonerPage 내부에 추가 (transformedMatches 아래쯤)
   const summaryData = useMemo(() => {
     const games = transformedMatches || []
@@ -315,7 +307,6 @@ function SummonerPage() {
       return { role: displayRole, percentage: pct, icon: iconMap[displayRole] }
     })
 
-    console.log('summaryData - positions:', positions)
     return { total, wins, losses, winrate, avg, playedChamps, positions }
   }, [transformedMatches, view])
 
@@ -444,7 +435,6 @@ function SummonerPage() {
     }
   }, [transformedMatches, view])
 
-  console.log('championData:', championData)
   return (
     <>
       <Header />

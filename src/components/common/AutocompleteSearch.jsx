@@ -43,9 +43,7 @@ function AutocompleteSearch({
           let data = []
           try {
             data = await fetchAutocompleteKeywords(searchQuery)
-            console.log('AutocompleteSearch - API 호출 성공:', data)
           } catch (apiError) {
-            console.log('AutocompleteSearch - API 호출 실패, 목업 데이터 사용:', apiError)
             // API 호출 실패 시 목업 데이터 사용
             data = searchAutocompleteMockData(searchQuery)
           }
@@ -53,7 +51,6 @@ function AutocompleteSearch({
           setShowSuggestions(true)
           setSelectedIndex(-1)
         } catch (error) {
-          console.error('자동완성 검색 실패:', error)
           // 최종 폴백으로 목업 데이터 사용
           const mockData = searchAutocompleteMockData(query)
           setSuggestions(mockData)

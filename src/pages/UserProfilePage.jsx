@@ -15,6 +15,7 @@ import {
 
 function loadUser(username) {
   const usersJson = localStorage.getItem("users") || "[]";
+  const users = JSON.parse(usersJson);
   const user = users.find(u => u.username === username) || { username, password: "", bio: "", tokens: 0, avatar: "" };
   
   // admin1 계정의 토큰을 9999로 설정

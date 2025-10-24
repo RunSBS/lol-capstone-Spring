@@ -15,7 +15,7 @@ function MasteryCard({ data }) {
           ))
         ) : (
           <div className="no-data">
-            <p>숙련도 데이터가 없습니다다.</p>
+            <p>숙련도 데이터가 없습니다.</p>
           </div>
         )}
       </div>

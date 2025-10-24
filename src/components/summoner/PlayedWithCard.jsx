@@ -9,19 +9,6 @@ function PlayedWithCard({ data }) {
         {displayData.length > 0 ? (
           displayData.map((player, index) => (
             <li key={index}>
-            <img src={player.iconUrl} alt={player.name} />
-            <div className="player-info">
-              <p className="player-name-tag">{player.name} <span>{player.tag}</span></p>
-              <p className="player-level">레벨 {player.level}</p>
-            </div>
-            <div className="player-stats">
-              <p className="player-games">{player.games}</p>
-              <p className="player-winrate" style={{color: player.winrate >= 60 ? 'var(--color-loss)' : player.winrate >= 50 ? 'var(--color-win)' : 'var(--color-text-light)' }}>{player.winrate}%</p>
-            </div>
-          </li>
-        {displayData.length > 0 ? (
-          displayData.map((player, index) => (
-            <li key={index}>
               <img src={player.iconUrl} alt={player.name} />
               <div className="player-info">
                 <p className="player-name-tag">{player.name} <span>{player.tag}</span></p>

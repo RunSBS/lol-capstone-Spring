@@ -26,9 +26,6 @@ function MatchDetails({ matchData }) {
       ? matchData.detailedPlayers
       : normalizeFromRawParticipants(matchData)
   
-  // 디버그 로그 추가
-  console.log('MatchDetails - matchData:', matchData)
-  console.log('MatchDetails - basePlayers:', basePlayers)
 
   // 필요 시 상세 호출: 현재 데이터에 피해량이 전부 0이면 detail API 조회 시도
   useEffect(() => {
