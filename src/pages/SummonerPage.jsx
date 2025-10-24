@@ -407,7 +407,7 @@ function SummonerPage() {
             return {
               name: c.name,
               imageUrl: c.imageUrl,
-              cs: `${avgCs} (${avgCspm})`, // 평균 CS
+              cs: avgCs, // 평균 CS
               kdaRatio: `${((c.k + c.a) / Math.max(1, c.d)).toFixed(2)}:1 평점`, // 전체 KDA 비율
               kdaNumbers: `${avgK} / ${avgD} / ${avgA}`, // 평균 K/D/A
               winrate: Math.round((c.wins / c.games) * 100) + '%', // 승률 (합산)
@@ -418,7 +418,7 @@ function SummonerPage() {
             return {
               name: c.name,
               imageUrl: c.imageUrl,
-              cs: `${c.cs} (${(c.cs / Math.max(1, c.totalDuration / 60)).toFixed(1)})`,
+              cs: c.cs,
               kdaRatio: `${((c.k + c.a) / Math.max(1, c.d)).toFixed(2)}:1 평점`,
               kdaNumbers: `${(c.k / c.games).toFixed(1)} / ${(c.d / c.games).toFixed(1)} / ${(c.a / c.games).toFixed(1)}`,
               winrate: Math.round((c.wins / c.games) * 100) + '%',

@@ -21,7 +21,7 @@ function RecentChampionsCard({ data }) {
             <img src={champ.imageUrl} alt={champ.name} className="champ-icon"/>
             <div className="champ-details">
               <p className="champ-name">{champ.name}</p>
-              <p className="champ-cs">CS {champ.cs}</p>
+              <p className="champ-cs">CS {champ.cs || 0}</p>
             </div>
             <div className="champ-kda-stats">
               <p className="kda-ratio">{champ.kdaRatio}</p>
@@ -38,7 +38,7 @@ function RecentChampionsCard({ data }) {
               <img src={champ.imageUrl} alt={champ.name} className="champ-icon"/>
               <div className="champ-details">
                 <p className="champ-name">{champ.name}</p>
-                <p className="champ-cs">CS {champ.cs}</p>
+                <p className="champ-cs">CS {champ.cs || 0}</p>
               </div>
               <div className="champ-kda-stats">
                 <p className="kda-ratio">{champ.kdaRatio}</p>
