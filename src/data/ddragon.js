@@ -144,23 +144,8 @@ export async function loadRuneMap(version, lang = 'en_US') {
 
 // ===== 랭크 엠블렘 =====
 export function buildRankEmblemUrl(tier) {
-  // 티어 이름을 Data Dragon API 형식으로 변환
-  const tierMap = {
-    'iron': 'iron',
-    'bronze': 'bronze', 
-    'silver': 'silver',
-    'gold': 'gold',
-    'platinum': 'platinum',
-    'diamond': 'diamond',
-    'master': 'master',
-    'grandmaster': 'grandmaster',
-    'challenger': 'challenger',
-    'unranked': 'unranked'
-  };
-  
-  const t = tierMap[(tier || 'UNRANKED').toLowerCase()] || 'unranked';
-  // Data Dragon 랭크 엠블럼 URL (최신 버전)
-  return `https://ddragon.leagueoflegends.com/cdn/15.18.1/img/ranked-emblems/${t}.png`;
+  const t = (tier || 'UNRANKED').toLowerCase();
+  return `https://ddragon.leagueoflegends.com/cdn/img/ranked-emblems/${t}.png`;
 }
 
 export function buildOpggEmblemFallbackUrl(tier, rank) {
