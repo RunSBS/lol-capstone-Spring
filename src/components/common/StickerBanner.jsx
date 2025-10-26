@@ -291,7 +291,7 @@ export default function StickerBanner({
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat',
           borderRadius: '12px',
-          minHeight: '200px',
+          minHeight: '300px',
           cursor: isEditMode && selectedStickerId ? 'crosshair' : 'default',
           overflow: 'hidden'
         }}

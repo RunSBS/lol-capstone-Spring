@@ -359,14 +359,6 @@ function PostDetailPage({ currentUser, adminId, postId }) {
           <span style={{ margin: "0 16px" }}>반대: {dislike}</span>
         </div>
         
-        {/* cheer area */}
-        <div style={{ marginTop: 16, textAlign: "center" }}>
-          <LolmuncheolCheer
-            post={post}
-            currentUser={currentUser}
-            onPostUpdate={(updated) => setPost(updated)}
-          />
-        </div>
         <CommentSection postId={post.id} currentUser={currentUser} />
       </div>
     );
@@ -616,103 +608,4 @@ function VoteDisplay({ voteData, userVoteOption, onVoteSubmit, onVoteCancel, cur
 
 export default PostDetailPage;
 
-// Inline component for Lolmuncheol cheer UI/logic
-function LolmuncheolCheer({ post, currentUser, onPostUpdate }) {
-  const [cheerA, setCheerA] = React.useState(post.cheerA || 0);
-  const [cheerB, setCheerB] = React.useState(post.cheerB || 0);
-
-  React.useEffect(() => {
-    setCheerA(post.cheerA || 0);
-    setCheerB(post.cheerB || 0);
-  }, [post.cheerA, post.cheerB]);
-
-  const key = `lolmuncheol-cheer-${post.id}-${currentUser || "guest"}`;
-  const read = () => {
-    try {
-      const raw = localStorage.getItem(key);
-      if (!raw) return null;
-      const parsed = JSON.parse(raw);
-      if (parsed.date === new Date().toLocaleDateString()) return parsed; // { side: 'A'|'B' }
-      localStorage.removeItem(key);
-      return null;
-    } catch {
-      return null;
-    }
-  };
-  const write = (side) => localStorage.setItem(key, JSON.stringify({ side, date: new Date().toLocaleDateString() }));
-  const clear = () => localStorage.removeItem(key);
-
-  const vote = read();
-  const side = vote?.side;
-
-  const onCheerA = async () => {
-    if (!currentUser) { alert("로그인이 필요합니다."); return; }
-    if (side === 'B') { alert("이미 B를 응원했습니다. 먼저 취소해주세요."); return; }
-    if (side === 'A') { alert("이미 A를 응원했습니다."); return; }
-    setCheerA((v) => v + 1);
-    try {
-      await boardApi.cheerA(post.id);
-      write('A');
-      onPostUpdate?.({ ...post, cheerA: (post.cheerA || 0) + 1 });
-    } catch (e) {
-      setCheerA((v) => Math.max(v - 1, 0));
-      alert(e);
-    }
-  };
-
-  const onUncheerA = async () => {
-    if (!currentUser) { alert("로그인이 필요합니다."); return; }
-    if (side !== 'A') { alert("본인이 응원한 A만 취소할 수 있습니다."); return; }
-    setCheerA((v) => Math.max(v - 1, 0));
-    try {
-      await boardApi.uncheerA(post.id);
-      clear();
-      onPostUpdate?.({ ...post, cheerA: Math.max((post.cheerA || 1) - 1, 0) });
-    } catch (e) {
-      setCheerA((v) => v + 1);
-      alert(e);
-    }
-  };
-
-  const onCheerB = async () => {
-    if (!currentUser) { alert("로그인이 필요합니다."); return; }
-    if (side === 'A') { alert("이미 A를 응원했습니다. 먼저 취소해주세요."); return; }
-    if (side === 'B') { alert("이미 B를 응원했습니다."); return; }
-    setCheerB((v) => v + 1);
-    try {
-      await boardApi.cheerB(post.id);
-      write('B');
-      onPostUpdate?.({ ...post, cheerB: (post.cheerB || 0) + 1 });
-    } catch (e) {
-      setCheerB((v) => Math.max(v - 1, 0));
-      alert(e);
-    }
-  };
-
-  const onUncheerB = async () => {
-    if (!currentUser) { alert("로그인이 필요합니다."); return; }
-    if (side !== 'B') { alert("본인이 응원한 B만 취소할 수 있습니다."); return; }
-    setCheerB((v) => Math.max(v - 1, 0));
-    try {
-      await boardApi.uncheerB(post.id);
-      clear();
-      onPostUpdate?.({ ...post, cheerB: Math.max((post.cheerB || 1) - 1, 0) });
-    } catch (e) {
-      setCheerB((v) => v + 1);
-      alert(e);
-    }
-  };
-
-  return (
-    <div>
-      <button onClick={onCheerA} style={{ marginRight: 8 }}>A 응원</button>
-      <span style={{ marginRight: 16 }}>A 응원수: {cheerA || 0}</span>
-      <button onClick={onUncheerA} style={{ marginRight: 24 }}>A 응원 취소</button>
-
-      <button onClick={onCheerB} style={{ marginRight: 8 }}>B 응원</button>
-      <span style={{ marginRight: 16 }}>B 응원수: {cheerB || 0}</span>
-      <button onClick={onUncheerB}>B 응원 취소</button>
-    </div>
-  );
-}
 

@@ -11,6 +11,17 @@ export function buildChampionSquareUrl(version, championName) {
   return `https://ddragon.leagueoflegends.com/cdn/${safeVer}/img/champion/${key}.png`;
 }
 
+// 챔피언 이미지 로딩 테스트 함수
+export async function testChampionImage(version, championName) {
+  const url = buildChampionSquareUrl(version, championName);
+  try {
+    const response = await fetch(url, { method: 'HEAD' });
+    return response.ok ? url : null;
+  } catch {
+    return null;
+  }
+}
+
 export function buildItemIconUrl(version, itemId) {
   const safeVer = version || '15.18.1';
   const idNum = Number(itemId);
@@ -142,6 +153,78 @@ export async function loadRuneMap(version, lang = 'en_US') {
   }
 }
 
+// 룬 데이터를 스티커 형태로 로드하는 함수
+export async function loadRunes(version, lang = 'ko_KR') {
+  try {
+    console.log(`룬 데이터 로드 시도: ${version}, ${lang}`);
+    const res = await fetch(`https://ddragon.leagueoflegends.com/cdn/${version}/data/${lang}/runesReforged.json`);
+    if (!res.ok) throw new Error(`rune json fetch failed: ${res.status}`);
+    const json = await res.json();
+    
+    console.log(`룬 데이터 로드 성공: ${json.length}개 스타일`);
+    
+    const runes = [];
+    json.forEach((style) => {
+      // 스타일 자체도 룬으로 추가
+      runes.push({
+        id: `style_${style.id}`,
+        name: style.name,
+        description: style.description,
+        category: 'rune',
+        image: `https://ddragon.leagueoflegends.com/cdn/img/${style.icon}`,
+        fallbackImage: 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Ahri.png'
+      });
+      
+      // 각 슬롯의 룬들 추가
+      style.slots?.forEach((slot, slotIndex) => {
+        slot.runes?.forEach((rune, runeIndex) => {
+          runes.push({
+            id: `rune_${rune.id}`,
+            name: rune.name,
+            description: rune.shortDesc || rune.longDesc,
+            category: 'rune',
+            image: `https://ddragon.leagueoflegends.com/cdn/img/${rune.icon}`,
+            fallbackImage: 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Ahri.png'
+          });
+        });
+      });
+    });
+    
+    console.log(`총 룬 스티커 생성: ${runes.length}개`);
+    return runes;
+  } catch (error) {
+    console.warn('Failed to load runes, using fallback data:', error);
+    // 인기 룬들로 폴백
+    const fallbackRunes = [
+      { id: 'style_8000', name: '정밀', description: '정밀 룬 스타일' },
+      { id: 'style_8100', name: '지배', description: '지배 룬 스타일' },
+      { id: 'style_8200', name: '마법', description: '마법 룬 스타일' },
+      { id: 'style_8300', name: '영감', description: '영감 룬 스타일' },
+      { id: 'style_8400', name: '결의', description: '결의 룬 스타일' },
+      { id: 'rune_8005', name: '치명적 속도', description: '공격 속도가 증가합니다' },
+      { id: 'rune_8008', name: '정복자', description: '전투에서 지속적으로 강해집니다' },
+      { id: 'rune_8021', name: '정밀한 공격', description: '연속 공격 시 추가 피해를 입힙니다' },
+      { id: 'rune_8124', name: '포식자', description: '이동 속도가 증가합니다' },
+      { id: 'rune_8128', name: '어둠의 수확', description: '적 처치 시 추가 피해를 입힙니다' },
+      { id: 'rune_8214', name: '소환: 아이오니아의 의지', description: '스킬 가속이 증가합니다' },
+      { id: 'rune_8229', name: '신비로운 유물', description: '아이템 효과가 강화됩니다' },
+      { id: 'rune_8351', name: '빙결 강화', description: '빙결 효과가 강화됩니다' },
+      { id: 'rune_8352', name: '신비로운 유물', description: '아이템 효과가 강화됩니다' },
+      { id: 'rune_8437', name: '수호자', description: '아군을 보호합니다' },
+      { id: 'rune_8446', name: '과다치유', description: '체력 회복이 강화됩니다' }
+    ];
+    
+    console.log(`폴백 룬 데이터 사용: ${fallbackRunes.length}개`);
+    
+    return fallbackRunes.map(rune => ({
+      ...rune,
+      category: 'rune',
+      image: `https://ddragon.leagueoflegends.com/cdn/img/${rune.id.includes('style') ? 'perk-images/Styles/' : 'perk-images/'}${rune.id.replace('style_', '').replace('rune_', '')}.png`,
+      fallbackImage: 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Ahri.png'
+    }));
+  }
+}
+
 // ===== 랭크 엠블렘 =====
 export function buildRankEmblemUrl(tier) {
   const t = (tier || 'UNRANKED').toLowerCase();
@@ -172,6 +255,108 @@ export async function loadStickers() {
       'sticker_2': { name: 'Happy Sticker', image: 'sticker_2_small.png' },
       'sticker_3': { name: 'Sad Sticker', image: 'sticker_3_small.png' }
     };
+  }
+}
+
+// ===== 챔피언 데이터 =====
+export async function loadChampions(version, lang = 'ko_KR') {
+  try {
+    console.log(`챔피언 데이터 로드 시도: ${version}, ${lang}`);
+    const res = await fetch(`https://ddragon.leagueoflegends.com/cdn/${version}/data/${lang}/champion.json`);
+    if (!res.ok) throw new Error(`champion json fetch failed: ${res.status}`);
+    const json = await res.json();
+    const champions = Object.values(json?.data || {});
+    
+    console.log(`챔피언 데이터 로드 성공: ${champions.length}개`);
+    
+    // 챔피언 데이터에 이미지 URL 추가
+    return champions.map(champion => ({
+      ...champion,
+      imageUrl: buildChampionSquareUrl(version, champion.id)
+    }));
+  } catch (error) {
+    console.warn('Failed to load champions, using fallback data:', error);
+    // 인기 챔피언들로 폴백
+    const fallbackChampions = [
+      { id: 'Ahri', name: '아리', key: 'Ahri' },
+      { id: 'Yasuo', name: '야스오', key: 'Yasuo' },
+      { id: 'Jinx', name: '징크스', key: 'Jinx' },
+      { id: 'Lux', name: '럭스', key: 'Lux' },
+      { id: 'Thresh', name: '쓰레쉬', key: 'Thresh' },
+      { id: 'Zed', name: '제드', key: 'Zed' },
+      { id: 'Darius', name: '다리우스', key: 'Darius' },
+      { id: 'Aatrox', name: '아트록스', key: 'Aatrox' },
+      { id: 'Garen', name: '가렌', key: 'Garen' },
+      { id: 'Katarina', name: '카타리나', key: 'Katarina' },
+      { id: 'LeeSin', name: '리 신', key: 'LeeSin' },
+      { id: 'Vayne', name: '베인', key: 'Vayne' },
+      { id: 'MasterYi', name: '마스터 이', key: 'MasterYi' },
+      { id: 'MissFortune', name: '미스 포츈', key: 'MissFortune' },
+      { id: 'Caitlyn', name: '케이틀린', key: 'Caitlyn' },
+      { id: 'Ashe', name: '애쉬', key: 'Ashe' },
+      { id: 'Sona', name: '소나', key: 'Sona' },
+      { id: 'Soraka', name: '소라카', key: 'Soraka' },
+      { id: 'Janna', name: '잔나', key: 'Janna' },
+      { id: 'Lulu', name: '룰루', key: 'Lulu' }
+    ];
+    
+    console.log(`폴백 챔피언 데이터 사용: ${fallbackChampions.length}개`);
+    
+    return fallbackChampions.map(champion => ({
+      ...champion,
+      imageUrl: buildChampionSquareUrl(version, champion.id)
+    }));
+  }
+}
+
+// ===== 아이템 데이터 =====
+export async function loadItems(version, lang = 'ko_KR') {
+  try {
+    console.log(`아이템 데이터 로드 시도: ${version}, ${lang}`);
+    const res = await fetch(`https://ddragon.leagueoflegends.com/cdn/${version}/data/${lang}/item.json`);
+    if (!res.ok) throw new Error(`item json fetch failed: ${res.status}`);
+    const json = await res.json();
+    const items = Object.values(json?.data || {});
+    
+    console.log(`아이템 데이터 로드 성공: ${items.length}개`);
+    
+    // 아이템 데이터에 이미지 URL 추가
+    return items.map(item => ({
+      ...item,
+      imageUrl: buildItemIconUrl(version, item.id)
+    }));
+  } catch (error) {
+    console.warn('Failed to load items, using fallback data:', error);
+    // 인기 아이템들로 폴백
+    const fallbackItems = [
+      { id: 3089, name: '라바돈의 죽음모자', gold: { total: 3600 } },
+      { id: 1001, name: '장화', gold: { total: 300 } },
+      { id: 3031, name: '무한의 대검', gold: { total: 3400 } },
+      { id: 3071, name: '칠흑의 양날 도끼', gold: { total: 3200 } },
+      { id: 3026, name: '수호 천사', gold: { total: 2800 } },
+      { id: 3006, name: '광전사의 군화', gold: { total: 1100 } },
+      { id: 3157, name: '존야의 모래시계', gold: { total: 3000 } },
+      { id: 3036, name: '피바라기', gold: { total: 3200 } },
+      { id: 3072, name: '피의 갑옷', gold: { total: 3000 } },
+      { id: 3153, name: '블레이드 오브 더 루인드 킹', gold: { total: 3300 } },
+      { id: 3003, name: '마법사의 신발', gold: { total: 1100 } },
+      { id: 3035, name: '최후의 속삭임', gold: { total: 3000 } },
+      { id: 3004, name: '마나 물약', gold: { total: 50 } },
+      { id: 2003, name: '체력 물약', gold: { total: 50 } },
+      { id: 1036, name: '롱소드', gold: { total: 350 } },
+      { id: 1038, name: 'B.F. 대검', gold: { total: 1300 } },
+      { id: 1037, name: 'Pickaxe', gold: { total: 875 } },
+      { id: 1042, name: 'Dagger', gold: { total: 300 } },
+      { id: 1055, name: 'Dorans Blade', gold: { total: 450 } },
+      { id: 1056, name: 'Dorans Ring', gold: { total: 400 } }
+    ];
+    
+    console.log(`폴백 아이템 데이터 사용: ${fallbackItems.length}개`);
+    
+    return fallbackItems.map(item => ({
+      ...item,
+      imageUrl: buildItemIconUrl(version, item.id)
+    }));
   }
 }
 
