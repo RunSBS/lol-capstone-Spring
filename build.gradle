@@ -1,10 +1,10 @@
 plugins {
     id 'java'
-    id 'war'
+//    id 'war'
     id 'org.springframework.boot' version '3.5.5'
     id 'io.spring.dependency-management' version '1.1.7'
 }
-
+bootJar { enabled = true }
 group = 'jen'
 version = '0.0.1-SNAPSHOT'
 description = 'LoL'
@@ -26,6 +26,12 @@ repositories {
 }
 
 dependencies {
+    // oracle cloud ADB 연동, 25-10-25
+    implementation 'com.oracle.database.jdbc:ojdbc11:23.5.0.24.07'
+    runtimeOnly   'com.oracle.database.security:oraclepki:23.5.0.24.07'
+    runtimeOnly   'com.oracle.database.security:osdt_core:23.5.0.24.07'
+    runtimeOnly   'com.oracle.database.security:osdt_cert:23.5.0.24.07'
+
     // Security, jwt 25-10-11
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
@@ -40,11 +46,12 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-logging'
     // jpa 25-10-11
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+//    runtimeOnly 'com.oracle.database.jdbc:ojdbc11:23.9.0.25.07' // h2 쓰는 동안만 주석처리
+    runtimeOnly 'com.h2database:h2'
     compileOnly 'org.projectlombok:lombok'
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
-    runtimeOnly 'com.oracle.database.jdbc:ojdbc11:23.9.0.25.07'
     annotationProcessor 'org.projectlombok:lombok'
-    providedRuntime 'org.springframework.boot:spring-boot-starter-tomcat'
+//    providedRuntime 'org.springframework.boot:spring-boot-starter-tomcat'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'

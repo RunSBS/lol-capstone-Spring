@@ -1,0 +1,16 @@
+.git
+.gitignore
+
+.idea
+.vscode
+
+node_modules/
+front/
+build/
+out/
+.gradle/
+*.log
+
+wallet/
+**/wallet/**
+Wallet_*.zip
