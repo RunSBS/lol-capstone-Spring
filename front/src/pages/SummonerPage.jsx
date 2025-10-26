@@ -13,7 +13,7 @@ import MasteryCard from '../components/summoner/MasteryCard.jsx'
 import PlayedWithCard from '../components/summoner/PlayedWithCard.jsx'
 import MainContent from '../components/summoner/MainContent.jsx'
 // 백엔드 API 호출 유틸
-import { fetchSummonerView, fetchRecentMatches, fetchDDragonVersion } from '../data/api.js'
+import { fetchSummonerView, fetchRecentMatches, fetchDDragonVersion, fetchChampionMastery, fetchPlayedWith } from '../data/api.js'
 // Data Dragon 아이콘 URL 유틸
 import { buildChampionSquareUrl, buildItemIconUrl, tryBuildSummonerSpellIconUrl, tryBuildRuneIconUrl, buildRuneStyleIcon, loadSpellMap, loadRuneMap, inferStyleIdFromPerkId, getStyleStaticIcon } from '../data/ddragon.js'
 function SummonerPage() {
@@ -25,17 +25,23 @@ function SummonerPage() {
   const [ddVer, setDdVer] = useState('15.18.1')
   const [recent, setRecent] = useState([])
   const [refreshing, setRefreshing] = useState(false)
+  const [masteryData, setMasteryData] = useState([])
+  const [playedWithData, setPlayedWithData] = useState([])
 
   const { gameName, tagLine } = useMemo(() => {
     const decoded = decodeURIComponent(nickname || '')
     const [name, tag] = decoded.split('#')
-    return { gameName: name || '', tagLine: (tag || '').toLowerCase() }
+    const result = { 
+      gameName: name || '', 
+      tagLine: (tag || 'KR1').toLowerCase() // 태그가 없으면 기본값 KR1 사용
+    }
+    return result
   }, [nickname])
 
   useEffect(() => {
     // 최신 버전/소환사 뷰 로드 후 최근 전적까지 이어서 호출
     let mounted = true
-    if (!gameName || !tagLine) return
+    if (!gameName) return // gameName만 확인, tagLine은 기본값이 있으므로 제거
     setLoading(true)
     setError(null)
     Promise.all([
@@ -48,13 +54,24 @@ function SummonerPage() {
         setView(v)
         // 스펠/룬 매핑 사전 로딩 (아이콘 URL 매핑)
         try { await Promise.all([loadSpellMap(ver), loadRuneMap(ver)]) } catch {}
-        // 최근 전적도 병렬로 호출
+        
+        // 최근 전적, 숙련도, 함께 플레이한 소환사 데이터를 병렬로 호출
         try {
-          const matches = await fetchRecentMatches(gameName, tagLine, 10)
+          const [matches, mastery, playedWith] = await Promise.all([
+            fetchRecentMatches(gameName, tagLine, 20),
+            fetchChampionMastery(gameName, tagLine),
+            fetchPlayedWith(gameName, tagLine)
+          ])
           if (!mounted) return
           setRecent(Array.isArray(matches) ? matches : [])
+          setMasteryData(Array.isArray(mastery) ? mastery : [])
+          setPlayedWithData(Array.isArray(playedWith) ? playedWith : [])
         } catch (e) {
-          if (mounted) setRecent([])
+          if (mounted) {
+            setRecent([])
+            setMasteryData([])
+            setPlayedWithData([])
+          }
         }
       })
       .catch((e) => { if (mounted) setError(String(e)) })
@@ -63,14 +80,20 @@ function SummonerPage() {
   }, [gameName, tagLine])
   const handleRefresh = async () => {
     // 전적 갱신 버튼 대응: 다시 view/최근전적 로드
-    if (!gameName || !tagLine) return
+    if (!gameName) return // gameName만 확인, tagLine은 기본값이 있으므로 제거
     setRefreshing(true)
     try {
       const v = await fetchSummonerView(gameName, tagLine)
       setView(v)
       try {
-        const m = await fetchRecentMatches(gameName, tagLine, 10)
+        const [m, mastery, playedWith] = await Promise.all([
+          fetchRecentMatches(gameName, tagLine, 20),
+          fetchChampionMastery(gameName, tagLine),
+          fetchPlayedWith(gameName, tagLine)
+        ])
         setRecent(Array.isArray(m) ? m : [])
+        setMasteryData(Array.isArray(mastery) ? mastery : [])
+        setPlayedWithData(Array.isArray(playedWith) ? playedWith : [])
       } catch {}
     } finally {
       setRefreshing(false)
@@ -188,13 +211,14 @@ function SummonerPage() {
           rawParticipants: list,
           ddVer: ver,
           gameDurationSec: m.gameDuration,
+          // MatchDetails에서 사용할 수 있도록 detailedPlayers 추가
+          detailedPlayers: m.detailedPlayers || [],
         }
       })
-    } catch {
+    } catch (e) {
       return []
     }
   }, [recent, ddVer, view])
-
   // SummonerPage 내부에 추가 (transformedMatches 아래쯤)
   const summaryData = useMemo(() => {
     const games = transformedMatches || []
@@ -252,14 +276,27 @@ function SummonerPage() {
         }))
 
     // 선호 포지션 (teamPosition 사용 권장)
-    const roleCount = { TOP:0, JNG:0, MID:0, ADC:0, SUP:0, UNKNOWN:0 }
+    const roleCount = { TOP:0, JUNGLE:0, MIDDLE:0, BOTTOM:0, UTILITY:0, UNKNOWN:0 }
     for (const g of games) {
       const me = g.rawParticipants?.find(p => p?.puuid === (view?.puuid || ''))
-      const role = (me?.teamPosition || 'UNKNOWN').toUpperCase()
+      const role = (me?.teamPosition || me?.individualPosition || 'UNKNOWN').toUpperCase()
       roleCount[role] = (roleCount[role] || 0) + 1
     }
-    const positions = ['TOP','JNG','MID','ADC','SUP'].map(role => {
-      const pct = Math.round((roleCount[role] * 100) / total)
+    
+    // Riot API 포지션을 UI 표시용으로 변환
+    const positionMapping = {
+      'TOP': 'TOP',
+      'JUNGLE': 'JNG', 
+      'MIDDLE': 'MID',
+      'BOTTOM': 'ADC',
+      'UTILITY': 'SUP'
+    }
+    
+    const positions = ['TOP','JNG','MID','ADC','SUP'].map(displayRole => {
+      // displayRole을 Riot API 포지션으로 변환
+      const riotRole = Object.keys(positionMapping).find(key => positionMapping[key] === displayRole)
+      const count = roleCount[riotRole] || 0
+      const pct = Math.round((count * 100) / total)
       const iconMap = {
         TOP: 'https://s-lol-web.op.gg/images/icon/icon-position-top.svg',
         JNG: 'https://s-lol-web.op.gg/images/icon/icon-position-jungle.svg',
@@ -267,10 +304,135 @@ function SummonerPage() {
         ADC: 'https://s-lol-web.op.gg/images/icon/icon-position-adc.svg',
         SUP: 'https://s-lol-web.op.gg/images/icon/icon-position-support.svg',
       }
-      return { role, percentage: pct, icon: iconMap[role] }
+      return { role: displayRole, percentage: pct, icon: iconMap[displayRole] }
     })
 
     return { total, wins, losses, winrate, avg, playedChamps, positions }
+  }, [transformedMatches, view])
+
+  // 챔피언 데이터 생성 (탭별 필터링용)
+  const championData = useMemo(() => {
+    const games = transformedMatches || []
+    if (!games.length) {
+      return {
+        season: [],
+        solo: [],
+        flex: []
+      }
+    }
+
+    // 챔피언별 집계
+    const byChamp = new Map()
+    const soloByChamp = new Map()
+    const flexByChamp = new Map()
+
+    for (const g of games) {
+      const me = g.rawParticipants?.find(p => p?.puuid === (view?.puuid || ''))
+      if (!me) continue
+
+      const champName = me.championName || 'Aatrox'
+      const champImageUrl = g.champion.imageUrl
+      const isWin = !!me.win
+      const k = me.kills ?? 0
+      const d = me.deaths ?? 0
+      const a = me.assists ?? 0
+      const cs = me.csTotal ?? 0
+      const gameDuration = g.gameDurationSec || 1800
+      const cspm = (cs / Math.max(1, gameDuration / 60)).toFixed(1)
+
+      // 전체 시즌 데이터
+      const seasonRec = byChamp.get(champName) || { 
+        name: champName, 
+        imageUrl: champImageUrl,
+        games: 0, wins: 0, k:0, d:0, a:0, cs:0, totalDuration: 0
+      }
+      seasonRec.games += 1
+      if (isWin) seasonRec.wins += 1
+      seasonRec.k += k
+      seasonRec.d += d
+      seasonRec.a += a
+      seasonRec.cs += cs
+      seasonRec.totalDuration += gameDuration
+      byChamp.set(champName, seasonRec)
+
+      // 개인랭크 데이터 (queueId 420)
+      if (g.queueId === 420) {
+        const soloRec = soloByChamp.get(champName) || { 
+          name: champName, 
+          imageUrl: champImageUrl,
+          games: 0, wins: 0, k:0, d:0, a:0, cs:0, totalDuration: 0
+        }
+        soloRec.games += 1
+        if (isWin) soloRec.wins += 1
+        soloRec.k += k
+        soloRec.d += d
+        soloRec.a += a
+        soloRec.cs += cs
+        soloRec.totalDuration += gameDuration
+        soloByChamp.set(champName, soloRec)
+      }
+
+      // 자유랭크 데이터 (queueId 440)
+      if (g.queueId === 440) {
+        const flexRec = flexByChamp.get(champName) || { 
+          name: champName, 
+          imageUrl: champImageUrl,
+          games: 0, wins: 0, k:0, d:0, a:0, cs:0, totalDuration: 0
+        }
+        flexRec.games += 1
+        if (isWin) flexRec.wins += 1
+        flexRec.k += k
+        flexRec.d += d
+        flexRec.a += a
+        flexRec.cs += cs
+        flexRec.totalDuration += gameDuration
+        flexByChamp.set(champName, flexRec)
+      }
+    }
+
+    // 데이터 변환 함수 (시즌 데이터는 평균치로, 개인/자유랭크는 기존 방식)
+    const transformChampData = (champMap, isSeason = false) => {
+      return Array.from(champMap.values())
+        .sort((a,b) => b.games - a.games)
+        .slice(0, 7)
+        .map(c => {
+          if (isSeason) {
+            // S2025 탭: CS, KDA는 평균치, 게임수와 승률은 합산
+            const avgCs = Math.round(c.cs / c.games)
+            const avgCspm = (c.cs / Math.max(1, c.totalDuration / 60)).toFixed(1)
+            const avgK = (c.k / c.games).toFixed(1)
+            const avgD = (c.d / c.games).toFixed(1)
+            const avgA = (c.a / c.games).toFixed(1)
+            
+            return {
+              name: c.name,
+              imageUrl: c.imageUrl,
+              cs: avgCs, // 평균 CS
+              kdaRatio: `${((c.k + c.a) / Math.max(1, c.d)).toFixed(2)}:1 평점`, // 전체 KDA 비율
+              kdaNumbers: `${avgK} / ${avgD} / ${avgA}`, // 평균 K/D/A
+              winrate: Math.round((c.wins / c.games) * 100) + '%', // 승률 (합산)
+              games: `${c.games} 게임` // 게임 수 (합산)
+            }
+          } else {
+            // 개인/자유랭크 탭: 기존 방식 (게임당 평균)
+            return {
+              name: c.name,
+              imageUrl: c.imageUrl,
+              cs: c.cs,
+              kdaRatio: `${((c.k + c.a) / Math.max(1, c.d)).toFixed(2)}:1 평점`,
+              kdaNumbers: `${(c.k / c.games).toFixed(1)} / ${(c.d / c.games).toFixed(1)} / ${(c.a / c.games).toFixed(1)}`,
+              winrate: Math.round((c.wins / c.games) * 100) + '%',
+              games: `${c.games} 게임`
+            }
+          }
+        })
+    }
+
+    return {
+      season: transformChampData(byChamp, true), // S2025 탭: 평균치로 표시
+      solo: transformChampData(soloByChamp, false), // 개인랭크: 기존 방식
+      flex: transformChampData(flexByChamp, false) // 자유랭크: 기존 방식
+    }
   }, [transformedMatches, view])
 
   return (
@@ -298,7 +460,7 @@ function SummonerPage() {
           <div className="right-column">
             <RankedGameCard entry={view?.soloRanked} loading={loading} error={error} />
             <FlexRankCard entry={view?.flexRanked} loading={loading} error={error} />
-            <RecentChampionsCard data={recentChampionsData} />
+            <RecentChampionsCard data={championData} />
             <MasteryCard data={masteryData} />
             <PlayedWithCard data={playedWithData} />
           </div>

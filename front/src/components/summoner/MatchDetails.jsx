@@ -25,6 +25,7 @@ function MatchDetails({ matchData }) {
   const basePlayers = Array.isArray(matchData?.detailedPlayers) && matchData.detailedPlayers.length
       ? matchData.detailedPlayers
       : normalizeFromRawParticipants(matchData)
+  
 
   // 필요 시 상세 호출: 현재 데이터에 피해량이 전부 0이면 detail API 조회 시도
   useEffect(() => {

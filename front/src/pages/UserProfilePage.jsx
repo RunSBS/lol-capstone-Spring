@@ -137,7 +137,6 @@ export default function UserProfilePage() {
       owned: false 
     }
   ];
-
   useEffect(() => {
     setUser(loadUser(username));
   }, [username]);

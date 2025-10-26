@@ -1,22 +1,11 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import Header from '../components/common/Header.jsx'
 import '../styles/summoner.css'
 import PopularPosts from '../components/homepage/PopularPosts.jsx'
 import TokenRanking from '../components/homepage/TokenRanking.jsx'
 import Footer from '../components/common/Footer.jsx'
-import { normalizeRiotIdQuery } from '../data/normalize.js'
+import AutocompleteSearch from '../components/common/AutocompleteSearch.jsx'
 
 function HomePage() {
-  const navigate = useNavigate()
-  const [nickname, setNickname] = useState('')
-
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    const q = normalizeRiotIdQuery(nickname)
-    if (!q) return
-    navigate(`/summoner/${encodeURIComponent(q)}`)
-  }
 
   return (
     <>
@@ -27,13 +16,7 @@ function HomePage() {
         <div className="search-section">
           <div className="country-selector">국가 Korea</div>
           <div className="search-bar">
-            <form onSubmit={handleSubmit} style={{ width: '100%' }}>
-              <input
-                placeholder="소환사 닉네임 + #KR1"
-                value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
-              />
-            </form>
+            <AutocompleteSearch placeholder="소환사 닉네임 + #KR1" />
           </div>
         </div>
         <div className="home-sections" style={{ marginTop: 24 }}>

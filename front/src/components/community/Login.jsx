@@ -56,7 +56,6 @@ function Login({ onLogin, onShowRegister }) {
     window.dispatchEvent(new Event('loginStateChanged'));
     navigate(-1);
   };
-
   return (
     <div style={{ maxWidth: 400, margin: "50px auto", padding: 20 }}>
       <h2>로그인</h2>
@@ -138,7 +137,7 @@ function Login({ onLogin, onShowRegister }) {
       </form>
       
       {/* 출석 보상 모달 */}
-      <AttendanceModal 
+      <AttendanceModal
         isOpen={showAttendanceModal}
         onClose={handleAttendanceModalClose}
         tokensEarned={attendanceTokens}
