@@ -61,5 +61,7 @@ tasks.named('test') {
 }
 
 tasks.named('bootRun') {
-    systemProperty 'oracle.net.tns_admin', 'C:/Users/Hyun/Downloads/Wallet_RUF8A028O85QYAUX'
+    // 로컬 개발 환경에서 기본값 설정
+    def tnsAdmin = System.getenv('TNS_ADMIN') ?: 'C:/Users/Hyun/Downloads/Wallet_RUF8A028O85QYAUX'
+    systemProperty 'oracle.net.tns_admin', tnsAdmin
 }
