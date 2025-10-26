@@ -6,5 +6,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.Optional;
 
 public interface PostRepository extends JpaRepository<Post, Long> {
-    Optional<Post> findByIdAndAuthor_Id(Long id, Long authorId);
+    Optional<Post> findByIdAndUser_Id(Long id, Long userId);
 }

@@ -27,11 +27,10 @@ repositories {
 
 dependencies {
     // oracle cloud ADB 연동, 25-10-25
-    implementation 'com.oracle.database.jdbc:ojdbc11:23.5.0.24.07'
-    runtimeOnly   'com.oracle.database.security:oraclepki:23.5.0.24.07'
-    runtimeOnly   'com.oracle.database.security:osdt_core:23.5.0.24.07'
-    runtimeOnly   'com.oracle.database.security:osdt_cert:23.5.0.24.07'
-
+    implementation 'com.oracle.database.jdbc:ojdbc11:23.3.0.23.09'     // 존재함
+    runtimeOnly   'com.oracle.database.security:oraclepki:23.3.0.23.09' // 존재함
+    runtimeOnly   'com.oracle.database.security:osdt_core:21.19.0.0'    // 21.x만 존재
+    runtimeOnly   'com.oracle.database.security:osdt_cert:21.19.0.0'    // 21.x만 존재
     // Security, jwt 25-10-11
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
@@ -59,4 +58,8 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+}
+
+tasks.named('bootRun') {
+    systemProperty 'oracle.net.tns_admin', 'C:/Users/Hyun/Downloads/Wallet_RUF8A028O85QYAUX'
 }

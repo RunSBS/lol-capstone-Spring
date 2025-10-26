@@ -32,9 +32,9 @@ public class AuthController {
     @PostMapping("/login")
     public Map<String, String> login(@RequestBody LoginReq req) {
         User u = authService.load(req.username());
-        if (!encoder.matches(req.password(), u.getPasswordHash()))
+        if (!encoder.matches(req.password(), u.getPassword())) // passwordHash -> password
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "잘못된 자격증명");
-        String access = jwt.createAccessToken(u.getId(), u.getUsername(), u.getRole());
+        String access = jwt.createAccessToken(u.getId(), u.getUsername(), "USER"); // role 제거됨
         return Map.of("accessToken", access);
     }
 }

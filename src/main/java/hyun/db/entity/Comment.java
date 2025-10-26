@@ -13,40 +13,30 @@ import java.time.Instant;
 public class Comment {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY) // Oracle 12c 이상에서 지원
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "comment_seq")
+    @SequenceGenerator(name = "comment_seq", sequenceName = "COMMENTS_SEQ", allocationSize = 1)
     private Long id;
 
-    // 게시글: 댓글은 특정 게시글에 속함 (N:1)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "POST_ID", nullable = false)
-    private Post post;
+    private Post post; // 댓글이 달린 게시글
 
-    // 작성자: 댓글 작성자 정보 (N:1)
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY) 
     @JoinColumn(name = "AUTHOR_ID", nullable = false)
-    private User author;
+    private User user; // 댓글 작성자
 
-    // 부모 댓글 (대댓글 지원용, 최상위 댓글이면 null)
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "PARENT_ID")
-    private Comment parent;
+    @Column(name = "CONTENT", nullable = false)
+    private String content; // 댓글 내용
 
-    // 댓글 내용
-    @Lob
-    @Column(nullable = false)
-    private String content;
+    @Column(name = "LIKES", nullable = false)
+    private Long likes = 0L; // 좋아요 수
 
-    // 삭제 여부 (소프트 삭제용)
-    @Column(nullable = false, length = 1)
-    private String isDeleted = "N"; // 'Y' or 'N'
+    @Column(name = "DISLIKES", nullable = false)
+    private Long dislikes = 0L; // 싫어요 수
 
-    // 좋아요 수
-    @Column(nullable = false)
-    private Long likeCount = 0L;
-
-    // 생성 / 수정 시각
-    @Column(nullable = false)
+    @Column(name = "CREATED_AT")
     private Instant createdAt = Instant.now();
 
-    private Instant updatedAt;
+    @Column(name = "IS_DELETED", nullable = false)
+    private Boolean isDeleted = false; // 댓글 삭제 여부
 }

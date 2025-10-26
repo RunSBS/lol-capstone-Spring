@@ -12,33 +12,44 @@ function Login({ onLogin, onShowRegister }) {
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
   const [attendanceTokens, setAttendanceTokens] = useState(0);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
-    const usersJson = localStorage.getItem("users");
-    const users = usersJson ? JSON.parse(usersJson) : [];
-    
-    const user = users.find(
-      u => u.username === formData.username && u.password === formData.password
-    );
-    
-    if (user) {
-      localStorage.setItem("currentUser", formData.username);
-      onLogin(formData.username);
-      
-      // 출석 보상 체크
-      const attendanceResult = processAttendance(formData.username);
-      if (attendanceResult.attended) {
-        setAttendanceTokens(attendanceResult.tokensEarned);
-        setShowAttendanceModal(true);
-        // 출석 보상이 있는 경우 페이지 이동은 팝업이 닫힐 때 처리
+    try {
+      // 백엔드 로그인 API 호출
+      const response = await fetch('http://localhost:8080/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          username: formData.username,
+          password: formData.password
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // JWT 토큰 저장
+        localStorage.setItem('accessToken', data.accessToken);
+        localStorage.setItem('currentUser', formData.username);
+        onLogin(formData.username);
+        
+        // 출석 보상 체크
+        const attendanceResult = processAttendance(formData.username);
+        if (attendanceResult.attended) {
+          setAttendanceTokens(attendanceResult.tokensEarned);
+          setShowAttendanceModal(true);
+        } else {
+          window.dispatchEvent(new Event('loginStateChanged'));
+          navigate(-1);
+        }
       } else {
-        // 출석 보상이 없는 경우 즉시 페이지 이동
-        window.dispatchEvent(new Event('loginStateChanged'));
-        navigate(-1);
+        alert("아이디 또는 비밀번호가 올바르지 않습니다.");
       }
-    } else {
-      alert("아이디 또는 비밀번호가 올바르지 않습니다.");
+    } catch (error) {
+      console.error('Login error:', error);
+      alert("로그인 중 오류가 발생했습니다.");
     }
   };
 

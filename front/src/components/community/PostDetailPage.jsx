@@ -20,6 +20,7 @@ function PostDetailPage({ currentUser, adminId, postId }) {
   useEffect(() => {
     boardApi.getPost(id).then((data) => {
       setPost(data);
+      // 백엔드에서 받은 좋아요/싫어요 개수 사용
       setLike(data.like || 0);
       setDislike(data.dislike || 0);
       setVoteData(data.vote || null);

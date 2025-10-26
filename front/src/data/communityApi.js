@@ -1,3 +1,5 @@
+import backendApi from './backendApi';
+
 let globalId = parseInt(localStorage.getItem("globalPostId") || "0", 10);
 const adminId = "admin1";
 
@@ -50,44 +52,50 @@ function updateTagsForHighRecommend(posts, idx) {
 
 const boardApi = {
   getPosts: (page = 0, size = 10, category) =>
-    new Promise((resolve) => {
-      let posts = loadPosts(category);
-      // 항상 최신순 정렬 (카테고리 상관없이)
-      posts = posts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-      const pagedPosts = posts.slice(page * size, (page + 1) * size);
-      resolve({ content: pagedPosts, totalPages: 1 });
+    new Promise(async (resolve, reject) => {
+      try {
+        // 백엔드에서 게시글 목록 가져오기
+        const posts = await backendApi.getPosts(category);
+        
+        // 페이지네이션
+        const pagedPosts = posts.slice(page * size, (page + 1) * size);
+        const totalPages = Math.ceil(posts.length / size);
+        
+        resolve({ content: pagedPosts, totalPages });
+      } catch (error) {
+        console.error('게시글 목록 조회 실패:', error);
+        reject(error);
+      }
     }),
 
   getPost: (id) =>
-    new Promise((resolve, reject) => {
-      const categories = ["free", "guide", "lolmuncheol"];
-      let allPosts = [];
-      categories.forEach((cat) => {
-        allPosts = allPosts.concat(loadPosts(cat));
-      });
-      const post = allPosts.find((p) => p.id === Number(id));
-      if (post) resolve(post);
-      else reject("게시글이 없습니다.");
+    new Promise(async (resolve, reject) => {
+      try {
+        // 백엔드에서 게시글 가져오기
+        const post = await backendApi.getPost(id);
+        resolve(post);
+      } catch (error) {
+        console.error('게시글 조회 실패:', error);
+        reject("게시글이 없습니다.");
+      }
     }),
 
   createPost: (post) =>
-    new Promise((resolve) => {
-      const posts = loadPosts(post.category);
-      const newPost = {
-        ...post,
-        id: getNextPostId(),
-        createdAt: new Date().toISOString(),
-        comments: [],
-        like: 0,
-        dislike: 0,
-        // lolmuncheol specific fields
-        writerB: post.category === "lolmuncheol" ? (post.writerB || "") : undefined,
-        contentB: post.category === "lolmuncheol" ? (post.contentB || "") : undefined,
-        tags: post.tags || [],
-      };
-      posts.push(newPost);
-      savePosts(post.category, posts);
-      resolve(newPost);
+    new Promise(async (resolve, reject) => {
+      try {
+        // 백엔드에만 저장 (Oracle Cloud ADB)
+        const savedPost = await backendApi.createPost({
+          title: post.title,
+          content: post.content,
+          category: post.category,
+          tags: post.tags || []
+        });
+        
+        resolve(savedPost);
+      } catch (error) {
+        console.error('게시글 작성 실패:', error);
+        reject(error);
+      }
     }),
 
   deletePost: (id, requester) =>
@@ -166,73 +174,47 @@ const boardApi = {
     }),
 
   likePost: (postId) =>
-    new Promise((resolve, reject) => {
-      const categories = ["free", "guide", "lolmuncheol"];
-      let updated = false;
-      categories.forEach((cat) => {
-        const posts = loadPosts(cat);
-        const idx = posts.findIndex((p) => p.id === Number(postId));
-        if (idx !== -1) {
-          posts[idx].like = (posts[idx].like || 0) + 1;
-          updateTagsForHighRecommend(posts, idx);
-          savePosts(cat, posts);
-          updated = true;
-        }
-      });
-      if (updated) resolve(true);
-      else reject("추천 실패");
+    new Promise(async (resolve, reject) => {
+      try {
+        await backendApi.likePost(postId);
+        resolve(true);
+      } catch (error) {
+        console.error('좋아요 실패:', error);
+        reject("추천 실패");
+      }
     }),
 
   dislikePost: (postId) =>
-    new Promise((resolve, reject) => {
-      const categories = ["free", "guide", "lolmuncheol"];
-      let updated = false;
-      categories.forEach((cat) => {
-        const posts = loadPosts(cat);
-        const idx = posts.findIndex((p) => p.id === Number(postId));
-        if (idx !== -1) {
-          posts[idx].dislike = (posts[idx].dislike || 0) + 1;
-          savePosts(cat, posts);
-          updated = true;
-        }
-      });
-      if (updated) resolve(true);
-      else reject("반대 실패");
+    new Promise(async (resolve, reject) => {
+      try {
+        await backendApi.dislikePost(postId);
+        resolve(true);
+      } catch (error) {
+        console.error('싫어요 실패:', error);
+        reject("반대 실패");
+      }
     }),
 
   removeLikePost: (postId) =>
-    new Promise((resolve, reject) => {
-      const categories = ["free", "guide", "lolmuncheol"];
-      let updated = false;
-      categories.forEach((cat) => {
-        const posts = loadPosts(cat);
-        const idx = posts.findIndex((p) => p.id === Number(postId));
-        if (idx !== -1) {
-          posts[idx].like = Math.max((posts[idx].like || 1) - 1, 0);
-          updateTagsForHighRecommend(posts, idx);
-          savePosts(cat, posts);
-          updated = true;
-        }
-      });
-      if (updated) resolve(true);
-      else reject("추천 취소 실패");
+    new Promise(async (resolve, reject) => {
+      try {
+        await backendApi.removeLikePost(postId);
+        resolve(true);
+      } catch (error) {
+        console.error('좋아요 취소 실패:', error);
+        reject("추천 취소 실패");
+      }
     }),
 
   removeDislikePost: (postId) =>
-    new Promise((resolve, reject) => {
-      const categories = ["free", "guide", "lolmuncheol"];
-      let updated = false;
-      categories.forEach((cat) => {
-        const posts = loadPosts(cat);
-        const idx = posts.findIndex((p) => p.id === Number(postId));
-        if (idx !== -1) {
-          posts[idx].dislike = Math.max((posts[idx].dislike || 1) - 1, 0);
-          savePosts(cat, posts);
-          updated = true;
-        }
-      });
-      if (updated) resolve(true);
-      else reject("반대 취소 실패");
+    new Promise(async (resolve, reject) => {
+      try {
+        await backendApi.removeDislikePost(postId);
+        resolve(true);
+      } catch (error) {
+        console.error('싫어요 취소 실패:', error);
+        reject("반대 취소 실패");
+      }
     }),
 
   // 투표 관련 API
