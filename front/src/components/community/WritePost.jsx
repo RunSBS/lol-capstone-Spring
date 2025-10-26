@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import boardApi from "../../data/communityApi";
 import VoteSection from "./VoteSection";
@@ -17,6 +17,8 @@ function WritePost({ currentUser }) {
   const [showVoteSection, setShowVoteSection] = useState(false);
   const [voteData, setVoteData] = useState(null);
   const [attachedMedia, setAttachedMedia] = useState([]);
+  const contentEditableRef = useRef(null);
+  const [isComposing, setIsComposing] = useState(false);
 
   // 수정 모드인지 확인
   const postToEdit = location.state?.postToEdit;
@@ -59,6 +61,27 @@ function WritePost({ currentUser }) {
       setShowVoteSection(true);
     }
   }, [formData.category, isEditMode]);
+
+  // contentEditable 초기 내용 설정
+  useEffect(() => {
+    if (contentEditableRef.current && formData.content !== contentEditableRef.current.innerText) {
+      const selection = window.getSelection();
+      const range = selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+      const isAtEnd = range && range.endContainer === contentEditableRef.current && 
+                     range.endOffset === contentEditableRef.current.childNodes.length;
+      
+      contentEditableRef.current.innerText = formData.content;
+      
+      // 커서가 끝에 있었으면 끝으로 이동
+      if (isAtEnd) {
+        const newRange = document.createRange();
+        newRange.selectNodeContents(contentEditableRef.current);
+        newRange.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(newRange);
+      }
+    }
+  }, [formData.content]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -142,8 +165,7 @@ function WritePost({ currentUser }) {
     setAttachedMedia(prev => [...prev, mediaData]);
     
     // contentEditable에 미디어 삽입
-    const contentEditable = document.querySelector('[contenteditable="true"]');
-    if (contentEditable) {
+    if (contentEditableRef.current) {
       // 미디어 HTML 생성
       let mediaHtml = '';
       if (mediaData.type === 'image') {
@@ -152,22 +174,34 @@ function WritePost({ currentUser }) {
         mediaHtml = `<video src="${mediaData.url}" controls style="max-width: 200px; max-height: 150px; margin: 2px; vertical-align: middle; display: inline-block; border-radius: 4px;" />`;
       }
       
-      // 맨 끝에 미디어 삽입
-      contentEditable.insertAdjacentHTML('beforeend', mediaHtml);
-      
-      // 커서를 미디어 뒤로 이동
+      // 현재 커서 위치에 미디어 삽입
       const selection = window.getSelection();
-      const range = document.createRange();
-      range.selectNodeContents(contentEditable);
-      range.collapse(false);
-      selection.removeAllRanges();
-      selection.addRange(range);
+      if (selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        range.deleteContents();
+        
+        // 미디어 요소 생성
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = mediaHtml;
+        const mediaElement = tempDiv.firstChild;
+        
+        range.insertNode(mediaElement);
+        
+        // 커서를 미디어 뒤로 이동
+        range.setStartAfter(mediaElement);
+        range.setEndAfter(mediaElement);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      } else {
+        // 커서가 없으면 맨 끝에 삽입
+        contentEditableRef.current.insertAdjacentHTML('beforeend', mediaHtml);
+      }
       
       // contentEditable에 포커스 유지
-      contentEditable.focus();
+      contentEditableRef.current.focus();
       
       // formData 업데이트
-      const content = contentEditable.innerText;
+      const content = contentEditableRef.current.innerText;
       setFormData(prev => ({
         ...prev,
         content: content
@@ -183,163 +217,6 @@ function WritePost({ currentUser }) {
     }));
   };
 
-  // contentEditable 내용을 formData에 동기화하는 함수
-  const syncContentEditable = () => {
-    const contentEditable = document.querySelector('[contenteditable="true"]');
-    if (contentEditable) {
-      const content = contentEditable.innerText;
-      setFormData(prev => ({
-        ...prev,
-        content: content
-      }));
-    }
-  };
-
-
-
-  // 미디어 태그를 실제 미디어로 변환하는 함수 (contentEditable용)
-  const renderContentWithMedia = (content) => {
-    if (!content) return '';
-    
-    // [MEDIA:id] 태그를 찾아서 실제 미디어로 변환
-    const mediaTagRegex = /\[MEDIA:([^\]]+)\]/g;
-    let processedContent = content;
-    
-    // 미디어 태그를 실제 미디어로 변환
-    processedContent = processedContent.replace(mediaTagRegex, (match, mediaId) => {
-      const mediaData = getMediaDataById(mediaId);
-      
-      if (mediaData && mediaData.url) {
-        if (mediaData.type === 'image') {
-          return `<img src="${mediaData.url}" alt="${mediaData.name}" style="max-width: 200px; max-height: 150px; border-radius: 4px; margin: 2px; vertical-align: middle; display: inline-block;" />`;
-        } else if (mediaData.type === 'video') {
-          return `<video src="${mediaData.url}" controls style="max-width: 200px; max-height: 150px; border-radius: 4px; margin: 2px; vertical-align: middle; display: inline-block;" />`;
-        }
-      }
-      
-      // 미디어 데이터를 찾을 수 없는 경우
-      return `<span style="display: inline-block; margin: 2px; padding: 4px 8px; border: 1px dashed #ddd; border-radius: 4px; background: #f8f9fa; color: #666; font-size: 12px; vertical-align: middle;">
-        📎
-      </span>`;
-    });
-    
-    return processedContent;
-  };
-
-  // 인라인 미디어 렌더링 함수 (커서의 영향을 받도록)
-  const renderContentWithMediaInline = (content) => {
-    if (!content) return "";
-    
-    // 텍스트를 줄별로 분리
-    const lines = content.split('\n');
-    const result = [];
-    
-    lines.forEach((line, lineIndex) => {
-      // [MEDIA:id] 패턴을 찾아서 실제 미디어로 교체
-      const mediaRegex = /\[MEDIA:([^\]]+)\]/g;
-      let lastIndex = 0;
-      let match;
-      
-      while ((match = mediaRegex.exec(line)) !== null) {
-        // 미디어 태그 앞의 텍스트 추가
-        if (match.index > lastIndex) {
-          result.push(
-            <span key={`text-${lineIndex}-${lastIndex}`}>
-              {line.substring(lastIndex, match.index)}
-            </span>
-          );
-        }
-        
-        // 미디어 데이터 가져오기
-        const mediaData = getMediaDataById(match[1]);
-        if (mediaData) {
-          if (mediaData.type === 'image') {
-            result.push(
-              <img 
-                key={`media-${lineIndex}-${match.index}`}
-                src={mediaData.url} 
-                alt={mediaData.name}
-                style={{
-                  maxWidth: "200px",
-                  maxHeight: "150px",
-                  margin: "2px",
-                  verticalAlign: "middle",
-                  display: "inline-block",
-                  borderRadius: "4px"
-                }}
-              />
-            );
-          } else if (mediaData.type === 'video') {
-            result.push(
-              <video 
-                key={`media-${lineIndex}-${match.index}`}
-                src={mediaData.url} 
-                controls
-                style={{
-                  maxWidth: "200px",
-                  maxHeight: "150px",
-                  margin: "2px",
-                  verticalAlign: "middle",
-                  display: "inline-block",
-                  borderRadius: "4px"
-                }}
-              />
-            );
-          }
-        } else {
-          // 미디어 데이터를 찾을 수 없는 경우 원본 텍스트 표시
-          result.push(
-            <span key={`text-${lineIndex}-${match.index}`}>
-              {match[0]}
-            </span>
-          );
-        }
-        
-        lastIndex = match.index + match[0].length;
-      }
-      
-      // 마지막 텍스트 추가
-      if (lastIndex < line.length) {
-        result.push(
-          <span key={`text-${lineIndex}-${lastIndex}`}>
-            {line.substring(lastIndex)}
-          </span>
-        );
-      }
-      
-      // 줄바꿈 추가 (마지막 줄 제외)
-      if (lineIndex < lines.length - 1) {
-        result.push(<br key={`br-${lineIndex}`} />);
-      }
-    });
-    
-    return result;
-  };
-
-  // 미디어 데이터를 ID로 찾는 함수
-  const getMediaDataById = (mediaId) => {
-    try {
-      const storedMedia = localStorage.getItem(`media_${mediaId}`);
-      if (storedMedia) {
-        return JSON.parse(storedMedia);
-      }
-      
-      // 모든 미디어 키를 검색해서 찾기
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith('media_')) {
-          const mediaData = JSON.parse(localStorage.getItem(key));
-          if (mediaData && mediaData.id === mediaId) {
-            return mediaData;
-          }
-        }
-      }
-      
-      return null;
-    } catch (error) {
-      return null;
-    }
-  };
 
   return (
     <div style={{ maxWidth: 800, margin: "0 auto", padding: 20 }}>
@@ -417,6 +294,7 @@ function WritePost({ currentUser }) {
           />
           
           <div 
+            ref={contentEditableRef}
             style={{ 
               width: "100%", 
               minHeight: "300px",
@@ -427,11 +305,26 @@ function WritePost({ currentUser }) {
               position: "relative",
               whiteSpace: "pre-wrap",
               wordWrap: "break-word",
-              wordBreak: "break-word"
+              wordBreak: "break-word",
+              fontSize: "14px",
+              fontFamily: "Arial, sans-serif",
+              color: "#333",
+              lineHeight: "1.5"
             }}
             contentEditable
             suppressContentEditableWarning={true}
             onInput={(e) => {
+              if (!isComposing) {
+                const content = e.target.innerText;
+                setFormData(prev => ({
+                  ...prev,
+                  content: content
+                }));
+              }
+            }}
+            onCompositionStart={() => setIsComposing(true)}
+            onCompositionEnd={(e) => {
+              setIsComposing(false);
               const content = e.target.innerText;
               setFormData(prev => ({
                 ...prev,
@@ -454,25 +347,6 @@ function WritePost({ currentUser }) {
                   selection.addRange(range);
                 }
               }
-              
-              // Space 키 처리
-              if (e.key === ' ') {
-                e.preventDefault();
-                // 현재 커서 위치에 공백 삽입
-                const selection = window.getSelection();
-                if (selection.rangeCount > 0) {
-                  const range = selection.getRangeAt(0);
-                  const textNode = document.createTextNode(' ');
-                  range.insertNode(textNode);
-                  range.setStartAfter(textNode);
-                  range.setEndAfter(textNode);
-                  selection.removeAllRanges();
-                  selection.addRange(range);
-                }
-              }
-            }}
-            dangerouslySetInnerHTML={{ 
-              __html: renderContentWithMedia(formData.content) 
             }}
           />
         </div>

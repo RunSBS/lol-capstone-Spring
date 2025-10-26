@@ -607,7 +607,7 @@ export default function UserProfilePage() {
                     >
                       {/* 배너 미리보기 */}
                       <div style={{
-                        height: "120px",
+                        height: "150px",
                         backgroundImage: `url(${banner.image})`,
                         backgroundSize: "cover",
                         backgroundPosition: "center",

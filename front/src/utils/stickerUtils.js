@@ -119,19 +119,40 @@ export function getOwnedStickers(user) {
 }
 
 // 스티커 정보 가져오기 (이름, 이미지 등)
-export function getStickerInfo(stickerId) {
+export function getStickerInfo(stickerId, version = '15.18.1') {
+  // 챔피언 스티커인지 확인
+  if (stickerId.startsWith('champion_')) {
+    const championName = stickerId.replace('champion_', '');
+    return {
+      name: championName,
+      image: `https://ddragon.leagueoflegends.com/cdn/${version}/img/champion/${championName}.png`,
+      category: 'champion'
+    };
+  }
+  
+  // 아이템 스티커인지 확인
+  if (stickerId.startsWith('item_')) {
+    const itemId = stickerId.replace('item_', '');
+    return {
+      name: `아이템 ${itemId}`,
+      image: `https://ddragon.leagueoflegends.com/cdn/${version}/img/item/${itemId}.png`,
+      category: 'item'
+    };
+  }
+  
+  // 기존 에모트 스티커
   const stickerMap = {
-    'emote_01': { name: '기쁨', image: 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Ahri.png' },
-    'emote_02': { name: '슬픔', image: 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Yasuo.png' },
-    'emote_03': { name: '화남', image: 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Jinx.png' },
-    'emote_04': { name: '놀람', image: 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Lux.png' },
-    'emote_05': { name: '사랑', image: 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Thresh.png' },
-    'emote_06': { name: '웃음', image: 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Zed.png' },
-    'emote_07': { name: '승리', image: 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Darius.png' },
-    'emote_08': { name: '패배', image: 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Aatrox.png' }
+    'emote_01': { name: '기쁨', image: 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Ahri.png', category: 'emote' },
+    'emote_02': { name: '슬픔', image: 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Yasuo.png', category: 'emote' },
+    'emote_03': { name: '화남', image: 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Jinx.png', category: 'emote' },
+    'emote_04': { name: '놀람', image: 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Lux.png', category: 'emote' },
+    'emote_05': { name: '사랑', image: 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Thresh.png', category: 'emote' },
+    'emote_06': { name: '웃음', image: 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Zed.png', category: 'emote' },
+    'emote_07': { name: '승리', image: 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Darius.png', category: 'emote' },
+    'emote_08': { name: '패배', image: 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Aatrox.png', category: 'emote' }
   };
   
-  return stickerMap[stickerId] || { name: stickerId, image: 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Ahri.png' };
+  return stickerMap[stickerId] || { name: stickerId, image: 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Ahri.png', category: 'unknown' };
 }
 
 // 스티커 상점 데이터 가져오기

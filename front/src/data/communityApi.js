@@ -137,6 +137,7 @@ const boardApi = {
       else reject("수정 실패");
     }),
 
+  // lolmuncheol cheer APIs
 
   searchPosts: (keyword, category) =>
     new Promise((resolve) => {
