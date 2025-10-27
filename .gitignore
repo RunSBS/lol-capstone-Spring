@@ -40,3 +40,6 @@ out/
 /src/main/resources/application.yml
 /src/main/resources/application-*.yml
 .env
+
+# Wallet 파일 (Oracle DB 인증서)
+/wallet/
