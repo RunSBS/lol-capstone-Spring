@@ -36,6 +36,19 @@ public class MatchService {
                 .flatMap(body -> Mono.error(new RuntimeException("[RiotAPI:" + api + "] HTTP " + code + " body=" + body)));
     }
 
+    /** 빈 MatchDetailDto 생성 */
+    private MatchDetailDto emptyMatchDetail() {
+        return MatchDetailDto.builder()
+                .matchId(null)
+                .gameCreation(0L)
+                .gameDuration(0L)
+                .queueId(null)
+                .gameMode(null)
+                .teams(List.of())
+                .participants(List.of())
+                .build();
+    }
+
     /** puuid로 최근 matchId 목록 */
     public Mono<List<String>> getRecentMatchIdsByPuuid(String puuid, int count) {
         return riotRegionalClient.get()
@@ -131,74 +144,49 @@ public class MatchService {
         return summonerService.getAccountDtoByGameNameAndTagLine(gameName, tagLine)
                 .flatMap(acc -> getRecentMatchIdsByPuuid(acc.getPuuid(), count))
                 .flatMapMany(reactor.core.publisher.Flux::fromIterable)
-                // ✅ 순서 보장: IDs 순서대로 차례로 호출
-                .concatMap(this::getRawMatch)
+                .concatMap(this::getRawMatch)  // 순서 보장: IDs 순서대로 차례로 호출 (Riot API가 이미 최신순으로 반환)
                 .map(this::toMatchDto)
-                // ✅ 혹시 모를 타임스탬프 이슈 대비해서 한 번 더 정렬(최신 우선)
-                .sort(Comparator.comparing(MatchDto::getGameCreation).reversed())
                 .collectList();
     }
 
-    /** 매치 상세 정보 조회 */
+    /** matchId 하나를 MatchDto로 */
+    public Mono<MatchDto> getMatchDto(String matchId) {
+        return getRawMatch(matchId).map(this::toMatchDto);
+    }
+
+    /** 매치 상세 조회 */
     public Mono<MatchDetailDto> getMatchDetail(String matchId) {
-        Mono<JsonNode> matchMono = riotRegionalClient.get()
+        return riotRegionalClient.get()
                 .uri("/lol/match/v5/matches/{matchId}", matchId)
                 .exchangeToMono(resp -> {
-                    log.info("[SVC] MATCH status={}", resp.statusCode());
                     if (resp.statusCode().is2xxSuccessful()) {
-                        return resp.bodyToMono(JsonNode.class)
-                                .doOnNext(n -> log.info("[SVC] MATCH ok: id={}",
-                                        n.path("metadata").path("matchId").asText("")));
+                        return resp.bodyToMono(JsonNode.class);
                     }
                     if (resp.statusCode().value() == 404) {
                         return Mono.empty();
                     }
                     return toApiError("MATCH", resp).flatMap(Mono::error);
-                });
-
-        return matchMono
-                .doOnNext(m -> log.info("[SVC] MATCH JsonNode arrived, has info={}, has metadata={}",
-                        !m.path("info").isMissingNode(), !m.path("metadata").isMissingNode()))
-                .map(m -> {
-                    log.info("[SVC] calling mapToDetailDto...");
-                    return mapToDetailDto(m, null);
                 })
-                .doOnNext(d -> log.info("[SVC] built detail: matchId={}, parts={}, teams={}",
-                        d.getMatch()!=null?d.getMatch().getMatchId():null,
-                        d.getMatch()!=null&&d.getMatch().getParticipants()!=null?d.getMatch().getParticipants().size():-1,
-                        d.getTeams()==null?-1:d.getTeams().size()))
+                .map(this::mapToDetailDto)
                 .switchIfEmpty(Mono.defer(() -> {
-                    log.warn("[SVC] MATCH not found: {}", matchId);
+                    log.warn("Match not found: {}", matchId);
                     return Mono.empty();
                 }))
                 .onErrorResume(e -> {
-                    log.error("[SVC] getMatchDetail failed: {}", e.toString(), e);
-                    return Mono.just(MatchDetailDto.builder()
-                            .match(new MatchDto())
-                            .teams(List.of())
-                            .build());
+                    log.error("Match detail failed for {}: {}", matchId, e.getMessage());
+                    return Mono.just(emptyMatchDetail());
                 });
     }
 
-    /** JSON → DTO 매핑 (Jackson Tree 사용) */
-    private MatchDetailDto mapToDetailDto(JsonNode match, JsonNode timeline) {
-        log.info("[MAP] mapToDetailDto called");
+    /** JSON → DTO 매핑 (Jackson Tree 사용, Raw model 없어도 동작) */
+    private MatchDetailDto mapToDetailDto(JsonNode match) {
         try {
             if (match == null || match.isNull()) {
-                log.warn("[MAP] match JsonNode is null");
-                return MatchDetailDto.builder()
-                        .match(new MatchDto())
-                        .teams(List.of())
-                        .build();
+                return emptyMatchDetail();
             }
 
             JsonNode info = match.path("info");
             JsonNode metadata = match.path("metadata");
-            log.info("[MAP] info.exists={} metadata.exists={}",
-                    !info.isMissingNode(), !metadata.isMissingNode());
-
-            if (metadata.isMissingNode()) log.warn("[MAP] metadata missing");
-            if (info.isMissingNode()) log.warn("[MAP] info missing");
 
             String matchId = metadata.path("matchId").asText(null);
             long gameCreation = safeLong(info, "gameCreation", 0L);
@@ -206,15 +194,11 @@ public class MatchService {
             Integer queueId   = safeInt(info, "queueId", null);
             String gameMode   = safeText(info, "gameMode", null);
 
-            log.info("[MAP] matchId={}, duration={}, queueId={}, mode={}",
-                    matchId, gameDuration, queueId, gameMode);
-
             Map<Integer, MatchDetailDto.TeamDto> teamsMap =
                     info.path("teams").isMissingNode() ? new HashMap<>() : extractTeams(info);
 
             Map<Integer, Integer> teamKills = new HashMap<>();
             JsonNode partsNode = info.path("participants");
-            log.info("[MAP] participants.size={}", partsNode.isArray() ? partsNode.size() : -1);
             if (!partsNode.isMissingNode() && partsNode.isArray()) {
                 teamKills = computeTeamKills(info);
             }
@@ -225,7 +209,7 @@ public class MatchService {
                     try {
                         participants.add(mapParticipant(p, teamKills, gameDuration));
                     } catch (Exception ex) {
-                        log.warn("[MAP] participant parse failed: {}", ex.toString());
+                        log.warn("Participant parse failed: {}", ex.getMessage());
                     }
                 }
             }
@@ -247,11 +231,8 @@ public class MatchService {
                     .build();
 
         } catch (Exception e) {
-            log.error("[MAP] mapToDetailDto fatal error: {}", e.toString(), e);
-            return MatchDetailDto.builder()
-                    .match(new MatchDto())
-                    .teams(List.of())
-                    .build();
+            log.error("Match detail mapping failed: {}", e.getMessage(), e);
+            return emptyMatchDetail();
         }
     }
 

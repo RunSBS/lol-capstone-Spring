@@ -34,6 +34,7 @@ public class MatchController {
                 .switchIfEmpty(Mono.just(ResponseEntity.noContent().build()));
     }
 
+<<<<<<< HEAD
     /** 매치 상세 정보 조회 (프론트엔드: /match/detail/{matchId}) */
     @GetMapping(value = "/detail/{matchId}", produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<ResponseEntity<MatchDetailDto>> getDetail(
@@ -46,12 +47,27 @@ public class MatchController {
                 .doOnNext(d -> log.info("[CTRL] detail built: matchId={}, participants={}",
                         d.getMatch()!=null?d.getMatch().getMatchId():null, 
                         d.getMatch()!=null&&d.getMatch().getParticipants()!=null?d.getMatch().getParticipants().size():0))
+=======
+    /** matchId 단건 조회 */
+    @GetMapping(value = "/{matchId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Mono<ResponseEntity<MatchDto>> byMatchId(@PathVariable String matchId) {
+        return matchService.getMatchDto(matchId)
                 .map(ResponseEntity::ok)
-                .switchIfEmpty(Mono.fromRunnable(() ->
-                                log.warn("[CTRL] getMatchDetail returned EMPTY for matchId={}", matchId))
-                        .then(Mono.just(ResponseEntity.notFound().build())))
+                .switchIfEmpty(Mono.just(ResponseEntity.notFound().build()));
+    }
+
+    // 상세 보기 기능
+    @GetMapping(value = "/{matchId}/detail", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Mono<ResponseEntity<MatchDetailDto>> getDetail(@PathVariable String matchId) {
+        return matchService.getMatchDetail(matchId)
+>>>>>>> 739b785 (전적 타임라인 기능 제외(시간별 골드 수급량 등))
+                .map(ResponseEntity::ok)
+                .switchIfEmpty(Mono.defer(() -> {
+                    log.warn("Match detail not found: {}", matchId);
+                    return Mono.just(ResponseEntity.notFound().build());
+                }))
                 .onErrorResume(e -> {
-                    log.error("[CTRL] getMatchDetail ERROR matchId={}", matchId, e);
+                    log.error("Match detail error for {}: {}", matchId, e.getMessage());
                     return Mono.just(ResponseEntity.status(HttpStatus.BAD_GATEWAY).build());
                 });
     }
