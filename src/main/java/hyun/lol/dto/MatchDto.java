@@ -17,9 +17,7 @@ public class MatchDto {
     private String matchId;        // 매치 ID
     private long gameCreation;     // 생성 시각
     private long gameDuration;     // 경기 시간 (초)
-    private String gameMode;       // 모드 (CLASSIC ( 협곡 ) ) ARAM ( 칼바람 ) 등, 사실 필요 없음
-    private String gameVersion;    // 버전
-    private Integer queueId;       // 솔랭이면 420, 자유랭 440, 일반 400(블라인드), 430 등 경기 종류 나타냄
-
+    private String gameMode;       // 모드 (CLASSIC, ARAM 등)
+    private Integer queueId;       // 솔랭이면 420, 자유랭 440, 일반 400(블라인드), 430 등 경기 종류
     private List<ParticipantDto> participants; // 참가자들
 }

@@ -34,24 +34,18 @@ public class MatchController {
                 .switchIfEmpty(Mono.just(ResponseEntity.noContent().build()));
     }
 
-    /** matchId 단건 조회 */
-    @GetMapping(value = "/{matchId}", produces = MediaType.APPLICATION_JSON_VALUE)
-    public Mono<ResponseEntity<MatchDto>> byMatchId(@PathVariable String matchId) {
-        return matchService.getMatchDto(matchId)
-                .map(ResponseEntity::ok)
-                .switchIfEmpty(Mono.just(ResponseEntity.notFound().build()));
-    }
-
-    // 상세 보기 기능
-    @GetMapping(value = "/{matchId}/detail", produces = MediaType.APPLICATION_JSON_VALUE)
+    /** 매치 상세 정보 조회 (프론트엔드: /match/detail/{matchId}) */
+    @GetMapping(value = "/detail/{matchId}", produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<ResponseEntity<MatchDetailDto>> getDetail(
             @PathVariable String matchId,
-            @RequestParam(defaultValue = "false") boolean includeTimeline
+            @RequestParam(required = false) Boolean useCache
     ) {
-        return matchService.getMatchDetail(matchId, includeTimeline)
-                .doOnSubscribe(s -> log.info("[CTRL] /match/{}/detail called (includeTimeline={})", matchId, includeTimeline))
+        // useCache 파라미터는 무시하고 항상 상세 정보 반환
+        return matchService.getMatchDetail(matchId)
+                .doOnSubscribe(s -> log.info("[CTRL] /match/detail/{} called (useCache={})", matchId, useCache))
                 .doOnNext(d -> log.info("[CTRL] detail built: matchId={}, participants={}",
-                        d.getMatchId(), d.getParticipants() == null ? 0 : d.getParticipants().size()))
+                        d.getMatch()!=null?d.getMatch().getMatchId():null, 
+                        d.getMatch()!=null&&d.getMatch().getParticipants()!=null?d.getMatch().getParticipants().size():0))
                 .map(ResponseEntity::ok)
                 .switchIfEmpty(Mono.fromRunnable(() ->
                                 log.warn("[CTRL] getMatchDetail returned EMPTY for matchId={}", matchId))

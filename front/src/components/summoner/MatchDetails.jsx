@@ -37,13 +37,13 @@ function MatchDetails({ matchData }) {
     ;(async () => {
       try {
         const detail = await fetchMatchDetail(matchId, false)
-        // detail.participants를 normalize에 맞게 주입
+        // detail.match.participants를 normalize에 맞게 주입
         const enriched = normalizeFromRawParticipants({
           ...matchData,
           // rawParticipants가 있으면 detail participants가 무시되는 문제 방지
           rawParticipants: null,
-          participants: Array.isArray(detail?.participants) ? detail.participants : [],
-          gameDuration: detail?.gameDuration ?? matchData?.gameDuration,
+          participants: Array.isArray(detail?.match?.participants) ? detail.match.participants : [],
+          gameDuration: detail?.match?.gameDuration ?? matchData?.gameDuration,
           ddVer: matchData?.ddVer,
           teams: Array.isArray(detail?.teams) ? detail.teams : (matchData?.teams || []),
         })

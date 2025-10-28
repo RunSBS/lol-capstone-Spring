@@ -8,7 +8,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import lombok.RequiredArgsConstructor;
 
 @Slf4j
-@Component
+//@Component  // DB 연결 실패 시 비활성화
 @RequiredArgsConstructor
 public class SequenceInitializer {
     private final JdbcTemplate jdbcTemplate;
