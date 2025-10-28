@@ -6,6 +6,10 @@ import lombok.Setter;
 
 import java.time.Instant;
 
+/**
+ * 게시글 테이블 (POSTS)
+ * - 커뮤니티 게시글 정보 저장
+ */
 @Entity
 @Table(name = "POSTS")
 @Getter
@@ -18,24 +22,24 @@ public class Post {
 
     @ManyToOne(fetch = FetchType.LAZY) 
     @JoinColumn(name = "AUTHOR_ID", nullable = false)
-    private User user; // 글 작성자
+    private User user;           // 글 작성자
 
     @Column(name = "USER_ID", nullable = false)
-    private Long userId; // USER_ID 컬럼 (AUTHOR_ID와 동일한 값)
+    private Long userId;         // USER_ID 컬럼 (AUTHOR_ID와 동일한 값)
 
     @Column(nullable = false, length = 200)
-    private String title;
+    private String title;        // 제목
 
     @Lob 
     @Column(nullable = false)
-    private String content;
+    private String content;      // 내용
 
     @Column(length = 50)
-    private String category; // 카테고리 (free, guide, lolmuncheol)
+    private String category;     // 카테고리 (free, guide, lolmuncheol)
 
     @Column(name = "CREATED_AT")
-    private Instant createdAt;
+    private Instant createdAt;   // 작성 시간
 
     @Column(name = "UPDATED_AT")
-    private Instant updatedAt;
+    private Instant updatedAt;   // 수정 시간
 }

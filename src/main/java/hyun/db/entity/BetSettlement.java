@@ -6,7 +6,10 @@ import lombok.Setter;
 
 import java.time.Instant;
 
-// BetSettlement.java - 정산 기록 테이블
+/**
+ * 내기 정산 기록 테이블 (BET_SETTLEMENTS)
+ * - 마감된 내기의 정산 결과 저장
+ */
 @Entity
 @Table(name = "BET_SETTLEMENTS")
 @Getter
@@ -19,11 +22,11 @@ public class BetSettlement {
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "BET_ID", nullable = false, unique = true)
-    private Bet bet; // 정산된 내기
+    private Bet bet;                      // 정산된 내기
 
     @Column(name = "WINNER_OPTION", nullable = false, length = 1)
-    private String winnerOption; // 'A' or 'B'
+    private String winnerOption;          // 'A' or 'B'
 
     @Column(name = "SETTLED_AT")
-    private Instant settledAt = Instant.now(); // 정산 완료 시각
+    private Instant settledAt = Instant.now();  // 정산 완료 시각
 }
