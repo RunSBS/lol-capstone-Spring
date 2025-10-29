@@ -133,7 +133,9 @@ function SummonerPage() {
 
     try {
       return (recent || []).map((m) => {
-        const list = Array.isArray(m?.participants) ? m.participants : []
+        const id = m?.metadata?.matchId || m?.matchId
+        const info = m?.info || m // fallback for legacy mock
+        const list = Array.isArray(info?.participants) ? info.participants : []
         const me = view ? list.find((p) => p?.puuid === view.puuid) : list[0]
         const isWin = !!me?.win
         const k = me?.kills ?? 0
@@ -183,13 +185,13 @@ function SummonerPage() {
         if (keystoneId) runes.push(tryBuildRuneIconUrl(keystoneId))
         if (subStyleId || primaryStyleId) runes.push(getStyleStaticIcon(subStyleId || primaryStyleId))
         return {
-          id: m.matchId,
-          queueId: m.queueId,
-          queueType: queueTypeMap[m.queueId] || 'OTHER',
-          gameType: m.gameMode || 'CLASSIC',
-          timeAgo: timeAgo(m.gameCreation),
+          id,
+          queueId: info?.queueId,
+          queueType: queueTypeMap[info?.queueId] || 'OTHER',
+          gameType: info?.gameMode || 'CLASSIC',
+          timeAgo: timeAgo(info?.gameCreation),
           result: isWin ? '승리' : '패배',
-          duration: fmtDuration(m.gameDuration),
+          duration: fmtDuration(info?.gameDuration),
           champion: {
             name: champ,
             level: me?.champLevel ?? 0,
@@ -210,9 +212,9 @@ function SummonerPage() {
           // MatchDetails용 원본 데이터 참조
           rawParticipants: list,
           ddVer: ver,
-          gameDurationSec: m.gameDuration,
+          gameDurationSec: info?.gameDuration,
           // MatchDetails에서 사용할 수 있도록 detailedPlayers 추가
-          detailedPlayers: m.detailedPlayers || [],
+          detailedPlayers: m?.detailedPlayers || [],
         }
       })
     } catch (e) {

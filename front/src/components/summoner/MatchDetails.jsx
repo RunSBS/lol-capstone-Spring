@@ -1,10 +1,12 @@
-// 중단 매치 상세 표
+// 매치 상세 표
 import { useEffect, useState } from 'react'
 import {normalizeFromRawParticipants} from "../../data/normalizeFromRawParticipants.js";
 import { loadRuneMap } from '../../data/ddragon.js'
 import { fetchMatchDetail } from '../../data/api.js'
 
 function MatchDetails({ matchData }) {
+  const matchId = matchData?.id || matchData?.matchId
+  
   // 룬 맵 선로딩: 키스톤 아이콘이 빈칸으로 나오는 현상 방지
   const [runesReady, setRunesReady] = useState(false)
   useEffect(() => {
@@ -17,48 +19,55 @@ function MatchDetails({ matchData }) {
     return () => { mounted = false }
   }, [matchData?.ddVer])
 
-  // 상세 데이터(백엔드 detail) 로드 상태
-  const [detailedPlayers, setDetailedPlayers] = useState(null)
+  // 상세 데이터 로드 상태
+  const [detailedData, setDetailedData] = useState(null)
   const [loadingDetail, setLoadingDetail] = useState(false)
+  const [error, setError] = useState(null)
 
-  // 입력 데이터 정규화 (목데이터/실데이터 모두 지원)
-  const basePlayers = Array.isArray(matchData?.detailedPlayers) && matchData.detailedPlayers.length
-      ? matchData.detailedPlayers
-      : normalizeFromRawParticipants(matchData)
-  
-
-  // 필요 시 상세 호출: 현재 데이터에 피해량이 전부 0이면 detail API 조회 시도
+  // 상세보기 열렸을 때 API 호출 (의도한 흐름: 상세보기 버튼 클릭 시)
   useEffect(() => {
     let mounted = true
-    const allZero = (Array.isArray(basePlayers) ? basePlayers : []).every(p => !p?.damageDealt)
-    const matchId = matchData?.id || matchData?.matchId
-    if (!matchId || !allZero || loadingDetail || detailedPlayers) return
+    
+    // matchId가 없으면 실행 안 함
+    if (!matchId || detailedData || loadingDetail) return
+    
     setLoadingDetail(true)
+    setError(null)
+    
     ;(async () => {
       try {
+        // 백엔드 /match/detail/{matchId} 호출
         const detail = await fetchMatchDetail(matchId, false)
+        if (!mounted) return
+        
         // detail.match.participants를 normalize에 맞게 주입
         const enriched = normalizeFromRawParticipants({
           ...matchData,
-          // rawParticipants가 있으면 detail participants가 무시되는 문제 방지
           rawParticipants: null,
-          participants: Array.isArray(detail?.match?.participants) ? detail.match.participants : [],
-          gameDuration: detail?.match?.gameDuration ?? matchData?.gameDuration,
+          participants: Array.isArray(detail?.match?.info?.participants) ? detail.match.info.participants : [],
+          gameDuration: detail?.match?.info?.gameDuration ?? matchData?.gameDurationSec ?? matchData?.gameDuration,
           ddVer: matchData?.ddVer,
-          teams: Array.isArray(detail?.teams) ? detail.teams : (matchData?.teams || []),
+          teams: Array.isArray(detail?.teams) ? detail.teams : [],
         })
-        if (mounted) setDetailedPlayers(enriched)
-        try { console.debug('[DEBUG_LOG] MatchDetails loaded detail for', matchId) } catch {}
+        
+        setDetailedData(enriched)
       } catch (e) {
-        try { console.debug('[DEBUG_LOG] MatchDetails detail fetch failed', String(e)) } catch {}
+        if (mounted) {
+          setError(String(e))
+          console.error('[MatchDetails] Detail fetch failed:', e)
+        }
       } finally {
         if (mounted) setLoadingDetail(false)
       }
     })()
+    
     return () => { mounted = false }
-  }, [basePlayers, matchData?.id, matchData?.matchId])
+  }, [matchId]) // matchId가 변경될 때만 호출 (상세보기 열릴 때)
 
-  const players = Array.isArray(detailedPlayers) && detailedPlayers.length ? detailedPlayers : basePlayers
+  // 표시할 플레이어 데이터 (상세 데이터가 있으면 사용, 없으면 기본 데이터)
+  const players = Array.isArray(detailedData) && detailedData.length > 0
+    ? detailedData
+    : normalizeFromRawParticipants(matchData)
 
   const lossTeam = players.filter(p => p.team === 'loss')
   const winTeam = players.filter(p => p.team === 'win')
@@ -147,6 +156,15 @@ function MatchDetails({ matchData }) {
         <button>빌드</button>
         <button>기타</button>
       </div>
+      {loadingDetail && (
+        <div style={{ padding: '20px', textAlign: 'center' }}>상세 정보를 불러오는 중...</div>
+      )}
+      {error && (
+        <div style={{ padding: '20px', textAlign: 'center', color: 'var(--color-loss)' }}>
+          상세 정보를 불러올 수 없습니다: {error}
+        </div>
+      )}
+      {!loadingDetail && !error && (
       <div className="team-table">
         <div className="table-header">
           <span className="header-item">패배 ({lossSideLabel || '-'} )</span>
@@ -167,10 +185,9 @@ function MatchDetails({ matchData }) {
         </div>
         {winTeam.map(renderPlayerRow)}
       </div>
+      )}
     </div>
   )
 }
 
 export default MatchDetails
-
-

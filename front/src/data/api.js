@@ -131,6 +131,7 @@ export async function fetchMatchDetail(matchId, useCache = true) {
   try {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 5000)
+    // Backend path is /match/detail/{matchId}
     const res = await fetch(`/match/detail/${encodeURIComponent(matchId)}?useCache=${useCache}`, { signal: controller.signal })
     clearTimeout(timeoutId)
     if (!res.ok) {

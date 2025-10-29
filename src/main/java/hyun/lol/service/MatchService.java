@@ -1,11 +1,10 @@
 // src/main/java/lol/jen/lol/service/MatchService.java
 package hyun.lol.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import hyun.lol.dto.MatchDetailDto;
 import hyun.lol.dto.MatchDto;
+import hyun.lol.dto.MatchSummaryDto;
 import hyun.lol.dto.ParticipantDto;
-import hyun.lol.dto.RawMatch;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -14,7 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
-import org.springframework.core.ParameterizedTypeReference; // <- 추가
+import org.springframework.core.ParameterizedTypeReference;
 
 import java.util.*;
 
@@ -28,29 +27,12 @@ public class MatchService {
 
     private final SummonerService summonerService; // puuid 조회 재사용
 
-    /** 공통 에러 변환 */
-    private static Mono<? extends Throwable> toApiError(String api, ClientResponse resp) {
-        int code = resp.statusCode().value();
-        return resp.bodyToMono(String.class)
-                .defaultIfEmpty("")
-                .flatMap(body -> Mono.error(new RuntimeException("[RiotAPI:" + api + "] HTTP " + code + " body=" + body)));
-    }
-
-    /** 빈 MatchDetailDto 생성 */
-    private MatchDetailDto emptyMatchDetail() {
-        return MatchDetailDto.builder()
-                .matchId(null)
-                .gameCreation(0L)
-                .gameDuration(0L)
-                .queueId(null)
-                .gameMode(null)
-                .teams(List.of())
-                .participants(List.of())
-                .build();
-    }
-
-    /** puuid로 최근 matchId 목록 */
-    public Mono<List<String>> getRecentMatchIdsByPuuid(String puuid, int count) {
+    // ==========================================
+    // 1. puuid → matchId 배열 조회
+    // ==========================================
+    
+    /** puuid로 matchId 배열 조회 */
+    private Mono<List<String>> getMatchIdsByPuuid(String puuid, int count) {
         return riotRegionalClient.get()
                 .uri(uri -> uri.path("/lol/match/v5/matches/by-puuid/{puuid}/ids")
                         .queryParam("start", 0)
@@ -58,46 +40,113 @@ public class MatchService {
                         .build(puuid))
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, r -> toApiError("match-ids-by-puuid", r))
-                // ✅ 배열 → List<String>로 정확히 디코딩
                 .bodyToMono(new ParameterizedTypeReference<List<String>>() {})
-                // 혹시 null 방지
                 .defaultIfEmpty(List.of());
     }
 
-    /** matchId로 RawMatch */
-    public Mono<RawMatch> getRawMatch(String matchId) {
+    // ==========================================
+    // 2. matchId 배열 → MatchDto 배열 조회
+    // ==========================================
+    
+    /** matchId 배열로 MatchDto 배열 조회 */
+    private Mono<List<MatchDto>> getMatchDtosByMatchIds(List<String> matchIds) {
+        if (matchIds == null || matchIds.isEmpty()) {
+            return Mono.just(List.of());
+        }
+        return reactor.core.publisher.Flux.fromIterable(matchIds)
+                .concatMap(this::getMatchDtoByMatchId)                       // 각 matchId를 MatchDto로 조회
+                .collectList();
+    }
+
+    // ==========================================
+    // 3. MatchDto 배열 → MatchSummaryDto 배열 변환
+    // ==========================================
+    
+    /** MatchDto 배열로 MatchSummaryDto 배열 변환 */
+    private Mono<List<MatchSummaryDto>> getMatchSummaryDtosByMatchDtos(List<MatchDto> matchDtos) {
+        if (matchDtos == null || matchDtos.isEmpty()) {
+            return Mono.just(List.of());
+        }
+        return reactor.core.publisher.Flux.fromIterable(matchDtos)
+                .map(this::convertMatchDtoToSummaryDto)                       // 각 MatchDto를 MatchSummaryDto로 변환
+                .collectList();
+    }
+
+    // ==========================================
+    // 4. PUBLIC API - 게임명+태그로 MatchSummaryDto 리스트 조회 (위 3개 메서드 사용)
+    // ==========================================
+    
+    /** 게임명+태그로 최근 N개의 MatchSummaryDto 조회 (컨트롤러에서 사용) */
+    public Mono<List<MatchSummaryDto>> getMatchSummaryDtosByMatchIds(String gameName, String tagLine, int count) {
+        return summonerService.getAccountDtoByGameNameAndTagLine(gameName, tagLine)  // PUUID 조회 (SummonerService)
+                .flatMap(acc -> getMatchIdsByPuuid(acc.getPuuid(), count))           // 1. puuid로 matchId 배열 조회
+                .flatMap(this::getMatchDtosByMatchIds)                               // 2. matchId 배열로 MatchDto 배열 조회
+                .flatMap(this::getMatchSummaryDtosByMatchDtos);                      // 3. MatchDto 배열로 MatchSummaryDto 배열 변환
+    }
+
+    // ==========================================
+    // 5. PUBLIC API - matchId로 MatchDetailDto 조회 (상세보기)
+    // ==========================================
+    
+    /** matchId로 MatchDetailDto 조회 (상세보기 버튼 클릭 시 사용) */
+    public Mono<MatchDetailDto> getMatchDetailByMatchId(String matchId) {
+        return getMatchDtoByMatchId(matchId)
+                .map(this::convertMatchDtoToDetailDto)
+                .switchIfEmpty(Mono.defer(() -> {
+                    log.warn("Match not found: {}", matchId);
+                    return Mono.empty();
+                }))
+                .onErrorResume(e -> {
+                    log.error("Match detail failed for {}: {}", matchId, e.getMessage());
+                    return Mono.just(emptyMatchDetail());
+                });
+    }
+
+    // ==========================================
+    // 6. MatchDto → MatchDetailDto 변환 (상세보기용)
+    // ==========================================
+    
+    /** matchId로 MatchDto 조회 (Riot API 원시 응답 - 내부 헬퍼 메서드) */
+    private Mono<MatchDto> getMatchDtoByMatchId(String matchId) {
         return riotRegionalClient.get()
                 .uri(uri -> uri.path("/lol/match/v5/matches/{matchId}").build(matchId))
                 .exchangeToMono(resp -> {
                     if (resp.statusCode().is2xxSuccessful()) {
-                        return resp.bodyToMono(RawMatch.class);
+                        return resp.bodyToMono(MatchDto.class);
                     }
                     if (resp.statusCode().value() == 404) {
-                        // ✅ 개별 매치 404는 스킵
                         return Mono.empty();
                     }
                     return toApiError("match-by-id", resp).flatMap(Mono::error);
                 });
     }
-    /** RawMatch → MatchDto 변환 */
-    // src/main/java/lol/jen/lol/service/MatchService.java
-    // src/main/java/lol/jen/lol/service/MatchService.java (일부분)
-    public MatchDto toMatchDto(RawMatch raw) {
-        MatchDto dto = new MatchDto();
-        if (raw.getMetadata() != null) dto.setMatchId(raw.getMetadata().getMatchId());
-        if (raw.getInfo() != null) {
-            var info = raw.getInfo();
-            dto.setGameCreation(info.getGameCreation());
-            dto.setGameDuration(info.getGameDuration());
-            dto.setGameMode(info.getGameMode());
-            dto.setQueueId(info.getQueueId());
 
-            var parts = info.getParticipants() == null ? List.<RawMatch.Participant>of() : info.getParticipants();
-            dto.setParticipants(parts.stream().map(p -> {
+    /** MatchDto → MatchSummaryDto 변환 (전적 목록 카드용 - 내부 헬퍼 메서드) */
+    private MatchSummaryDto convertMatchDtoToSummaryDto(MatchDto raw) {
+        MatchSummaryDto dto = new MatchSummaryDto();
+        
+        // Metadata 설정
+        MatchSummaryDto.Metadata metadata = new MatchSummaryDto.Metadata();
+        if (raw.getMetadata() != null && raw.getMetadata().getMatchId() != null) {
+            metadata.setMatchId(raw.getMetadata().getMatchId());
+        }
+        dto.setMetadata(metadata);
+        
+        // Info 설정
+        MatchSummaryDto.Info info = new MatchSummaryDto.Info();
+        if (raw.getInfo() != null) {
+            var rawInfo = raw.getInfo();
+            info.setGameCreation(rawInfo.getGameCreation() != null ? rawInfo.getGameCreation() : 0L);
+            info.setGameDuration(rawInfo.getGameDuration() != null ? rawInfo.getGameDuration() : 0L);
+            info.setGameMode(rawInfo.getGameMode());
+            info.setQueueId(rawInfo.getQueueId());
+
+            var parts = rawInfo.getParticipants() == null ? List.<MatchDto.Participant>of() : rawInfo.getParticipants();
+            info.setParticipants(parts.stream().map(p -> {
                 ParticipantDto x = new ParticipantDto();
                 x.setPuuid(p.getPuuid());
                 x.setRiotIdGameName(p.getRiotIdGameName());
-                x.setSummonerName(p.getRiotIdGameName() != null ? p.getRiotIdGameName() : p.getSummonerName());
+                x.setSummonerName(resolveSummonerName(p));
                 x.setChampionName(p.getChampionName());
                 x.setTeamId(nz(p.getTeamId()));
                 x.setKills(nz(p.getKills()));
@@ -124,104 +173,64 @@ public class MatchService {
                 return x;
             }).toList());
         }
+        dto.setInfo(info);
         return dto;
     }
 
-    private static Integer safePrimaryStyle(RawMatch.Participant p) {
+    /** MatchDto → MatchDetailDto 변환 (매치 상세 정보) */
+    private MatchDetailDto convertMatchDtoToDetailDto(MatchDto raw) {
         try {
-            return p.getPerks().getStyles().get(0).getStyle();
-        } catch (Exception e) {
-            return null;
-        }
-    }
-    private static Integer safeSubStyle(RawMatch.Participant p) {
-        try { return p.getPerks().getStyles().get(1).getStyle(); } catch (Exception e) { return null; }
-    }
-    private static int nz(Integer v){ return v==null?0:v; }
-
-    /** 게임명+태그로 최근 N개의 MatchDto */
-    public Mono<List<MatchDto>> getRecentMatchesByRiotId(String gameName, String tagLine, int count) {
-        return summonerService.getAccountDtoByGameNameAndTagLine(gameName, tagLine)
-                .flatMap(acc -> getRecentMatchIdsByPuuid(acc.getPuuid(), count))
-                .flatMapMany(reactor.core.publisher.Flux::fromIterable)
-                .concatMap(this::getRawMatch)  // 순서 보장: IDs 순서대로 차례로 호출 (Riot API가 이미 최신순으로 반환)
-                .map(this::toMatchDto)
-                .collectList();
-    }
-
-    /** matchId 하나를 MatchDto로 */
-    public Mono<MatchDto> getMatchDto(String matchId) {
-        return getRawMatch(matchId).map(this::toMatchDto);
-    }
-
-    /** 매치 상세 조회 */
-    public Mono<MatchDetailDto> getMatchDetail(String matchId) {
-        return riotRegionalClient.get()
-                .uri("/lol/match/v5/matches/{matchId}", matchId)
-                .exchangeToMono(resp -> {
-                    if (resp.statusCode().is2xxSuccessful()) {
-                        return resp.bodyToMono(JsonNode.class);
-                    }
-                    if (resp.statusCode().value() == 404) {
-                        return Mono.empty();
-                    }
-                    return toApiError("MATCH", resp).flatMap(Mono::error);
-                })
-                .map(this::mapToDetailDto)
-                .switchIfEmpty(Mono.defer(() -> {
-                    log.warn("Match not found: {}", matchId);
-                    return Mono.empty();
-                }))
-                .onErrorResume(e -> {
-                    log.error("Match detail failed for {}: {}", matchId, e.getMessage());
-                    return Mono.just(emptyMatchDetail());
-                });
-    }
-
-    /** JSON → DTO 매핑 (Jackson Tree 사용, Raw model 없어도 동작) */
-    private MatchDetailDto mapToDetailDto(JsonNode match) {
-        try {
-            if (match == null || match.isNull()) {
+            if (raw == null || raw.getInfo() == null) {
                 return emptyMatchDetail();
             }
 
-            JsonNode info = match.path("info");
-            JsonNode metadata = match.path("metadata");
+            var rawInfo = raw.getInfo();
+            var rawMetadata = raw.getMetadata();
 
-            String matchId = metadata.path("matchId").asText(null);
-            long gameCreation = safeLong(info, "gameCreation", 0L);
-            long gameDuration = normalizeDuration(info);
-            Integer queueId   = safeInt(info, "queueId", null);
-            String gameMode   = safeText(info, "gameMode", null);
+            String matchId = rawMetadata != null ? rawMetadata.getMatchId() : null;
+            long gameCreation = rawInfo.getGameCreation() != null ? rawInfo.getGameCreation() : 0L;
+            long gameDuration = rawInfo.getGameDuration() != null ? rawInfo.getGameDuration() : 0L;
+            Integer queueId = rawInfo.getQueueId();
+            String gameMode = rawInfo.getGameMode();
 
-            Map<Integer, MatchDetailDto.TeamDto> teamsMap =
-                    info.path("teams").isMissingNode() ? new HashMap<>() : extractTeams(info);
+            // MatchDto.Team을 사용하여 팀 정보 추출
+            Map<Integer, MatchDetailDto.TeamDto> teamsMap = convertMatchDtoTeamsToTeamDtos(rawInfo.getTeams());
 
+            // 참가자 정보 추출 (팀 킬 계산 + 참가자 매핑을 한 번의 순회로 통합)
             Map<Integer, Integer> teamKills = new HashMap<>();
-            JsonNode partsNode = info.path("participants");
-            if (!partsNode.isMissingNode() && partsNode.isArray()) {
-                teamKills = computeTeamKills(info);
-            }
-
             List<ParticipantDto> participants = new ArrayList<>();
-            if (!partsNode.isMissingNode() && partsNode.isArray()) {
-                for (JsonNode p : partsNode) {
+            var parts = rawInfo.getParticipants();
+            if (parts != null) {
+                for (MatchDto.Participant p : parts) {
+                    if (p == null) continue;
+                    
+                    // 팀별 킬 수 계산
+                    if (p.getTeamId() != null) {
+                        teamKills.merge(p.getTeamId(), nz(p.getKills()), Integer::sum);
+                    }
+                    
+                    // 참가자 매핑
                     try {
-                        participants.add(mapParticipant(p, teamKills, gameDuration));
+                        participants.add(convertMatchDtoParticipantToParticipantDto(p, teamKills, gameDuration));
                     } catch (Exception ex) {
                         log.warn("Participant parse failed: {}", ex.getMessage());
                     }
                 }
             }
 
-            // MatchDto 생성
-            MatchDto matchDto = new MatchDto();
-            matchDto.setMatchId(matchId);
-            matchDto.setGameCreation(gameCreation);
-            matchDto.setGameDuration(gameDuration);
-            matchDto.setQueueId(queueId);
-            matchDto.setGameMode(gameMode);
-            matchDto.setParticipants(participants);
+            // MatchSummaryDto 생성
+            MatchSummaryDto matchDto = new MatchSummaryDto();
+            MatchSummaryDto.Metadata metadata = new MatchSummaryDto.Metadata();
+            metadata.setMatchId(matchId);
+            matchDto.setMetadata(metadata);
+            
+            MatchSummaryDto.Info info = new MatchSummaryDto.Info();
+            info.setGameCreation(gameCreation);
+            info.setGameDuration(gameDuration);
+            info.setQueueId(queueId);
+            info.setGameMode(gameMode);
+            info.setParticipants(participants);
+            matchDto.setInfo(info);
 
             return MatchDetailDto.builder()
                     .match(matchDto)
@@ -236,72 +245,46 @@ public class MatchService {
         }
     }
 
-
-    private Map<Integer, MatchDetailDto.TeamDto> extractTeams(JsonNode info) {
-        Map<Integer, MatchDetailDto.TeamDto> map = new HashMap<>();
-        for (JsonNode t : info.withArray("teams")) {
-            int teamId = safeInt(t, "teamId", 0);
-            boolean win = t.path("win").asBoolean(false);
-
-            JsonNode obj = t.path("objectives");
-            int baron      = safeInt(obj.path("baron"), "kills", 0);
-            int dragon     = safeInt(obj.path("dragon"), "kills", 0);
-            int tower      = safeInt(obj.path("tower"), "kills", 0);
-            int inhibitor  = safeInt(obj.path("inhibitor"), "kills", 0);
-            int riftHerald = safeInt(obj.path("riftHerald"), "kills", 0);
-            int champKills = safeInt(obj.path("champion"), "kills", 0);
-
-            MatchDetailDto.TeamObjectives objectives = MatchDetailDto.TeamObjectives.builder()
-                    .baron(baron).dragon(dragon).tower(tower)
-                    .inhibitor(inhibitor).riftHerald(riftHerald)
-                    .build();
-
-            map.put(teamId, MatchDetailDto.TeamDto.builder()
-                    .teamId(teamId)
-                    .win(win)
-                    .objectives(objectives)
-                    .championKills(champKills)
-                    .build());
-        }
-        return map;
-    }
-
-    private Map<Integer, Integer> computeTeamKills(JsonNode info) {
-        Map<Integer, Integer> acc = new HashMap<>();
-        for (JsonNode p : info.withArray("participants")) {
-            int teamId = safeInt(p, "teamId", 0);
-            int kills  = safeInt(p, "kills", 0);
-            acc.merge(teamId, kills, Integer::sum);
-        }
-        return acc;
-    }
-
-    private ParticipantDto mapParticipant(JsonNode p, Map<Integer,Integer> teamKills, long gameDurationSec) {
-        int teamId = safeInt(p, "teamId", 0);
-        int kills = safeInt(p, "kills", 0);
-        int deaths = safeInt(p, "deaths", 0);
-        int assists = safeInt(p, "assists", 0);
-        int totalDmgToChamps = safeInt(p, "totalDamageDealtToChampions", 0);
-        int totalDmgTaken = safeInt(p, "totalDamageTaken", 0);
-        int cs = safeInt(p, "totalMinionsKilled", 0) + safeInt(p, "neutralMinionsKilled", 0);
+    // ==========================================
+    // 8. DetailDto 변환을 위한 헬퍼 메서드
+    // ==========================================
+    
+    /** MatchDto.Participant → ParticipantDto 변환 */
+    private ParticipantDto convertMatchDtoParticipantToParticipantDto(MatchDto.Participant p, Map<Integer, Integer> teamKills, long gameDurationSec) {
+        int teamId = nz(p.getTeamId());
+        int kills = nz(p.getKills());
+        int deaths = nz(p.getDeaths());
+        int assists = nz(p.getAssists());
+        int totalDmgToChamps = nz(p.getTotalDamageDealtToChampions());
+        int totalDmgTaken = nz(p.getTotalDamageTaken());
+        int cs = nz(p.getTotalMinionsKilled()) + nz(p.getNeutralMinionsKilled());
 
         // 룬 정보 추출
-        JsonNode perks = p.path("perks").path("styles");
+        MatchDto.Perks perks = p.getPerks();
         Integer primaryStyle = null, subStyle = null;
         Integer keystoneId = null;
         List<Integer> perkIds = new ArrayList<>();
         
-        for (JsonNode style : perks) {
-            if (style.hasNonNull("style")) {
-                int styleId = style.path("style").asInt();
-                if (primaryStyle == null) primaryStyle = styleId;
-                else subStyle = styleId;
-            }
-            for (JsonNode sel : style.withArray("selections")) {
-                Integer perkId = sel.path("perk").asInt(0);
-                perkIds.add(perkId);
-                if (primaryStyle != null && keystoneId == null && sel.path("var1").asInt() != 0) {
-                    keystoneId = perkId;
+        if (perks != null && perks.getStyles() != null) {
+            for (MatchDto.Style style : perks.getStyles()) {
+                if (style != null && style.getStyle() != null) {
+                    int styleId = style.getStyle();
+                    if (primaryStyle == null) {
+                        primaryStyle = styleId;
+                    } else if (subStyle == null) {
+                        subStyle = styleId;
+                    }
+                }
+                if (style != null && style.getSelections() != null) {
+                    for (MatchDto.Selection sel : style.getSelections()) {
+                        if (sel != null && sel.getPerk() != null) {
+                            Integer perkId = sel.getPerk();
+                            perkIds.add(perkId);
+                            if (primaryStyle != null && keystoneId == null && sel.getVar1() != null && sel.getVar1() != 0) {
+                                keystoneId = perkId;
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -313,61 +296,150 @@ public class MatchService {
 
         ParticipantDto dto = new ParticipantDto();
         dto.setTeamId(teamId);
-        dto.setPuuid(safeText(p, "puuid", null));
-        dto.setRiotIdGameName(safeText(p, "riotIdGameName", null));
-        dto.setSummonerName(safeText(p, "summonerName", null));
-        dto.setChampionName(safeText(p, "championName", null));
+        dto.setPuuid(p.getPuuid());
+        dto.setRiotIdGameName(p.getRiotIdGameName());
+        dto.setSummonerName(resolveSummonerName(p));
+        dto.setChampionName(p.getChampionName());
         dto.setKills(kills);
         dto.setDeaths(deaths);
         dto.setAssists(assists);
-        dto.setWin(p.path("win").asBoolean(false));
-        dto.setChampLevel(safeInt(p, "champLevel", 0));
-        dto.setSummoner1Id(safeInt(p, "summoner1Id", null));
-        dto.setSummoner2Id(safeInt(p, "summoner2Id", null));
+        dto.setWin(Boolean.TRUE.equals(p.getWin()));
+        dto.setChampLevel(nz(p.getChampLevel()));
+        dto.setSummoner1Id(p.getSummoner1Id());
+        dto.setSummoner2Id(p.getSummoner2Id());
         dto.setPrimaryStyleId(primaryStyle);
         dto.setSubStyleId(subStyle);
         dto.setKeystoneId(keystoneId);
         dto.setPerkIds(perkIds);
-        dto.setItem0(safeInt(p, "item0", null));
-        dto.setItem1(safeInt(p, "item1", null));
-        dto.setItem2(safeInt(p, "item2", null));
-        dto.setItem3(safeInt(p, "item3", null));
-        dto.setItem4(safeInt(p, "item4", null));
-        dto.setItem5(safeInt(p, "item5", null));
-        dto.setItem6(safeInt(p, "item6", null));
+        dto.setItem0(p.getItem0());
+        dto.setItem1(p.getItem1());
+        dto.setItem2(p.getItem2());
+        dto.setItem3(p.getItem3());
+        dto.setItem4(p.getItem4());
+        dto.setItem5(p.getItem5());
+        dto.setItem6(p.getItem6());
         dto.setCsTotal(cs);
         dto.setTotalDamageDealtToChampions(totalDmgToChamps);
         dto.setTotalDamageTaken(totalDmgTaken);
         return dto;
     }
 
-    // ===== 유틸 =====
-    private long normalizeDuration(JsonNode info) {
-        // Riot은 gameDuration을 sec 또는 ms로 준 적이 있어서 안전하게 보정
-        long sec = info.path("gameDuration").asLong(0L);
-        if (sec > 0 && sec < 60_000) {
-            return sec; // 이미 sec
+    /** MatchDto.Team 리스트 → MatchDetailDto.TeamDto 변환 */
+    private Map<Integer, MatchDetailDto.TeamDto> convertMatchDtoTeamsToTeamDtos(List<MatchDto.Team> teams) {
+        Map<Integer, MatchDetailDto.TeamDto> map = new HashMap<>();
+        if (teams == null) return map;
+        
+        for (MatchDto.Team t : teams) {
+            if (t == null || t.getTeamId() == null) continue;
+            
+            Integer teamId = t.getTeamId();
+            Boolean win = t.getWin();
+            
+            MatchDto.Objectives obj = t.getObjectives();
+            
+            MatchDetailDto.TeamObjectives objectives = MatchDetailDto.TeamObjectives.builder()
+                    .baron(convertMatchDtoObjectiveStatToObjectiveStat(obj != null ? obj.getBaron() : null))
+                    .dragon(convertMatchDtoObjectiveStatToObjectiveStat(obj != null ? obj.getDragon() : null))
+                    .tower(convertMatchDtoObjectiveStatToObjectiveStat(obj != null ? obj.getTower() : null))
+                    .inhibitor(convertMatchDtoObjectiveStatToObjectiveStat(obj != null ? obj.getInhibitor() : null))
+                    .riftHerald(convertMatchDtoObjectiveStatToObjectiveStat(obj != null ? obj.getRiftHerald() : null))
+                    .champion(convertMatchDtoObjectiveStatToObjectiveStat(obj != null ? obj.getChampion() : null))
+                    .build();
+
+            Integer champKills = (obj != null && obj.getChampion() != null) ? nz(obj.getChampion().getKills()) : 0;
+
+            map.put(teamId, MatchDetailDto.TeamDto.builder()
+                    .teamId(teamId)
+                    .win(win)
+                    .objectives(objectives)
+                    .championKills(champKills)
+                    .build());
         }
-        long ms = info.path("gameEndTimestamp").asLong(0L) - info.path("gameStartTimestamp").asLong(0L);
-        if (ms > 0) return ms / 1000;
-        return sec; // 실패하면 원본
+        return map;
     }
-    private static int safeInt(JsonNode n, String field, Integer def) {
-        JsonNode v = n.path(field);
-        return v.isMissingNode() || v.isNull() ? (def==null?0:def) : v.asInt();
+
+    /** MatchDto.ObjectiveStat → MatchDetailDto.ObjectiveStat 변환 헬퍼 */
+    private MatchDetailDto.ObjectiveStat convertMatchDtoObjectiveStatToObjectiveStat(MatchDto.ObjectiveStat rawStat) {
+        if (rawStat == null) {
+            return MatchDetailDto.ObjectiveStat.builder()
+                    .kills(0)
+                    .build();
+        }
+        return MatchDetailDto.ObjectiveStat.builder()
+                .kills(nz(rawStat.getKills()))
+                .build();
     }
-    private static String safeText(JsonNode n, String field, String def) {
-        JsonNode v = n.path(field);
-        return v.isMissingNode() || v.isNull() ? def : v.asText();
+
+    // ==========================================
+    // 9. 유틸리티 메서드
+    // ==========================================
+    
+    /** 공통 에러 변환 */
+    private static Mono<? extends Throwable> toApiError(String api, ClientResponse resp) {
+        int code = resp.statusCode().value();
+        return resp.bodyToMono(String.class)
+                .defaultIfEmpty("")
+                .flatMap(body -> Mono.error(new RuntimeException("[RiotAPI:" + api + "] HTTP " + code + " body=" + body)));
     }
-    private static long safeLong(JsonNode n, String field, long def) {
-        JsonNode v = n.path(field);
-        return v.isMissingNode() || v.isNull() ? def : v.asLong(def);
+
+    /** 빈 MatchDetailDto 생성 */
+    private MatchDetailDto emptyMatchDetail() {
+        MatchSummaryDto emptyMatch = new MatchSummaryDto();
+        MatchSummaryDto.Metadata metadata = new MatchSummaryDto.Metadata();
+        metadata.setMatchId(null);
+        emptyMatch.setMetadata(metadata);
+        
+        MatchSummaryDto.Info info = new MatchSummaryDto.Info();
+        info.setGameCreation(0L);
+        info.setGameDuration(0L);
+        info.setGameMode(null);
+        info.setQueueId(null);
+        info.setParticipants(List.of());
+        emptyMatch.setInfo(info);
+        
+        return MatchDetailDto.builder()
+                .match(emptyMatch)
+                .teams(List.of())
+                .build();
     }
-    private static Integer safeKeystone(RawMatch.Participant p) {
-        try { return p.getPerks().getStyles().get(0).getSelections().get(0).getPerk(); } catch (Exception e) { return null; }
+
+    /** null을 0으로 변환 */
+    private static int nz(Integer v){ return v==null?0:v; }
+    
+    /** summonerName 설정 헬퍼 (riotIdGameName 우선, 없으면 summonerName 사용) */
+    private static String resolveSummonerName(MatchDto.Participant p) {
+        return p.getRiotIdGameName() != null ? p.getRiotIdGameName() : p.getSummonerName();
     }
-    private static List<Integer> allPerkIds(RawMatch.Participant p) {
+
+    /** 룬 정보 안전 추출 - Primary Style */
+    private static Integer safePrimaryStyle(MatchDto.Participant p) {
+        try {
+            return p.getPerks().getStyles().get(0).getStyle();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** 룬 정보 안전 추출 - Sub Style */
+    private static Integer safeSubStyle(MatchDto.Participant p) {
+        try { 
+            return p.getPerks().getStyles().get(1).getStyle(); 
+        } catch (Exception e) { 
+            return null; 
+        }
+    }
+
+    /** 룬 정보 안전 추출 - Keystone */
+    private static Integer safeKeystone(MatchDto.Participant p) {
+        try { 
+            return p.getPerks().getStyles().get(0).getSelections().get(0).getPerk(); 
+        } catch (Exception e) { 
+            return null; 
+        }
+    }
+
+    /** 룬 정보 안전 추출 - 모든 Perk IDs */
+    private static List<Integer> allPerkIds(MatchDto.Participant p) {
         try {
             return p.getPerks().getStyles().stream()
                     .filter(Objects::nonNull)
@@ -379,7 +451,4 @@ public class MatchService {
             return List.of();
         }
     }
-    private static Double round1(double d){ return Math.round(d*10.0)/10.0; }
-    private static Double round2(double d){ return Math.round(d*100.0)/100.0; }
-    private static Double round3(double d){ return Math.round(d*1000.0)/1000.0; }
 }
