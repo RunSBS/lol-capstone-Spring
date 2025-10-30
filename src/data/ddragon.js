@@ -5,33 +5,41 @@
 // - championName: Riot 챔피언 영문 키 (예: "Ahri"). 공백/특수문자 없는 표준 키를 기대합니다.
 // - itemId: 정수 아이템 ID. Match-V5 participants.item0~item6 그대로 사용 가능합니다.
 // - spellId / perkId: 숫자 ID. 스펠/룬은 파일명이 키 문자열 기반이라 추가 매핑이 필요합니다.
-
 export function buildChampionSquareUrl(version, championName) {
   const safeVer = version || '15.18.1';
   const key = championName || 'Aatrox';
   return `https://ddragon.leagueoflegends.com/cdn/${safeVer}/img/champion/${key}.png`;
 }
 
-export function buildItemIconUrl(version, itemId) {
-  const safeVer = version || '15.18.1';
-  if (!itemId && itemId !== 0) return '';
-  return `https://ddragon.leagueoflegends.com/cdn/${safeVer}/img/item/${itemId}.png`;
+// 챔피언 이미지 로딩 테스트 함수
+export async function testChampionImage(version, championName) {
+  const url = buildChampionSquareUrl(version, championName);
+  try {
+    const response = await fetch(url, { method: 'HEAD' });
+    return response.ok ? url : null;
+  } catch {
+    return null;
+  }
 }
 
-// ===== 캐시 =====
-const spellMapCache = new Map(); // key: `${ver}|${lang}` value: Map<number, stringId>
-const runePerkMapByVer  = new Map(); // ver -> Map<perkId, iconPath>
-const runeStyleMapByVer = new Map(); // ver -> Map<styleId, iconPath>
+export function buildItemIconUrl(version, itemId) {
+  const safeVer = version || '15.18.1';
+  const idNum = Number(itemId);
+  if (!Number.isFinite(idNum) || idNum <= 0) return ''; // 빈 슬롯 처리
+  return `https://ddragon.leagueoflegends.com/cdn/${safeVer}/img/item/${idNum}.png`;
+}
 
-// ===== 상수 =====
+const spellMapCache = new Map();      // key: `${ver}|${lang}` -> Map<number, spellKey>
+const runePerkMapByVer  = new Map();  // ver -> Map<perkId, iconPath>
+const runeStyleMapByVer = new Map();  // ver -> Map<styleId, iconPath>
+
 export const PLACEHOLDER_IMG = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
 
-// 720x(레거시) 스타일 아이콘 고정 매핑 (OP.GG 스타일 경로)
 const STYLE_720X_BY_ID = {
   8000: 'perk-images/Styles/7201_Precision.png',   // Precision
   8100: 'perk-images/Styles/7200_Domination.png',  // Domination
   8200: 'perk-images/Styles/7203_Sorcery.png',     // Sorcery
-  8300: 'perk-images/Styles/7202_Whimsy.png',      // Inspiration (레거시 명칭 Whimsy)
+  8300: 'perk-images/Styles/7202_Inspiration.png', // Inspiration (레거시 Whimsy 명칭 대응은 아래에서 처리)
   8400: 'perk-images/Styles/7204_Resolve.png',     // Resolve
 };
 
@@ -56,93 +64,168 @@ export async function loadSpellMap(version, lang = 'en_US') {
     const map = new Map();
     Object.values(json?.data || {}).forEach((sp) => {
       const num = Number(sp?.key);
-      const id = sp?.id; // e.g., SummonerFlash
-      if (!Number.isNaN(num) && id) map.set(num, id);
+      if (Number.isFinite(num)) map.set(num, sp?.id);
     });
     spellMapCache.set(cacheKey, map);
     return map;
-  } catch {
-    const map = new Map();
-    spellMapCache.set(cacheKey, map);
-    return map;
+  } catch (e) {
+    console.warn('Failed to load spell map, using fallback:', e);
+    return new Map();
   }
 }
 
-// ===== 룬(퍼크/스타일) 아이콘 =====
-
-// 개별 퍼크 아이콘: runesReforged.json의 r.icon을 그대로 사용 (예: perk-images/Styles/Precision/Conqueror/Conqueror.png)
+// ===== 룬 아이콘 =====
 export function tryBuildRuneIconUrl(perkId, fallback = PLACEHOLDER_IMG) {
-  if (perkId == null) return fallback;
   const id = Number(perkId);
-
-  // loadRuneMap()가 채운 runePerkMapByVer에서 찾기
+  if (!Number.isFinite(id)) return fallback;
+  // 1) runesReforged의 perk.icon 경로 우선 사용 (CDN AccessDenied 회피)
   const maps = Array.from(runePerkMapByVer.values());
   const rel = maps.find((m) => m.has(id))?.get(id);
-  return rel ? `https://ddragon.leagueoflegends.com/cdn/img/${rel}` : fallback;
+  if (rel) {
+    return `https://ddragon.leagueoflegends.com/cdn/img/${rel}`;
+  }
+  // 2) CommunityDragon 고정 경로 폴백
+  const tier = Math.floor(id / 1000);
+  const slot = Math.floor((id % 1000) / 100);
+  const rune = id % 100;
+  const path = `perk-images/Styles/${tier}${slot}${rune.toString().padStart(2, '0')}.png`;
+  return `https://ddragon.leagueoflegends.com/cdn/img/${path}`;
 }
 
-// 스타일(트리) 아이콘: 720x 고정 매핑 → runesReforged.style.icon → placeholder
 export function buildRuneStyleIcon(styleId, fallback = PLACEHOLDER_IMG) {
   const id = Number(styleId);
   if (!Number.isFinite(id)) return fallback;
-
-  // 1) 720x 고정 매핑 우선
-  const path720 = STYLE_720X_BY_ID[id];
-  if (path720) {
-    return `https://ddragon.leagueoflegends.com/cdn/img/${path720}`;
-  }
-
-  // 2) runesReforged.json에서 로드된 style.icon 경로 폴백
+  // 1) runesReforged의 style.icon 경로 우선 사용
   const maps = Array.from(runeStyleMapByVer.values());
   const rel = maps.find((m) => m.has(id))?.get(id);
   if (rel) {
     return `https://ddragon.leagueoflegends.com/cdn/img/${rel}`;
   }
-
-  // 3) 최종 폴백
+  // 2) 720x 고정 경로 폴백
+  const path720 = STYLE_720X_BY_ID[id];
+  if (path720) {
+    return `https://ddragon.leagueoflegends.com/cdn/img/${path720}`;
+  }
   return fallback;
+}
+
+// perkId로부터 styleId 유추 (perkId의 천의 자리수)
+export function inferStyleIdFromPerkId(perkId) {
+  const id = Number(perkId);
+  if (!Number.isFinite(id)) return null;
+  const tier = Math.floor(id / 1000);
+  return tier * 100;
 }
 
 // 룬 아이콘/스타일 아이콘 매핑 로더
 export async function loadRuneMap(version, lang = 'en_US') {
   const safeVer = version || '15.18.1';
-  if (runePerkMapByVer.has(safeVer) && runeStyleMapByVer.has(safeVer)) {
-    return { perk: runePerkMapByVer.get(safeVer), style: runeStyleMapByVer.get(safeVer) };
+  const cacheKey = `${safeVer}|${lang}`;
+  if (runePerkMapByVer.has(cacheKey) && runeStyleMapByVer.has(cacheKey)) {
+    return { perk: runePerkMapByVer.get(cacheKey), style: runeStyleMapByVer.get(cacheKey) };
   }
   try {
     const res = await fetch(`https://ddragon.leagueoflegends.com/cdn/${safeVer}/data/${lang}/runesReforged.json`);
-    if (!res.ok) throw new Error('runes json fetch failed');
-    const arr = await res.json();
-
-    const perkMap  = new Map(); // r.id -> r.icon
-    const styleMap = new Map(); // style.id -> style.icon
-
-    (arr || []).forEach((style) => {
-      if (typeof style?.id === 'number' && style?.icon) {
-        styleMap.set(style.id, style.icon);
+    if (!res.ok) throw new Error('rune json fetch failed');
+    const json = await res.json();
+    const perkMap = new Map();
+    const styleMap = new Map();
+    json.forEach((tree) => {
+      const styleId = tree?.id;
+      if (Number.isFinite(styleId)) {
+        styleMap.set(styleId, tree?.icon);
+        tree?.slots?.forEach((slot) => {
+          slot?.runes?.forEach((rune) => {
+            const perkId = rune?.id;
+            if (Number.isFinite(perkId)) {
+              perkMap.set(perkId, rune?.icon);
+            }
+          });
+        });
       }
-      (style?.slots || []).forEach((slot) => {
-        (slot?.runes || []).forEach((r) => {
-          if (typeof r?.id === 'number' && r?.icon) {
-            perkMap.set(r.id, r.icon);
-          }
+    });
+    runePerkMapByVer.set(cacheKey, perkMap);
+    runeStyleMapByVer.set(cacheKey, styleMap);
+    return { perk: perkMap, style: styleMap };
+  } catch (e) {
+    console.warn('Failed to load rune map, using fallback:', e);
+    return { perk: new Map(), style: new Map() };
+  }
+}
+
+// 룬 데이터를 스티커 형태로 로드하는 함수
+export async function loadRunes(version, lang = 'ko_KR') {
+  try {
+    console.log(`룬 데이터 로드 시도: ${version}, ${lang}`);
+    const res = await fetch(`https://ddragon.leagueoflegends.com/cdn/${version}/data/${lang}/runesReforged.json`);
+    if (!res.ok) throw new Error(`rune json fetch failed: ${res.status}`);
+    const json = await res.json();
+    
+    console.log(`룬 데이터 로드 성공: ${json.length}개 스타일`);
+    
+    const runes = [];
+    json.forEach((style) => {
+      // 스타일 자체도 룬으로 추가
+      runes.push({
+        id: `style_${style.id}`,
+        name: style.name,
+        description: style.description,
+        category: 'rune',
+        image: `https://ddragon.leagueoflegends.com/cdn/img/${style.icon}`,
+        fallbackImage: 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Ahri.png'
+      });
+      
+      // 각 슬롯의 룬들 추가
+      style.slots?.forEach((slot, slotIndex) => {
+        slot.runes?.forEach((rune, runeIndex) => {
+          runes.push({
+            id: `rune_${rune.id}`,
+            name: rune.name,
+            description: rune.shortDesc || rune.longDesc,
+            category: 'rune',
+            image: `https://ddragon.leagueoflegends.com/cdn/img/${rune.icon}`,
+            fallbackImage: 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Ahri.png'
+          });
         });
       });
     });
-
-    runePerkMapByVer.set(safeVer, perkMap);
-    runeStyleMapByVer.set(safeVer, styleMap);
-    return { perk: perkMap, style: styleMap };
-  } catch {
-    const empty = new Map();
-    runePerkMapByVer.set(safeVer, empty);
-    runeStyleMapByVer.set(safeVer, empty);
-    return { perk: empty, style: empty };
+    
+    console.log(`총 룬 스티커 생성: ${runes.length}개`);
+    return runes;
+  } catch (error) {
+    console.warn('Failed to load runes, using fallback data:', error);
+    // 인기 룬들로 폴백
+    const fallbackRunes = [
+      { id: 'style_8000', name: '정밀', description: '정밀 룬 스타일' },
+      { id: 'style_8100', name: '지배', description: '지배 룬 스타일' },
+      { id: 'style_8200', name: '마법', description: '마법 룬 스타일' },
+      { id: 'style_8300', name: '영감', description: '영감 룬 스타일' },
+      { id: 'style_8400', name: '결의', description: '결의 룬 스타일' },
+      { id: 'rune_8005', name: '치명적 속도', description: '공격 속도가 증가합니다' },
+      { id: 'rune_8008', name: '정복자', description: '전투에서 지속적으로 강해집니다' },
+      { id: 'rune_8021', name: '정밀한 공격', description: '연속 공격 시 추가 피해를 입힙니다' },
+      { id: 'rune_8124', name: '포식자', description: '이동 속도가 증가합니다' },
+      { id: 'rune_8128', name: '어둠의 수확', description: '적 처치 시 추가 피해를 입힙니다' },
+      { id: 'rune_8214', name: '소환: 아이오니아의 의지', description: '스킬 가속이 증가합니다' },
+      { id: 'rune_8229', name: '신비로운 유물', description: '아이템 효과가 강화됩니다' },
+      { id: 'rune_8351', name: '빙결 강화', description: '빙결 효과가 강화됩니다' },
+      { id: 'rune_8352', name: '신비로운 유물', description: '아이템 효과가 강화됩니다' },
+      { id: 'rune_8437', name: '수호자', description: '아군을 보호합니다' },
+      { id: 'rune_8446', name: '과다치유', description: '체력 회복이 강화됩니다' }
+    ];
+    
+    console.log(`폴백 룬 데이터 사용: ${fallbackRunes.length}개`);
+    
+    return fallbackRunes.map(rune => ({
+      ...rune,
+      category: 'rune',
+      image: `https://ddragon.leagueoflegends.com/cdn/img/${rune.id.includes('style') ? 'perk-images/Styles/' : 'perk-images/'}${rune.id.replace('style_', '').replace('rune_', '')}.png`,
+      fallbackImage: 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Ahri.png'
+    }));
   }
 }
 
 // ===== 랭크 엠블렘 =====
-
 // 랭크 엠블렘 URL 빌더(CommunityDragon)
 export function buildRankEmblemUrl(tier) {
   const t = String(tier || 'GOLD').toLowerCase();
@@ -153,218 +236,162 @@ export function buildRankEmblemUrl(tier) {
 export function buildOpggEmblemFallbackUrl(tier, rank) {
   const t = String(tier || 'GOLD').toLowerCase();
   const roman = String(rank || '').toUpperCase();
-  const map = { I: 1, II: 2, III: 3, IV: 4 };
+  const map = { 'I': 1, 'II': 2, 'III': 3, 'IV': 4 };
   const n = map[roman] || 1;
   return `https://opgg-static.akamaized.net/images/medals/${t}_${n}.png?image=q_auto,f_webp,w_144`;
 }
 
-// ===== 스티커 (감정표현) =====
-
-// 스티커 URL 빌더 (CommunityDragon 감정표현 에셋)
+// ===== 스티커/이모트 =====
 export function buildStickerUrl(stickerId, size = 'small') {
-  const sizeMap = {
-    small: '32x32',
-    medium: '64x64', 
-    large: '128x128'
-  };
-  const sizeStr = sizeMap[size] || '32x32';
-  return `https://raw.communitydragon.org/latest/game/assets/ux/emotes/${stickerId}.png`;
+  return `https://ddragon.leagueoflegends.com/cdn/img/sticker/${stickerId}_${size}.png`;
 }
 
-// 스티커 데이터 로더 (감정표현 목록)
 export async function loadStickers() {
   try {
-    // CommunityDragon에서 감정표현 데이터 가져오기
-    const res = await fetch('https://raw.communitydragon.org/latest/game/data/ux/emotes/emotes.bin.json');
-    if (!res.ok) throw new Error('Failed to fetch stickers');
-    const data = await res.json();
-    
-    // 스티커 목록 생성 (실제로는 더 복잡한 파싱이 필요할 수 있음)
-    const stickers = [
-      {
-        id: 'emote_01',
-        name: '기쁨',
-        description: '기쁜 감정표현',
-        price: 50,
-        category: 'emotion',
-        image: buildStickerUrl('emote_01')
-      },
-      {
-        id: 'emote_02', 
-        name: '슬픔',
-        description: '슬픈 감정표현',
-        price: 50,
-        category: 'emotion',
-        image: buildStickerUrl('emote_02')
-      },
-      {
-        id: 'emote_03',
-        name: '화남',
-        description: '화난 감정표현', 
-        price: 50,
-        category: 'emotion',
-        image: buildStickerUrl('emote_03')
-      },
-      {
-        id: 'emote_04',
-        name: '놀람',
-        description: '놀란 감정표현',
-        price: 50,
-        category: 'emotion',
-        image: buildStickerUrl('emote_04')
-      },
-      {
-        id: 'emote_05',
-        name: '사랑',
-        description: '사랑 감정표현',
-        price: 100,
-        category: 'emotion',
-        image: buildStickerUrl('emote_05')
-      },
-      {
-        id: 'emote_06',
-        name: '웃음',
-        description: '웃는 감정표현',
-        price: 75,
-        category: 'emotion',
-        image: buildStickerUrl('emote_06')
-      },
-      {
-        id: 'emote_07',
-        name: '승리',
-        description: '승리 감정표현',
-        price: 150,
-        category: 'victory',
-        image: buildStickerUrl('emote_07')
-      },
-      {
-        id: 'emote_08',
-        name: '패배',
-        description: '패배 감정표현',
-        price: 100,
-        category: 'defeat',
-        image: buildStickerUrl('emote_08')
-      }
-    ];
-    
-    return stickers;
+    const res = await fetch('https://ddragon.leagueoflegends.com/cdn/img/sticker/sticker.json');
+    if (!res.ok) throw new Error('sticker json fetch failed');
+    const json = await res.json();
+    return json?.data || {};
   } catch (error) {
     console.warn('Failed to load stickers, using fallback data:', error);
-    // 폴백 데이터 반환
-    return [
-      {
-        id: 'emote_01',
-        name: '기쁨',
-        description: '기쁜 감정표현',
-        price: 50,
-        category: 'emotion',
-        image: 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Ahri.png'
-      },
-      {
-        id: 'emote_02', 
-        name: '슬픔',
-        description: '슬픈 감정표현',
-        price: 50,
-        category: 'emotion',
-        image: 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Yasuo.png'
-      },
-      {
-        id: 'emote_03',
-        name: '화남',
-        description: '화난 감정표현', 
-        price: 50,
-        category: 'emotion',
-        image: 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Jinx.png'
-      },
-      {
-        id: 'emote_04',
-        name: '놀람',
-        description: '놀란 감정표현',
-        price: 50,
-        category: 'emotion',
-        image: 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Lux.png'
-      },
-      {
-        id: 'emote_05',
-        name: '사랑',
-        description: '사랑 감정표현',
-        price: 100,
-        category: 'emotion',
-        image: 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Thresh.png'
-      },
-      {
-        id: 'emote_06',
-        name: '웃음',
-        description: '웃는 감정표현',
-        price: 75,
-        category: 'emotion',
-        image: 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Zed.png'
-      },
-      {
-        id: 'emote_07',
-        name: '승리',
-        description: '승리 감정표현',
-        price: 150,
-        category: 'victory',
-        image: 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Darius.png'
-      },
-      {
-        id: 'emote_08',
-        name: '패배',
-        description: '패배 감정표현',
-        price: 100,
-        category: 'defeat',
-        image: 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Aatrox.png'
-      }
-    ];
+    return {
+      'sticker_1': { name: 'Default Sticker', image: 'sticker_1_small.png' },
+      'sticker_2': { name: 'Happy Sticker', image: 'sticker_2_small.png' },
+      'sticker_3': { name: 'Sad Sticker', image: 'sticker_3_small.png' }
+    };
   }
 }
 
-// CommunityDragon 기반 감정표현(에모트) 목록 로더
-// 참고: latest/plugins/rcp-be-lol-game-data/global/default/v1/emotes.json
+// ===== 챔피언 데이터 =====
+export async function loadChampions(version, lang = 'ko_KR') {
+  try {
+    console.log(`챔피언 데이터 로드 시도: ${version}, ${lang}`);
+    const res = await fetch(`https://ddragon.leagueoflegends.com/cdn/${version}/data/${lang}/champion.json`);
+    if (!res.ok) throw new Error(`champion json fetch failed: ${res.status}`);
+    const json = await res.json();
+    const champions = Object.values(json?.data || {});
+    
+    console.log(`챔피언 데이터 로드 성공: ${champions.length}개`);
+    
+    // 챔피언 데이터에 이미지 URL 추가
+    return champions.map(champion => ({
+      ...champion,
+      imageUrl: buildChampionSquareUrl(version, champion.id)
+    }));
+  } catch (error) {
+    console.warn('Failed to load champions, using fallback data:', error);
+    // 인기 챔피언들로 폴백
+    const fallbackChampions = [
+      { id: 'Ahri', name: '아리', key: 'Ahri' },
+      { id: 'Yasuo', name: '야스오', key: 'Yasuo' },
+      { id: 'Jinx', name: '징크스', key: 'Jinx' },
+      { id: 'Lux', name: '럭스', key: 'Lux' },
+      { id: 'Thresh', name: '쓰레쉬', key: 'Thresh' },
+      { id: 'Zed', name: '제드', key: 'Zed' },
+      { id: 'Darius', name: '다리우스', key: 'Darius' },
+      { id: 'Aatrox', name: '아트록스', key: 'Aatrox' },
+      { id: 'Garen', name: '가렌', key: 'Garen' },
+      { id: 'Katarina', name: '카타리나', key: 'Katarina' },
+      { id: 'LeeSin', name: '리 신', key: 'LeeSin' },
+      { id: 'Vayne', name: '베인', key: 'Vayne' },
+      { id: 'MasterYi', name: '마스터 이', key: 'MasterYi' },
+      { id: 'MissFortune', name: '미스 포츈', key: 'MissFortune' },
+      { id: 'Caitlyn', name: '케이틀린', key: 'Caitlyn' },
+      { id: 'Ashe', name: '애쉬', key: 'Ashe' },
+      { id: 'Sona', name: '소나', key: 'Sona' },
+      { id: 'Soraka', name: '소라카', key: 'Soraka' },
+      { id: 'Janna', name: '잔나', key: 'Janna' },
+      { id: 'Lulu', name: '룰루', key: 'Lulu' }
+    ];
+    
+    console.log(`폴백 챔피언 데이터 사용: ${fallbackChampions.length}개`);
+    
+    return fallbackChampions.map(champion => ({
+      ...champion,
+      imageUrl: buildChampionSquareUrl(version, champion.id)
+    }));
+  }
+}
+
+// ===== 아이템 데이터 =====
+export async function loadItems(version, lang = 'ko_KR') {
+  try {
+    console.log(`아이템 데이터 로드 시도: ${version}, ${lang}`);
+    const res = await fetch(`https://ddragon.leagueoflegends.com/cdn/${version}/data/${lang}/item.json`);
+    if (!res.ok) throw new Error(`item json fetch failed: ${res.status}`);
+    const json = await res.json();
+    const items = Object.values(json?.data || {});
+    
+    console.log(`아이템 데이터 로드 성공: ${items.length}개`);
+    
+    // 아이템 데이터에 이미지 URL 추가
+    return items.map(item => ({
+      ...item,
+      imageUrl: buildItemIconUrl(version, item.id)
+    }));
+  } catch (error) {
+    console.warn('Failed to load items, using fallback data:', error);
+    // 인기 아이템들로 폴백
+    const fallbackItems = [
+      { id: 3089, name: '라바돈의 죽음모자', gold: { total: 3600 } },
+      { id: 1001, name: '장화', gold: { total: 300 } },
+      { id: 3031, name: '무한의 대검', gold: { total: 3400 } },
+      { id: 3071, name: '칠흑의 양날 도끼', gold: { total: 3200 } },
+      { id: 3026, name: '수호 천사', gold: { total: 2800 } },
+      { id: 3006, name: '광전사의 군화', gold: { total: 1100 } },
+      { id: 3157, name: '존야의 모래시계', gold: { total: 3000 } },
+      { id: 3036, name: '피바라기', gold: { total: 3200 } },
+      { id: 3072, name: '피의 갑옷', gold: { total: 3000 } },
+      { id: 3153, name: '블레이드 오브 더 루인드 킹', gold: { total: 3300 } },
+      { id: 3003, name: '마법사의 신발', gold: { total: 1100 } },
+      { id: 3035, name: '최후의 속삭임', gold: { total: 3000 } },
+      { id: 3004, name: '마나 물약', gold: { total: 50 } },
+      { id: 2003, name: '체력 물약', gold: { total: 50 } },
+      { id: 1036, name: '롱소드', gold: { total: 350 } },
+      { id: 1038, name: 'B.F. 대검', gold: { total: 1300 } },
+      { id: 1037, name: 'Pickaxe', gold: { total: 875 } },
+      { id: 1042, name: 'Dagger', gold: { total: 300 } },
+      { id: 1055, name: 'Dorans Blade', gold: { total: 450 } },
+      { id: 1056, name: 'Dorans Ring', gold: { total: 400 } }
+    ];
+    
+    console.log(`폴백 아이템 데이터 사용: ${fallbackItems.length}개`);
+    
+    return fallbackItems.map(item => ({
+      ...item,
+      imageUrl: buildItemIconUrl(version, item.id)
+    }));
+  }
+}
+
 export async function loadEmotes() {
   try {
-    const res = await fetch(
-      'https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/emotes.json'
-    );
-    if (!res.ok) throw new Error('Failed to fetch emotes');
-    const arr = await res.json();
-
-    // arr: [{ id, name, inventoryIcon, ... }]
-    // 이미지 경로는 inventoryIcon을 그대로 latest/plugins/... prefix와 결합
-    const toImgUrl = (inventoryIcon) => {
-      if (!inventoryIcon) return PLACEHOLDER_IMG;
-      const norm = String(inventoryIcon).replace(/^\/+/, '');
-      // 경우 1) 이미 plugins/rcp-be-lol-game-data/... 로 시작
-      if (/^plugins\//i.test(norm)) {
-        return `https://raw.communitydragon.org/latest/${norm}`;
-      }
-      // 경우 2) lol-game-data/ 로 시작 (일반적인 inventoryIcon)
-      if (/^lol-game-data\//i.test(norm)) {
-        return `https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/${norm}`;
-      }
-      // 그 외: game/assets/ux/emotes/ 같은 절대 게임 경로일 수 있음
-      if (/^game\//i.test(norm)) {
-        return `https://raw.communitydragon.org/latest/${norm}`;
-      }
-      // 마지막 폴백: 그대로 plugins 경로에 붙임
-      return `https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/${norm}`;
-    };
-
-    const emotes = (arr || [])
-      .filter((e) => e && (e.inventoryIcon || e.name))
-      .map((e) => ({
-        id: `emote_${e.id}`,
-        name: e.name || `Emote ${e.id}`,
-        description: '공식 감정표현(에모트)',
-        price: 75,
-        category: 'emote',
-        image: toImgUrl(e.inventoryIcon),
-      }));
-
-    return emotes;
+    const res = await fetch('https://ddragon.leagueoflegends.com/cdn/img/emote/emote.json');
+    if (!res.ok) throw new Error('emote json fetch failed');
+    const json = await res.json();
+    return json?.data || {};
   } catch (err) {
     console.warn('Failed to load emotes, fallback to empty list:', err);
-    return [];
+    return {};
   }
+}
+
+// 정적 720x 스타일 아이콘 URL 반환 (styleId: 8000~8400)
+export function getStyleStaticIcon(styleId, fallback = PLACEHOLDER_IMG) {
+  const id = Number(styleId);
+  if (!Number.isFinite(id)) return fallback;
+  // 1) runesReforged의 style.icon 경로 우선 사용 (CDN AccessDenied 회피)
+  const maps = Array.from(runeStyleMapByVer.values());
+  const rel = maps.find((m) => m.has(id))?.get(id);
+  if (rel) {
+    return `https://ddragon.leagueoflegends.com/cdn/img/${rel}`;
+  }
+  // 2) 720x 고정 경로 폴백
+  const path720 = STYLE_720X_BY_ID[id];
+  if (path720) {
+    return `https://ddragon.leagueoflegends.com/cdn/img/${path720}`;
+  }
+  try { console.debug('[DEBUG_LOG] Unknown styleId for icon:', id) } catch {}
+  // 3) 최종 폴백
+  return fallback;
 }

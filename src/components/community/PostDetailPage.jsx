@@ -20,6 +20,7 @@ function PostDetailPage({ currentUser, adminId, postId }) {
   useEffect(() => {
     boardApi.getPost(id).then((data) => {
       setPost(data);
+      // 백엔드에서 받은 좋아요/싫어요 개수 사용
       setLike(data.like || 0);
       setDislike(data.dislike || 0);
       setVoteData(data.vote || null);
@@ -274,7 +275,7 @@ function PostDetailPage({ currentUser, adminId, postId }) {
         <h2>{post.title}</h2>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
       <div>
-        <a href={`/user/${encodeURIComponent(post.writer)}`} target="_blank" rel="noopener noreferrer"><b>{post.writer}</b></a> vs <a href={`/user/${encodeURIComponent(post.writerB || "작성자B")}`} target="_blank" rel="noopener noreferrer"><b>{post.writerB || "작성자B"}</b></a> | {new Date(post.createdAt).toLocaleString()}
+        <Link to={`/user/${encodeURIComponent(post.writer)}`}><b>{post.writer}</b></Link> vs <Link to={`/user/${encodeURIComponent(post.writerB || "작성자B")}`}><b>{post.writerB || "작성자B"}</b></Link> | {new Date(post.createdAt).toLocaleString()}
       </div>
           {canEdit && (
             <div>
@@ -368,7 +369,7 @@ function PostDetailPage({ currentUser, adminId, postId }) {
     <div>
       <h2>{post.title}</h2>
       <div>
-        <a href={`/user/${encodeURIComponent(post.writer)}`} target="_blank" rel="noopener noreferrer"><b>{post.writer}</b></a> | {new Date(post.createdAt).toLocaleString()}
+        <Link to={`/user/${encodeURIComponent(post.writer)}`}><b>{post.writer}</b></Link> | {new Date(post.createdAt).toLocaleString()}
       </div>
       {canEdit && (
         <>
@@ -607,4 +608,5 @@ function VoteDisplay({ voteData, userVoteOption, onVoteSubmit, onVoteCancel, cur
 }
 
 export default PostDetailPage;
+
 

@@ -35,7 +35,7 @@ function SummonerProfile({ nickname, profileIconId, summonerLevel, gameName, tag
           <span className="summoner-tag">#{displayTag}</span>
         </div>
         {/* 부가 정보: 백엔드 연동 시 자연 표출 */}
-        {puuid && <p className="rank-summary"><strong>PUUID</strong> {puuid}</p>}
+        {/*{puuid && <p className="rank-summary"><strong>PUUID</strong> {puuid}</p>}*/}
         {revisionDate && <p className="rank-summary">마지막 수정 <strong>{fmtDate(revisionDate)}</strong></p>}
         <div className="profile-actions">
           <button className="btn-primary" onClick={onRefresh} disabled={!!isRefreshing}>{isRefreshing ? '갱신 중…' : '전적 갱신'}</button>

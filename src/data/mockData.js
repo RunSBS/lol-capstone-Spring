@@ -55,4 +55,152 @@ export const recentGamesSummaryData = {
   ],
 }
 
+// 자동완성 검색용 목업 데이터
+export const autocompleteMockData = [
+  { id: 1, name: 'Hide on bush', tag: 'KR1', level: 100, profileIconId: 5465, tier: 'Challenger', rank: 'I', lp: 1234, ddVer: '15.18.1' },
+  { id: 2, name: 'Faker', tag: 'KR1', level: 200, profileIconId: 5465, tier: 'Challenger', rank: 'I', lp: 1500, ddVer: '15.18.1' },
+  { id: 3, name: 'FakeGod', tag: 'KR1', level: 150, profileIconId: 5465, tier: 'Master', rank: 'I', lp: 1200, ddVer: '15.18.1' },
+  { id: 4, name: 'FakerFan', tag: 'KR1', level: 120, profileIconId: 5465, tier: 'Diamond', rank: 'I', lp: 1000, ddVer: '15.18.1' },
+  { id: 5, name: 'T1 Gumayusi', tag: 'KR1', level: 150, profileIconId: 5465, tier: 'Challenger', rank: 'I', lp: 1400, ddVer: '15.18.1' },
+  { id: 6, name: 'T1 Keria', tag: 'KR1', level: 120, profileIconId: 5465, tier: 'Challenger', rank: 'I', lp: 1300, ddVer: '15.18.1' },
+  { id: 7, name: 'T1 Zeus', tag: 'KR1', level: 180, profileIconId: 5465, tier: 'Challenger', rank: 'I', lp: 1450, ddVer: '15.18.1' },
+  { id: 8, name: 'T1 Oner', tag: 'KR1', level: 160, profileIconId: 5465, tier: 'Challenger', rank: 'I', lp: 1350, ddVer: '15.18.1' },
+  { id: 9, name: 'GenG Chovy', tag: 'KR1', level: 170, profileIconId: 5465, tier: 'Challenger', rank: 'I', lp: 1420, ddVer: '15.18.1' },
+  { id: 10, name: 'GenG Peyz', tag: 'KR1', level: 140, profileIconId: 5465, tier: 'Challenger', rank: 'I', lp: 1380, ddVer: '15.18.1' },
+  { id: 11, name: 'KT Bdd', tag: 'KR1', level: 190, profileIconId: 5465, tier: 'Challenger', rank: 'I', lp: 1480, ddVer: '15.18.1' },
+  { id: 12, name: 'DK ShowMaker', tag: 'KR1', level: 210, profileIconId: 5465, tier: 'Challenger', rank: 'I', lp: 1520, ddVer: '15.18.1' },
+  { id: 13, name: 'Hide po bush', tag: 'KR1', level: 100, profileIconId: 5465, tier: 'Challenger', rank: 'I', lp: 1234, ddVer: '15.18.1' },
+  { id: 14, name: 'Hide poo bush', tag: 'KR1', level: 100, profileIconId: 5465, tier: 'Challenger', rank: 'I', lp: 1234, ddVer: '15.18.1' },
+  { id: 15, name: 'Hide fa bush', tag: 'KR1', level: 100, profileIconId: 5465, tier: 'Challenger', rank: 'I', lp: 1234, ddVer: '15.18.1' },
+  { id: 16, name: 'Hide on', tag: 'push', level: 50, profileIconId: 5465, tier: 'Iron', rank: 'IV', lp: 0, ddVer: '15.18.1' },
+  { id: 17, name: 'HIDE ON', tag: 'KR15', level: 293, profileIconId: 5465, tier: null, rank: null, lp: null, ddVer: '15.18.1' },
+  { id: 18, name: 'Hide on bush', tag: '052', level: 80, profileIconId: 5465, tier: 'Silver', rank: 'II', lp: 79, ddVer: '15.18.1' },
+  { id: 19, name: 'hide on bush', tag: 'KR712', level: 85, profileIconId: 5465, tier: 'Silver', rank: 'II', lp: 89, ddVer: '15.18.1' },
+  { id: 20, name: 'Hide on', tag: 'bush', level: 120, profileIconId: 5465, tier: 'Gold', rank: 'I', lp: 200, ddVer: '15.18.1' },
+  { id: 21, name: 'Hide', tag: 'KR1', level: 90, profileIconId: 5465, tier: 'Platinum', rank: 'IV', lp: 50, ddVer: '15.18.1' },
+  { id: 22, name: 'HideOnBush', tag: 'KR1', level: 110, profileIconId: 5465, tier: 'Diamond', rank: 'II', lp: 300, ddVer: '15.18.1' },
+  { id: 23, name: 'HideOnBush2', tag: 'KR1', level: 95, profileIconId: 5465, tier: 'Master', rank: 'I', lp: 400, ddVer: '15.18.1' },
+  { id: 24, name: 'HideOnBush3', tag: 'KR1', level: 105, profileIconId: 5465, tier: 'Grandmaster', rank: 'I', lp: 500, ddVer: '15.18.1' }
+]
+
+// 자동완성 검색 함수 (목업 데이터에서 검색)
+export const searchAutocompleteMockData = (query) => {
+  if (!query || query.length < 2) return []
+  
+  const normalizedQuery = query.toLowerCase().trim()
+  
+  return autocompleteMockData.filter(player => 
+    player.name.toLowerCase().startsWith(normalizedQuery)
+  ).slice(0, 10) // 최대 10개까지만 반환
+}
+
+// 매치 상세용 목업 데이터 (2개 매치 - 개인랭크와 자유랭크)
+export const mockMatchData = [
+  {
+    matchId: 'mock-match-1',
+    gameCreation: Date.now() - 3600000, // 1시간 전
+    gameDuration: 1800, // 30분
+    queueId: 420, // 개인/2인 랭크 게임
+    gameMode: 'CLASSIC',
+    participants: detailedPlayersData.map((player, index) => {
+      // 포지션 매핑 (챔피언별로 적절한 포지션 할당)
+      const positionMap = {
+        'Irelia': 'TOP',
+        'Viego': 'JUNGLE', 
+        'Ahri': 'MIDDLE',
+        'Draven': 'BOTTOM',
+        'Blitzcrank': 'UTILITY',
+        'Jax': 'TOP',
+        'Kindred': 'JUNGLE',
+        'Sylas': 'MIDDLE',
+        'Kaisa': 'BOTTOM',
+        'Nautilus': 'UTILITY'
+      }
+      
+      return {
+        ...player,
+        puuid: `mock-puuid-${index}`,
+        teamId: player.team === 'win' ? 200 : 100,
+        win: player.team === 'win',
+        championName: player.champion.name,
+        summonerName: player.name,
+        kills: parseInt(player.kda.split('/')[0]),
+        deaths: parseInt(player.kda.split('/')[1]),
+        assists: parseInt(player.kda.split('/')[2]),
+        csTotal: player.cs,
+        champLevel: player.champion.level,
+        teamPosition: positionMap[player.champion.name] || 'UNKNOWN', // 포지션 정보 추가
+        individualPosition: positionMap[player.champion.name] || 'UNKNOWN', // 개별 포지션 정보 추가
+        item0: player.items[0] ? parseInt(player.items[0].split('/').pop().split('.')[0]) : null,
+        item1: player.items[1] ? parseInt(player.items[1].split('/').pop().split('.')[0]) : null,
+        item2: player.items[2] ? parseInt(player.items[2].split('/').pop().split('.')[0]) : null,
+        item3: player.items[3] ? parseInt(player.items[3].split('/').pop().split('.')[0]) : null,
+        item4: player.items[4] ? parseInt(player.items[4].split('/').pop().split('.')[0]) : null,
+        item5: player.items[5] ? parseInt(player.items[5].split('/').pop().split('.')[0]) : null,
+        item6: player.trinket ? parseInt(player.trinket.split('/').pop().split('.')[0]) : null,
+        summoner1Id: 4, // Flash
+        summoner2Id: 12, // Teleport
+      }
+    }),
+    teams: [
+      { teamId: 100, win: false },
+      { teamId: 200, win: true }
+    ],
+    ddVer: '15.18.1',
+    detailedPlayers: detailedPlayersData // MatchDetails에서 사용할 수 있도록 추가
+  },
+  {
+    matchId: 'mock-match-2', 
+    gameCreation: Date.now() - 7200000, // 2시간 전
+    gameDuration: 2100, // 35분
+    queueId: 440, // 자유 랭크 게임
+    gameMode: 'CLASSIC',
+    participants: detailedPlayersData.map((player, index) => {
+      // 포지션 매핑 (챔피언별로 적절한 포지션 할당)
+      const positionMap = {
+        'Irelia': 'TOP',
+        'Viego': 'JUNGLE', 
+        'Ahri': 'MIDDLE',
+        'Draven': 'BOTTOM',
+        'Blitzcrank': 'UTILITY',
+        'Jax': 'TOP',
+        'Kindred': 'JUNGLE',
+        'Sylas': 'MIDDLE',
+        'Kaisa': 'BOTTOM',
+        'Nautilus': 'UTILITY'
+      }
+      
+      return {
+        ...player,
+        puuid: `mock-puuid-${index}`,
+        teamId: player.team === 'win' ? 100 : 200, // 두 번째 매치는 반대로
+        win: player.team === 'win',
+        championName: player.champion.name,
+        summonerName: player.name,
+        kills: parseInt(player.kda.split('/')[0]),
+        deaths: parseInt(player.kda.split('/')[1]),
+        assists: parseInt(player.kda.split('/')[2]),
+        csTotal: player.cs,
+        champLevel: player.champion.level,
+        teamPosition: positionMap[player.champion.name] || 'UNKNOWN', // 포지션 정보 추가
+        individualPosition: positionMap[player.champion.name] || 'UNKNOWN', // 개별 포지션 정보 추가
+        item0: player.items[0] ? parseInt(player.items[0].split('/').pop().split('.')[0]) : null,
+        item1: player.items[1] ? parseInt(player.items[1].split('/').pop().split('.')[0]) : null,
+        item2: player.items[2] ? parseInt(player.items[2].split('/').pop().split('.')[0]) : null,
+        item3: player.items[3] ? parseInt(player.items[3].split('/').pop().split('.')[0]) : null,
+        item4: player.items[4] ? parseInt(player.items[4].split('/').pop().split('.')[0]) : null,
+        item5: player.items[5] ? parseInt(player.items[5].split('/').pop().split('.')[0]) : null,
+        item6: player.trinket ? parseInt(player.trinket.split('/').pop().split('.')[0]) : null,
+        summoner1Id: 4, // Flash
+        summoner2Id: 12, // Teleport
+      }
+    }),
+    teams: [
+      { teamId: 100, win: true },
+      { teamId: 200, win: false }
+    ],
+    ddVer: '15.18.1',
+    detailedPlayers: detailedPlayersData // MatchDetails에서 사용할 수 있도록 추가
+  }
+]
 

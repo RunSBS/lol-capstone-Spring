@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { buildChampionSquareUrl, buildItemIconUrl } from '../../data/ddragon';
 
 export default function StickerInventory({ user, onStickerSelect, onStickerRemove }) {
   const [selectedSticker, setSelectedSticker] = useState(null);
@@ -42,6 +43,38 @@ export default function StickerInventory({ user, onStickerSelect, onStickerRemov
 
   // 스티커 이름 매핑 (실제로는 API에서 가져와야 함)
   function getStickerName(stickerId) {
+    // 챔피언 스티커
+    if (stickerId.startsWith('champion_')) {
+      const championName = stickerId.replace('champion_', '');
+      const championNames = {
+        'Ahri': '아리', 'Yasuo': '야스오', 'Jinx': '징크스', 'Lux': '럭스', 'Thresh': '쓰레쉬',
+        'Zed': '제드', 'Darius': '다리우스', 'Aatrox': '아트록스', 'Garen': '가렌', 'Katarina': '카타리나',
+        'LeeSin': '리 신', 'Vayne': '베인', 'MasterYi': '마스터 이', 'MissFortune': '미스 포츈',
+        'Caitlyn': '케이틀린', 'Ashe': '애쉬', 'Sona': '소나', 'Soraka': '소라카', 'Janna': '잔나', 'Lulu': '룰루'
+      };
+      return championNames[championName] || championName;
+    }
+    
+    // 아이템 스티커
+    if (stickerId.startsWith('item_')) {
+      const itemId = stickerId.replace('item_', '');
+      const itemNames = {
+        '3089': '라바돈의 죽음모자', '1001': '장화', '3031': '무한의 대검', '3071': '칠흑의 양날 도끼',
+        '3026': '수호 천사', '3006': '광전사의 군화', '3157': '존야의 모래시계', '3036': '도미닉 경의 인사',
+        '3072': '피바라기', '3153': '몰락한 왕의 검', '3003': '대천사의 지팡이', '3035': '최후의 속삭임',
+        '3004': '마나무네', '2003': '체력 물약', '1036': '롱소드', '1038': 'B.F. 대검',
+        '1037': '곡괭이', '1042': '단검', '1055': '도란의 검', '1056': '도란의 반지'
+      };
+      return itemNames[itemId] || `아이템 ${itemId}`;
+    }
+    
+    // 룬 스티커
+    if (stickerId.startsWith('rune_') || stickerId.startsWith('style_')) {
+      // 룬 이름은 Data Dragon에서 가져온 실제 이름을 사용
+      return stickerId.replace('rune_', '').replace('style_', '');
+    }
+    
+    // 기존 에모트 스티커
     const nameMap = {
       'emote_01': '기쁨',
       'emote_02': '슬픔', 
@@ -57,6 +90,32 @@ export default function StickerInventory({ user, onStickerSelect, onStickerRemov
 
   // 스티커 이미지 매핑 (실제로는 API에서 가져와야 함)
   function getStickerImage(stickerId) {
+    const ddVer = '15.18.1';
+    
+    // 챔피언 스티커
+    if (stickerId.startsWith('champion_')) {
+      const championName = stickerId.replace('champion_', '');
+      return buildChampionSquareUrl(ddVer, championName);
+    }
+    
+    // 아이템 스티커
+    if (stickerId.startsWith('item_')) {
+      const itemId = stickerId.replace('item_', '');
+      return buildItemIconUrl(ddVer, itemId);
+    }
+    
+    // 룬 스티커
+    if (stickerId.startsWith('rune_') || stickerId.startsWith('style_')) {
+      // 룬 이미지는 Data Dragon CDN에서 가져옴
+      const runeId = stickerId.replace('rune_', '').replace('style_', '');
+      if (stickerId.startsWith('style_')) {
+        return `https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/${runeId}.png`;
+      } else {
+        return `https://ddragon.leagueoflegends.com/cdn/img/perk-images/${runeId}.png`;
+      }
+    }
+    
+    // 기존 에모트 스티커
     const imageMap = {
       'emote_01': 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Ahri.png',
       'emote_02': 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Yasuo.png',
@@ -68,6 +127,16 @@ export default function StickerInventory({ user, onStickerSelect, onStickerRemov
       'emote_08': 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Aatrox.png'
     };
     return imageMap[stickerId] || 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Ahri.png';
+  }
+
+  // 스티커 카테고리 반환
+  function getStickerCategory(stickerId) {
+    if (stickerId.startsWith('champion_')) return '챔피언';
+    if (stickerId.startsWith('item_')) return '아이템';
+    if (stickerId.startsWith('rune_')) return '룬';
+    if (stickerId.startsWith('style_')) return '룬 스타일';
+    if (stickerId.startsWith('emote_')) return '이모트';
+    return '기타';
   }
 
   if (ownedStickers.length === 0) {
@@ -109,11 +178,15 @@ export default function StickerInventory({ user, onStickerSelect, onStickerRemov
               <img 
                 src={sticker.image} 
                 alt={sticker.name}
+                onError={(e) => {
+                  e.target.src = 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Ahri.png';
+                }}
                 style={{ 
                   width: '48px', 
                   height: '48px', 
                   objectFit: 'contain',
-                  borderRadius: '4px'
+                  borderRadius: '4px',
+                  backgroundColor: '#f0f0f0'
                 }}
               />
             </div>
@@ -121,6 +194,9 @@ export default function StickerInventory({ user, onStickerSelect, onStickerRemov
             {/* 스티커 정보 */}
             <div style={{ textAlign: 'center' }}>
               <h4 style={{ margin: '0 0 5px 0', fontSize: '14px' }}>{sticker.name}</h4>
+              <p style={{ margin: '0 0 5px 0', fontSize: '10px', color: '#999' }}>
+                {getStickerCategory(sticker.id)}
+              </p>
               <p style={{ margin: '0 0 10px 0', fontSize: '12px', color: '#666' }}>
                 보유: {sticker.count}개
               </p>

@@ -5,11 +5,12 @@ function Register({ onRegister }) {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     username: "",
+    email: "",
     password: "",
     confirmPassword: ""
   });
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     if (formData.password !== formData.confirmPassword) {
@@ -22,23 +23,33 @@ function Register({ onRegister }) {
       return;
     }
 
-    const usersJson = localStorage.getItem("users");
-    const users = usersJson ? JSON.parse(usersJson) : [];
-    
-    const existingUser = users.find(u => u.username === formData.username);
-    if (existingUser) {
-      alert("이미 존재하는 아이디입니다.");
-      return;
-    }
+    try {
+      // 백엔드 회원가입 API 호출
+      const response = await fetch('http://localhost:8080/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          username: formData.username,
+          email: formData.email,
+          password: formData.password
+        })
+      });
 
-    users.push({
-      username: formData.username,
-      password: formData.password
-    });
-    
-    localStorage.setItem("users", JSON.stringify(users));
-    alert("회원가입이 완료되었습니다.");
-    onRegister();
+      if (response.ok) {
+        alert("회원가입이 완료되었습니다.");
+        onRegister();
+      } else if (response.status === 409) {
+        const errorText = await response.text();
+        alert(errorText || "이미 존재하는 사용자입니다.");
+      } else {
+        alert("회원가입 중 오류가 발생했습니다.");
+      }
+    } catch (error) {
+      console.error('Register error:', error);
+      alert("회원가입 중 오류가 발생했습니다.");
+    }
   };
 
   const handleInputChange = (e) => {
@@ -64,6 +75,26 @@ function Register({ onRegister }) {
             value={formData.username}
             onChange={handleInputChange}
             placeholder="아이디를 입력하세요"
+            style={{ 
+              width: "100%", 
+              padding: 10, 
+              border: "1px solid #ddd",
+              borderRadius: 4 
+            }}
+            required
+          />
+        </div>
+
+        <div style={{ marginBottom: 15 }}>
+          <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
+            이메일
+          </label>
+          <input
+            type="email"
+            name="email"
+            value={formData.email}
+            onChange={handleInputChange}
+            placeholder="이메일을 입력하세요"
             style={{ 
               width: "100%", 
               padding: 10, 

@@ -1,7 +1,7 @@
 // 우측 자유 랭크 게임 섹션
 import { buildRankEmblemUrl, buildOpggEmblemFallbackUrl } from '../../data/ddragon.js'
 function FlexRankCard({ entry, loading, error }) {
-  // 랭크 카드: 자유랭크 데이터 바인딩, 값 없으면 디폴트
+  // 랭크 카드: 백엔드 응답에 맞춰 표시, 값 없으면 디폴트
   const tier = entry?.tier || 'Silver'
   const rank = entry?.rank || '1'
   const lp = entry?.leaguePoints ?? 27

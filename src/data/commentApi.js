@@ -1,20 +1,6 @@
-let globalCommentId = parseInt(localStorage.getItem("globalCommentId") || "0", 10);
+import backendApi from './backendApi';
+
 const ADMIN_ID = "admin1";
-
-function getNextCommentId() {
-  globalCommentId++;
-  localStorage.setItem("globalCommentId", globalCommentId.toString());
-  return globalCommentId;
-}
-
-function loadComments() {
-  const json = localStorage.getItem("dummyComments");
-  return json ? JSON.parse(json) : [];
-}
-
-function saveComments(comments) {
-  localStorage.setItem("dummyComments", JSON.stringify(comments));
-}
 
 // vote record helpers: per commentId + username, store { type, date }
 function getVoteKey(commentId, username) {
@@ -56,171 +42,119 @@ function clearTodayVote(commentId, username) {
 
 const commentApi = {
   getCommentsByPostId: (postId) =>
-    new Promise((resolve) => {
-      const comments = loadComments();
-      const postComments = comments
-        .filter(c => c.postId === Number(postId))
-        .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-      resolve(postComments);
+    new Promise(async (resolve, reject) => {
+      try {
+        const comments = await backendApi.getComments(postId);
+        // 백엔드 데이터를 프론트엔드 형태로 변환
+        const formattedComments = comments.map(c => ({
+          id: c.id,
+          postId: c.postId,
+          writer: c.writer,
+          text: c.content,
+          like: c.likes,
+          dislike: c.dislikes,
+          createdAt: c.createdAt
+        }));
+        resolve(formattedComments);
+      } catch (error) {
+        console.error('댓글 조회 실패:', error);
+        reject(error);
+      }
     }),
 
   getCommentCountByPostId: (postId) =>
-    new Promise((resolve) => {
-      const comments = loadComments();
-      const count = comments.filter(c => c.postId === Number(postId)).length;
-      resolve(count);
+    new Promise(async (resolve) => {
+      try {
+        const comments = await backendApi.getComments(postId);
+        resolve(comments.length);
+      } catch (error) {
+        console.error('댓글 개수 조회 실패:', error);
+        resolve(0);
+      }
     }),
 
   createComment: (comment) =>
-    new Promise((resolve) => {
-      const comments = loadComments();
-      const newComment = {
-        ...comment,
-        id: getNextCommentId(),
-        createdAt: new Date().toISOString(),
-        postId: Number(comment.postId)
-      };
-      comments.push(newComment);
-      saveComments(comments);
-      resolve(newComment);
+    new Promise(async (resolve, reject) => {
+      try {
+        const savedComment = await backendApi.createComment(comment.postId, comment.text);
+        // 백엔드에서 반환된 CommentDto를 프론트엔드 형태로 변환
+        const formattedComment = {
+          id: savedComment.id,
+          postId: savedComment.postId,
+          writer: savedComment.writer,
+          text: savedComment.content,
+          like: savedComment.likes,
+          dislike: savedComment.dislikes,
+          createdAt: savedComment.createdAt
+        };
+        resolve(formattedComment);
+      } catch (error) {
+        console.error('댓글 작성 실패:', error);
+        reject(error);
+      }
     }),
 
   updateComment: (id, updatedData) =>
     new Promise((resolve, reject) => {
-      const comments = loadComments();
-      const index = comments.findIndex(c => c.id === Number(id));
-      if (index !== -1) {
-        comments[index] = { ...comments[index], ...updatedData };
-        saveComments(comments);
-        resolve(true);
-      } else {
-        reject("댓글을 찾을 수 없습니다.");
-      }
+      // 백엔드에 수정 API가 없으므로 일단 reject
+      reject("댓글 수정은 아직 지원되지 않습니다.");
     }),
 
   deleteComment: (id) =>
-    new Promise((resolve, reject) => {
-      const comments = loadComments();
-      const index = comments.findIndex(c => c.id === Number(id));
-      if (index !== -1) {
-        comments.splice(index, 1);
-        saveComments(comments);
+    new Promise(async (resolve, reject) => {
+      try {
+        await backendApi.deleteComment(id);
         resolve(true);
-      } else {
-        reject("댓글을 찾을 수 없습니다.");
+      } catch (error) {
+        console.error('댓글 삭제 실패:', error);
+        reject(error);
       }
     }),
 
-  // Only the comment author can vote. Like/dislike are mutually exclusive within a day.
-  likeComment: (id, username) =>
-    new Promise((resolve, reject) => {
-      const comments = loadComments();
-      const comment = comments.find(c => c.id === Number(id));
-      if (!comment) {
-        reject("댓글을 찾을 수 없습니다.");
-        return;
-      }
-      if (!username) {
-        reject("로그인이 필요합니다.");
-        return;
-      }
-      if (comment.writer !== username) {
-        reject("작성자만 추천/반대할 수 있습니다.");
-        return;
-      }
-      const vote = readTodayVote(comment.id, username);
-      if (vote && vote.type === "dislike") {
-        reject("이미 오늘 반대를 하셨습니다. 먼저 반대 취소를 해주세요.");
-        return;
-      }
-      if (vote && vote.type === "like") {
-        reject("이미 오늘 추천을 하셨습니다. (취소 가능)");
-        return;
-      }
-      comment.like = (comment.like || 0) + 1;
-      saveComments(comments);
-      writeTodayVote(comment.id, username, "like");
-      resolve(true);
-    }),
+  // 백엔드 API를 사용한 댓글 좋아요
+  likeComment: async (id, username) => {
+    try {
+      await backendApi.likeComment(id);
+      writeTodayVote(id, username, "like");
+      return true;
+    } catch (error) {
+      console.error('댓글 좋아요 실패:', error);
+      throw error;
+    }
+  },
 
-  removeLikeComment: (id, username) =>
-    new Promise((resolve, reject) => {
-      const comments = loadComments();
-      const comment = comments.find(c => c.id === Number(id));
-      if (!comment) {
-        reject("댓글을 찾을 수 없습니다.");
-        return;
-      }
-      if (!username) {
-        reject("로그인이 필요합니다.");
-        return;
-      }
-      const vote = readTodayVote(comment.id, username);
-      if (!vote || vote.type !== "like") {
-        reject("오늘 추천한 기록이 없습니다.");
-        return;
-      }
-      comment.like = Math.max((comment.like || 1) - 1, 0);
-      saveComments(comments);
-      // cancel clears today's vote so user can vote again
-      clearTodayVote(comment.id, username);
-      resolve(true);
-    }),
+  removeLikeComment: async (id, username) => {
+    try {
+      await backendApi.removeLikeComment(id);
+      clearTodayVote(id, username);
+      return true;
+    } catch (error) {
+      console.error('댓글 좋아요 취소 실패:', error);
+      throw error;
+    }
+  },
 
-  dislikeComment: (id, username) =>
-    new Promise((resolve, reject) => {
-      const comments = loadComments();
-      const comment = comments.find(c => c.id === Number(id));
-      if (!comment) {
-        reject("댓글을 찾을 수 없습니다.");
-        return;
-      }
-      if (!username) {
-        reject("로그인이 필요합니다.");
-        return;
-      }
-      if (comment.writer !== username) {
-        reject("작성자만 추천/반대할 수 있습니다.");
-        return;
-      }
-      const vote = readTodayVote(comment.id, username);
-      if (vote && vote.type === "like") {
-        reject("이미 오늘 추천을 하셨습니다. 먼저 추천 취소를 해주세요.");
-        return;
-      }
-      if (vote && vote.type === "dislike") {
-        reject("이미 오늘 반대를 하셨습니다. (취소 가능)");
-        return;
-      }
-      comment.dislike = (comment.dislike || 0) + 1;
-      saveComments(comments);
-      writeTodayVote(comment.id, username, "dislike");
-      resolve(true);
-    }),
+  dislikeComment: async (id, username) => {
+    try {
+      await backendApi.dislikeComment(id);
+      writeTodayVote(id, username, "dislike");
+      return true;
+    } catch (error) {
+      console.error('댓글 싫어요 실패:', error);
+      throw error;
+    }
+  },
 
-  removeDislikeComment: (id, username) =>
-    new Promise((resolve, reject) => {
-      const comments = loadComments();
-      const comment = comments.find(c => c.id === Number(id));
-      if (!comment) {
-        reject("댓글을 찾을 수 없습니다.");
-        return;
-      }
-      if (!username) {
-        reject("로그인이 필요합니다.");
-        return;
-      }
-      const vote = readTodayVote(comment.id, username);
-      if (!vote || vote.type !== "dislike") {
-        reject("오늘 반대한 기록이 없습니다.");
-        return;
-      }
-      comment.dislike = Math.max((comment.dislike || 1) - 1, 0);
-      saveComments(comments);
-      // cancel clears today's vote so user can vote again
-      clearTodayVote(comment.id, username);
-      resolve(true);
-    }),
+  removeDislikeComment: async (id, username) => {
+    try {
+      await backendApi.removeDislikeComment(id);
+      clearTodayVote(id, username);
+      return true;
+    } catch (error) {
+      console.error('댓글 싫어요 취소 실패:', error);
+      throw error;
+    }
+  },
 
   // expose today's vote info for UI: returns { type: 'like'|'dislike'|'spent', date } or null
   getTodayVoteInfo: (commentId, username) => {
