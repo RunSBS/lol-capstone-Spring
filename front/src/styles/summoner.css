@@ -61,9 +61,9 @@ body {
 .game-mode-nav button { background: none; border: none; color: var(--color-text-light); padding: 15px 20px; cursor: pointer; font-size: 14px; border-bottom: 2px solid transparent; }
 .game-mode-nav button.active { color: var(--color-text); font-weight: bold; border-bottom-color: var(--color-win); }
 
-.main-layout { display: flex; gap: 20px; }
-.left-column { flex: 2; display: flex; flex-direction: column; gap: 8px; }
-.right-column { flex: 1; display: flex; flex-direction: column; gap: 15px; }
+.main-layout { display: flex; gap: 20px; align-items: flex-start; }
+.left-column { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.right-column { flex: 0 0 300px; width: 300px; max-width: 300px; display: flex; flex-direction: column; gap: 15px; align-self: flex-start; }
 
 .info-card { background-color: var(--color-bg-light); border: 1px solid var(--color-border); border-radius: 4px; padding: 15px; }
 .info-card h3 { margin: 0 0 10px 0; font-size: 14px; color: var(--color-text-light); }
@@ -146,14 +146,14 @@ body {
 .summary-body { display: flex; align-items: center; gap: 20px; }
 .win-loss-summary { font-size: 12px; color: var(--color-text-light); flex-shrink: 0; }
 .stats-container { display: flex; align-items: center; gap: 15px; width: 100%; }
-.winrate-chart { position: relative; width: 90px; height: 90px; border-radius: 50%; background: conic-gradient(var(--color-win) 0% 67%, var(--color-loss) 67% 100%); display: flex; justify-content: center; align-items: center; flex-shrink: 0; }
+.winrate-chart { position: relative; width: 90px; height: 90px; border-radius: 50%; display: flex; justify-content: center; align-items: center; flex-shrink: 0; }
 .winrate-chart::before { content: ''; position: absolute; width: 70px; height: 70px; background-color: var(--color-bg-light); border-radius: 50%; }
 .winrate-chart-text { position: relative; font-size: 20px; font-weight: bold; color: var(--color-win); }
 .overall-kda { text-align: center; }
 .overall-kda .kda-numbers { font-size: 12px; color: var(--color-text-light); }
 .overall-kda .kda-numbers .k-d-a { font-weight: bold; color: var(--color-text); }
 .overall-kda .kda-ratio { font-size: 20px; font-weight: bold; margin: 4px 0; }
-.overall-kda .kda-ratio .ratio-value { color: var(--color-gold); }
+.overall-kda .kda-ratio .ratio-value { color: #ffffff; }
 .overall-kda .kill-participation { font-size: 12px; color: var(--color-loss); }
 .played-champions-summary ul { list-style: none; padding: 0; margin: 0; font-size: 12px; }
 .played-champions-summary li { display: flex; align-items: center; gap: 8px; }
@@ -180,7 +180,7 @@ body {
 .game-info .separator { width: 24px; height: 1px; background-color: #45455a; margin: 4px 0; }
 .game-info .result.win-text { color: #5383e8; }
 .game-info .result.loss-text { color: #e84057; }
-.champion-info { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.champion-info { display: flex; align-items: center; gap: 1px; flex-shrink: 0; }
 .champion-portrait { position: relative; }
 .champion-portrait img { width: 52px; height: 52px; border-radius: 50%; }
 .champion-portrait .level { position: absolute; bottom: 0; right: 0; background-color: rgba(0, 0, 0, 0.7); color: white; width: 20px; height: 20px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 11px; }
@@ -216,16 +216,16 @@ body {
 .player-row:not(:last-child) { border-bottom: 1px solid var(--color-border); }
 .player-row.win-team { background-color: rgba(83, 131, 232, 0.05); }
 .player-row.loss-team { background-color: rgba(232, 64, 87, 0.05); }
-.player-identity { display: flex; align-items: center; gap: 5px; }
+.player-identity { display: flex; align-items: center; gap: 3px; }
 .player-identity .champ-icon-wrapper { position: relative; }
 .player-identity .champ-icon { width: 40px; height: 40px; border-radius: 50%; }
 .player-identity .champ-level { position: absolute; bottom: 0; right: 0; font-size: 11px; background-color: rgba(0,0,0,0.8); border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; color: white; }
 .player-identity .spells-runes { display: flex; gap: 2px; }
 .player-identity .spells, .player-identity .runes { display: flex; flex-direction: column; gap: 2px; }
 .player-identity .spells img, .player-identity .runes img { width: 19px; height: 19px; border-radius: 2px; }
-.player-identity .player-name-tier { display: flex; flex-direction: column; }
-.player-identity .player-name { font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px; }
-.player-identity .player-tier { font-size: 11px; color: var(--color-text-light); }
+.player-identity .player-name-tier { display: flex; flex-direction: column; gap: 0; line-height: 1.2; margin-left: 2px; }
+.player-identity .player-name { font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px; margin: 0; }
+.player-identity .player-tier { font-size: 11px; color: var(--color-text-light); margin: 0; }
 .kda-details { text-align: center; line-height: 1.4; }
 .kda-details .kda-text { font-weight: bold; letter-spacing: 0.5px; }
 .kda-details .kp-text { color: var(--color-loss); }

@@ -5,8 +5,6 @@ import { loadRuneMap } from '../../data/ddragon.js'
 import { fetchMatchDetail } from '../../data/api.js'
 
 function MatchDetails({ matchData }) {
-  const matchId = matchData?.id || matchData?.matchId
-  
   // 룬 맵 선로딩: 키스톤 아이콘이 빈칸으로 나오는 현상 방지
   const [runesReady, setRunesReady] = useState(false)
   useEffect(() => {
@@ -19,55 +17,51 @@ function MatchDetails({ matchData }) {
     return () => { mounted = false }
   }, [matchData?.ddVer])
 
-  // 상세 데이터 로드 상태
-  const [detailedData, setDetailedData] = useState(null)
+  // 상세 데이터(백엔드 detail) 로드 상태
+  const [detailedPlayers, setDetailedPlayers] = useState(null)
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [error, setError] = useState(null)
 
-  // 상세보기 열렸을 때 API 호출 (의도한 흐름: 상세보기 버튼 클릭 시)
+  // 입력 데이터 정규화 (목데이터/실데이터 모두 지원)
+  const basePlayers = Array.isArray(matchData?.detailedPlayers) && matchData.detailedPlayers.length
+      ? matchData.detailedPlayers
+      : normalizeFromRawParticipants(matchData)
+  
+
+  // 필요 시 상세 호출: 현재 데이터에 피해량이 전부 0이면 detail API 조회 시도
   useEffect(() => {
     let mounted = true
-    
-    // matchId가 없으면 실행 안 함
-    if (!matchId || detailedData || loadingDetail) return
-    
+    const allZero = (Array.isArray(basePlayers) ? basePlayers : []).every(p => !p?.damageDealt)
+    const matchId = matchData?.id || matchData?.matchId
+    if (!matchId || !allZero || loadingDetail || detailedPlayers) return
     setLoadingDetail(true)
     setError(null)
-    
     ;(async () => {
       try {
-        // 백엔드 /match/detail/{matchId} 호출
         const detail = await fetchMatchDetail(matchId, false)
-        if (!mounted) return
-        
-        // detail.match.participants를 normalize에 맞게 주입
+        // detail.participants를 normalize에 맞게 주입
         const enriched = normalizeFromRawParticipants({
           ...matchData,
+          // rawParticipants가 있으면 detail participants가 무시되는 문제 방지
           rawParticipants: null,
-          participants: Array.isArray(detail?.match?.info?.participants) ? detail.match.info.participants : [],
-          gameDuration: detail?.match?.info?.gameDuration ?? matchData?.gameDurationSec ?? matchData?.gameDuration,
+          participants: Array.isArray(detail?.participants) ? detail.participants : [],
+          gameDuration: detail?.gameDuration ?? matchData?.gameDuration,
           ddVer: matchData?.ddVer,
-          teams: Array.isArray(detail?.teams) ? detail.teams : [],
+          teams: Array.isArray(detail?.teams) ? detail.teams : (matchData?.teams || []),
         })
-        
-        setDetailedData(enriched)
+        if (mounted) setDetailedPlayers(enriched)
+        try { console.debug('[DEBUG_LOG] MatchDetails loaded detail for', matchId) } catch {}
       } catch (e) {
-        if (mounted) {
-          setError(String(e))
-          console.error('[MatchDetails] Detail fetch failed:', e)
-        }
+        if (mounted) setError(String(e))
+        try { console.debug('[DEBUG_LOG] MatchDetails detail fetch failed', String(e)) } catch {}
       } finally {
         if (mounted) setLoadingDetail(false)
       }
     })()
-    
     return () => { mounted = false }
-  }, [matchId]) // matchId가 변경될 때만 호출 (상세보기 열릴 때)
+  }, [basePlayers, matchData?.id, matchData?.matchId])
 
-  // 표시할 플레이어 데이터 (상세 데이터가 있으면 사용, 없으면 기본 데이터)
-  const players = Array.isArray(detailedData) && detailedData.length > 0
-    ? detailedData
-    : normalizeFromRawParticipants(matchData)
+  const players = Array.isArray(detailedPlayers) && detailedPlayers.length ? detailedPlayers : basePlayers
 
   const lossTeam = players.filter(p => p.team === 'loss')
   const winTeam = players.filter(p => p.team === 'win')

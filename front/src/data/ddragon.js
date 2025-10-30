@@ -226,15 +226,18 @@ export async function loadRunes(version, lang = 'ko_KR') {
 }
 
 // ===== 랭크 엠블렘 =====
+// 랭크 엠블렘 URL 빌더(CommunityDragon)
 export function buildRankEmblemUrl(tier) {
   const t = (tier || 'UNRANKED').toLowerCase();
   return `https://ddragon.leagueoflegends.com/cdn/img/ranked-emblems/${t}.png`;
 }
 
 export function buildOpggEmblemFallbackUrl(tier, rank) {
-  const t = (tier || 'UNRANKED').toLowerCase();
-  const r = (rank || '').toLowerCase();
-  return `https://s-lol-web.op.gg/images/icon/icon-${t}-${r}.png`;
+  const t = String(tier || 'GOLD').toLowerCase();
+  const roman = String(rank || '').toUpperCase();
+  const map = { 'I': 1, 'II': 2, 'III': 3, 'IV': 4 };
+  const n = map[roman] || 1;
+  return `https://opgg-static.akamaized.net/images/medals/${t}_${n}.png?image=q_auto,f_webp,w_144`;
 }
 
 // ===== 스티커/이모트 =====
