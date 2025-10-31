@@ -20,6 +20,7 @@ import reactor.util.retry.Retry;
 
 import java.util.*;
 import java.time.Duration;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Service
@@ -30,6 +31,9 @@ public class MatchService {
     private final WebClient riotRegionalClient;
 
     private final SummonerService summonerService; // puuid 조회 재사용
+    
+    // MatchDto 캐시 (matchId -> Mono<MatchDto>)
+    private final Map<String, Mono<MatchDto>> matchCache = new ConcurrentHashMap<>();
 
     // ==========================================
     // 1. puuid → matchId 배열 조회
@@ -43,6 +47,12 @@ public class MatchService {
                         .queryParam("count", Math.max(1, Math.min(count, 20)))
                         .build(puuid))
                 .retrieve()
+                .onStatus(s -> s.value() == 429, r -> {
+                    log.warn("Rate limit exceeded for puuid: {}", puuid);
+                    return Mono.error(new ResponseStatusException(
+                            org.springframework.http.HttpStatus.TOO_MANY_REQUESTS,
+                            "API 요청 한도 초과. 잠시 후 다시 시도해주세요."));
+                })
                 .onStatus(HttpStatusCode::isError, r -> toApiError("match-ids-by-puuid", r))
                 .bodyToMono(new ParameterizedTypeReference<List<String>>() {})
                 .defaultIfEmpty(List.of());
@@ -57,9 +67,10 @@ public class MatchService {
         if (matchIds == null || matchIds.isEmpty()) {
             return Mono.just(List.of());
         }
-        final int CONCURRENCY = 4;
+        final int CONCURRENCY = 2; // 4 -> 2로 감소 (rate limit 방지)
         return reactor.core.publisher.Flux.fromIterable(matchIds)
                 .flatMapSequential(this::getMatchDtoByMatchId, CONCURRENCY)  // 병렬 조회 + 순서 유지
+                .delayElements(Duration.ofMillis(100)) // 각 요청 사이 100ms 딜레이 추가 (50ms -> 100ms)
                 .collectList();
     }
 
@@ -103,26 +114,43 @@ public class MatchService {
     // 6. MatchDto → MatchDetailDto 변환을 위한 헬퍼 메서드 (먼저 MatchDto로 변환 )
     // ==========================================
     
-    /** matchId로 MatchDto 조회 (Riot API 원시 응답 - 내부 헬퍼 메서드) */
+    /** matchId로 MatchDto 조회 (Riot API 원시 응답 - 내부 헬퍼 메서드, 캐싱 적용) */
     private Mono<MatchDto> getMatchDtoByMatchId(String matchId) {
-        return riotRegionalClient.get()
-                .uri(uri -> uri.path("/lol/match/v5/matches/{matchId}").build(matchId))
-                .retrieve()
-                .onStatus(s -> s.value() == 404,
-                        r -> Mono.error(new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Match not found: " + matchId)))
-                .onStatus(HttpStatusCode::isError, r -> toApiError("match-by-id", r))
-                .bodyToMono(MatchDto.class)
-                .retryWhen(
-                        Retry.backoff(3, Duration.ofMillis(300))
-                                .maxBackoff(Duration.ofSeconds(5))
-                                .filter(ex -> {
-                                    if (ex instanceof WebClientResponseException wex) {
-                                        int status = wex.getStatusCode().value();
-                                        return status == 429 || (status >= 500 && status < 600);
-                                    }
-                                    return false;
-                                })
-                );
+        // 캐시에서 조회 (이미 요청된 matchId는 재사용)
+        return matchCache.computeIfAbsent(matchId, id -> {
+            Mono<MatchDto> mono = riotRegionalClient.get()
+                    .uri(uri -> uri.path("/lol/match/v5/matches/{matchId}").build(id))
+                    .retrieve()
+                    .onStatus(s -> s.value() == 404,
+                            r -> Mono.error(new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Match not found: " + id)))
+                    .onStatus(s -> s.value() == 429, r -> {
+                        log.warn("Rate limit exceeded for matchId: {}", id);
+                        return Mono.error(new ResponseStatusException(
+                                org.springframework.http.HttpStatus.TOO_MANY_REQUESTS,
+                                "API 요청 한도 초과. 잠시 후 다시 시도해주세요."));
+                    })
+                    .onStatus(HttpStatusCode::isError, r -> toApiError("match-by-id", r))
+                    .bodyToMono(MatchDto.class)
+                    .retryWhen(
+                            Retry.backoff(3, Duration.ofSeconds(1)) // 300ms -> 1초로 증가
+                                    .maxBackoff(Duration.ofSeconds(10)) // 5초 -> 10초로 증가
+                                    .filter(ex -> {
+                                        if (ex instanceof WebClientResponseException wex) {
+                                            int status = wex.getStatusCode().value();
+                                            return status == 429 || (status >= 500 && status < 600);
+                                        }
+                                        return false;
+                                    })
+                    )
+                    .cache(Duration.ofMinutes(5)); // 5분간 캐싱 (같은 matchId 재요청 시 캐시된 결과 반환)
+            
+            // 10분 후 캐시에서 제거 (메모리 누수 방지) - 별도 스레드에서 처리
+            Mono.delay(Duration.ofMinutes(10))
+                    .then(Mono.fromRunnable(() -> matchCache.remove(id)))
+                    .subscribe();
+            
+            return mono;
+        });
     }
     // ==========================================
     // 7. MatchDto → MatchSummaryDto 변환 헬퍼 메서드 (전적 목록 카드용 )

@@ -7,17 +7,25 @@ export default defineConfig({
   server: {
     proxy: {
       '/summoner': {
-        target: 'http://localhost:8080', // 스프링
+        target: 'http://localhost:8080',
         changeOrigin: true,
-        // /api 접두어 제거하고 백엔드로 전달
-        rewrite: (path) => path.replace(/^\/api/, ''),
+        secure: false,
       },
-      '/match' : {
-        target: 'http://localhost:8080', // 스프링
+      '/match': {
+        target: 'http://localhost:8080',
         changeOrigin: true,
-        // /api 접두어 제거하고 백엔드로 전달
-        rewrite: (path) => path.replace(/^\/api/, ''),
-      }
+        secure: false,
+      },
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/auth': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        secure: false,
+      },
     },
   },
 });

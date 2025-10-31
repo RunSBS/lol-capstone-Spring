@@ -5,23 +5,21 @@ services:
     image: paqas/lol-backend:ver1.3
     ports:
       - "8080:8080"
+    env_file:
+      - .env.backend
     environment:
       # Spring Profile 선택
       - SPRING_PROFILES_ACTIVE=docker
       # Oracle Database 설정
       - TNS_ADMIN=/app/wallet
-      - DB_TNS_NAME=${DB_TNS_NAME:-ruf8a028o85qyaux_high}
-      - DB_USERNAME=${DB_USERNAME:-ADMIN}
-      - DB_PASSWORD=${DB_PASSWORD}
+      # DB_TNS_NAME, DB_USERNAME, DB_PASSWORD, RIOT_API_KEY는 env_file에서 로드됨
       - JAVA_OPTS=-Duser.timezone=Asia/Seoul
-      # Riot API Key
-      - RIOT_API_KEY=${RIOT_API_KEY}
     # volumes는 필요 없음 (wallet이 이미지에 포함됨)
     # volumes:
     #   - C:/Users/Hyun/Downloads/Wallet_RUF8A028O85QYAUX:/app/wallet:ro
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
       interval: 30s
       timeout: 10s
       retries: 3

@@ -26,7 +26,14 @@ public class MatchController {
             @RequestParam String tagLine,
             @RequestParam(defaultValue = "5") int count
     ) {
-        return matchService.getMatchSummaryDtosByMatchIds(gameName, tagLine, count);
+        return matchService.getMatchSummaryDtosByMatchIds(gameName, tagLine, count)
+                .doOnError(e -> {
+                    if (e instanceof org.springframework.web.server.ResponseStatusException rse) {
+                        if (rse.getStatusCode().value() == 429) {
+                            log.error("Rate limit error for {}/{}: {}", gameName, tagLine, rse.getMessage());
+                        }
+                    }
+                });
     }
 
     /** 매치 상세 조회 */

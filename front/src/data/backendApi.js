@@ -1,5 +1,6 @@
 // 백엔드 API와 통신하는 모듈
-const API_BASE_URL = 'http://localhost:8080';
+// Vite proxy를 통해 /api로 요청하면 http://localhost:8080/api로 전달됨
+const API_BASE_URL = '/api';
 
 // JWT 토큰 가져오기
 function getAuthHeaders() {
@@ -14,8 +15,8 @@ const backendApi = {
   // 게시글 목록 조회
   getPosts: async (category) => {
     const url = category 
-      ? `${API_BASE_URL}/api/posts?category=${category}`
-      : `${API_BASE_URL}/api/posts`;
+      ? `${API_BASE_URL}/posts?category=${category}`
+      : `${API_BASE_URL}/posts`;
     
     const response = await fetch(url, {
       method: 'GET',
@@ -31,7 +32,7 @@ const backendApi = {
 
   // 게시글 작성
   createPost: async (postData) => {
-    const response = await fetch(`${API_BASE_URL}/api/posts`, {
+    const response = await fetch(`${API_BASE_URL}/posts`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({
@@ -51,7 +52,7 @@ const backendApi = {
 
   // 게시글 조회
   getPost: async (id) => {
-    const response = await fetch(`${API_BASE_URL}/api/posts/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/posts/${id}`, {
       method: 'GET',
       headers: getAuthHeaders()
     });
@@ -65,7 +66,7 @@ const backendApi = {
 
   // 게시글 수정
   updatePost: async (id, postData) => {
-    const response = await fetch(`${API_BASE_URL}/api/posts/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/posts/${id}`, {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify({
@@ -83,7 +84,7 @@ const backendApi = {
 
   // 게시글 삭제
   deletePost: async (id) => {
-    const response = await fetch(`${API_BASE_URL}/api/posts/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/posts/${id}`, {
       method: 'DELETE',
       headers: getAuthHeaders()
     });
@@ -97,7 +98,7 @@ const backendApi = {
 
   // 댓글 조회
   getComments: async (postId) => {
-    const response = await fetch(`${API_BASE_URL}/api/comments?postId=${postId}`, {
+    const response = await fetch(`${API_BASE_URL}/comments?postId=${postId}`, {
       method: 'GET',
       headers: getAuthHeaders()
     });
@@ -111,7 +112,7 @@ const backendApi = {
 
   // 댓글 작성
   createComment: async (postId, content) => {
-    const response = await fetch(`${API_BASE_URL}/api/comments`, {
+    const response = await fetch(`${API_BASE_URL}/comments`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({
@@ -130,7 +131,7 @@ const backendApi = {
 
   // 댓글 삭제
   deleteComment: async (id) => {
-    const response = await fetch(`${API_BASE_URL}/api/comments/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/comments/${id}`, {
       method: 'DELETE',
       headers: getAuthHeaders()
     });
@@ -144,7 +145,7 @@ const backendApi = {
 
   // 게시글 좋아요
   likePost: async (id) => {
-    const response = await fetch(`${API_BASE_URL}/api/posts/${id}/like`, {
+    const response = await fetch(`${API_BASE_URL}/posts/${id}/like`, {
       method: 'POST',
       headers: getAuthHeaders()
     });
@@ -158,7 +159,7 @@ const backendApi = {
 
   // 게시글 싫어요
   dislikePost: async (id) => {
-    const response = await fetch(`${API_BASE_URL}/api/posts/${id}/dislike`, {
+    const response = await fetch(`${API_BASE_URL}/posts/${id}/dislike`, {
       method: 'POST',
       headers: getAuthHeaders()
     });
@@ -172,7 +173,7 @@ const backendApi = {
 
   // 게시글 좋아요 취소
   removeLikePost: async (id) => {
-    const response = await fetch(`${API_BASE_URL}/api/posts/${id}/like`, {
+    const response = await fetch(`${API_BASE_URL}/posts/${id}/like`, {
       method: 'DELETE',
       headers: getAuthHeaders()
     });
@@ -186,7 +187,7 @@ const backendApi = {
 
   // 게시글 싫어요 취소
   removeDislikePost: async (id) => {
-    const response = await fetch(`${API_BASE_URL}/api/posts/${id}/dislike`, {
+    const response = await fetch(`${API_BASE_URL}/posts/${id}/dislike`, {
       method: 'DELETE',
       headers: getAuthHeaders()
     });
@@ -200,7 +201,7 @@ const backendApi = {
 
   // 댓글 좋아요
   likeComment: async (id) => {
-    const response = await fetch(`${API_BASE_URL}/api/comments/${id}/like`, {
+    const response = await fetch(`${API_BASE_URL}/comments/${id}/like`, {
       method: 'POST',
       headers: getAuthHeaders()
     });
@@ -214,7 +215,7 @@ const backendApi = {
 
   // 댓글 싫어요
   dislikeComment: async (id) => {
-    const response = await fetch(`${API_BASE_URL}/api/comments/${id}/dislike`, {
+    const response = await fetch(`${API_BASE_URL}/comments/${id}/dislike`, {
       method: 'POST',
       headers: getAuthHeaders()
     });
@@ -228,7 +229,7 @@ const backendApi = {
 
   // 댓글 좋아요 취소
   removeLikeComment: async (id) => {
-    const response = await fetch(`${API_BASE_URL}/api/comments/${id}/like`, {
+    const response = await fetch(`${API_BASE_URL}/comments/${id}/like`, {
       method: 'DELETE',
       headers: getAuthHeaders()
     });
@@ -242,7 +243,7 @@ const backendApi = {
 
   // 댓글 싫어요 취소
   removeDislikeComment: async (id) => {
-    const response = await fetch(`${API_BASE_URL}/api/comments/${id}/dislike`, {
+    const response = await fetch(`${API_BASE_URL}/comments/${id}/dislike`, {
       method: 'DELETE',
       headers: getAuthHeaders()
     });
@@ -261,8 +262,8 @@ const backendApi = {
   // 상품 목록 조회
   getShopItems: async (itemType) => {
     const url = itemType 
-      ? `${API_BASE_URL}/api/shop/items?itemType=${itemType}`
-      : `${API_BASE_URL}/api/shop/items`;
+      ? `${API_BASE_URL}/shop/items?itemType=${itemType}`
+      : `${API_BASE_URL}/shop/items`;
     
     const response = await fetch(url, {
       method: 'GET',
@@ -278,7 +279,7 @@ const backendApi = {
 
   // 상품 구매
   purchaseItem: async (itemCode, quantity = 1) => {
-    const response = await fetch(`${API_BASE_URL}/api/shop/purchase`, {
+    const response = await fetch(`${API_BASE_URL}/shop/purchase`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({
@@ -297,7 +298,7 @@ const backendApi = {
 
   // 내 보유 아이템 조회
   getMyItems: async () => {
-    const response = await fetch(`${API_BASE_URL}/api/shop/my-items`, {
+    const response = await fetch(`${API_BASE_URL}/shop/my-items`, {
       method: 'GET',
       headers: getAuthHeaders()
     });
@@ -311,7 +312,7 @@ const backendApi = {
 
   // 아이템 장착/해제
   equipItem: async (userItemId, equip) => {
-    const response = await fetch(`${API_BASE_URL}/api/shop/equip/${userItemId}?equip=${equip}`, {
+    const response = await fetch(`${API_BASE_URL}/shop/equip/${userItemId}?equip=${equip}`, {
       method: 'POST',
       headers: getAuthHeaders()
     });
@@ -325,7 +326,7 @@ const backendApi = {
 
   // 배너에 스티커 부착
   addStickerToBanner: async (itemCode, positionX, positionY, width, height) => {
-    const response = await fetch(`${API_BASE_URL}/api/shop/banner/sticker`, {
+    const response = await fetch(`${API_BASE_URL}/shop/banner/sticker`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({
@@ -347,7 +348,7 @@ const backendApi = {
 
   // 배너에서 스티커 제거
   removeStickerFromBanner: async (bannerStickerId) => {
-    const response = await fetch(`${API_BASE_URL}/api/shop/banner/sticker/${bannerStickerId}`, {
+    const response = await fetch(`${API_BASE_URL}/shop/banner/sticker/${bannerStickerId}`, {
       method: 'DELETE',
       headers: getAuthHeaders()
     });
@@ -361,7 +362,7 @@ const backendApi = {
 
   // 배너 스티커 목록 조회
   getBannerStickers: async () => {
-    const response = await fetch(`${API_BASE_URL}/api/shop/banner/stickers`, {
+    const response = await fetch(`${API_BASE_URL}/shop/banner/stickers`, {
       method: 'GET',
       headers: getAuthHeaders()
     });
@@ -375,7 +376,7 @@ const backendApi = {
 
   // 배너 스티커 위치 업데이트
   updateBannerSticker: async (bannerStickerId, positionX, positionY, width, height) => {
-    const response = await fetch(`${API_BASE_URL}/api/shop/banner/sticker/${bannerStickerId}`, {
+    const response = await fetch(`${API_BASE_URL}/shop/banner/sticker/${bannerStickerId}`, {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify({
@@ -404,7 +405,7 @@ const backendApi = {
       throw new Error('로그인이 필요합니다. 토큰이 없습니다.');
     }
 
-    const response = await fetch(`${API_BASE_URL}/api/user/me`, {
+    const response = await fetch(`${API_BASE_URL}/user/me`, {
       method: 'GET',
       headers: getAuthHeaders()
     });

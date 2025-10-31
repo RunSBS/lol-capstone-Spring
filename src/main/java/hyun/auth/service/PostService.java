@@ -7,7 +7,7 @@ import hyun.db.entity.User;
 import hyun.db.repo.PostReactionRepository;
 import hyun.db.repo.PostRepository;
 import hyun.db.repo.UserRepository;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -76,6 +76,7 @@ public class PostService {
         posts.delete(p);
     }
 
+    @Transactional(readOnly = true)
     public PostDto findById(Long id) {
         Post p = posts.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "게시글 없음"));
         
@@ -103,6 +104,7 @@ public class PostService {
         );
     }
 
+    @Transactional(readOnly = true)
     public List<PostDto> findAll(String category) {
         // category가 "all"이거나 null이면 모든 게시글 반환
         List<Post> postList;

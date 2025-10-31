@@ -17,7 +17,7 @@ function Login({ onLogin, onShowRegister }) {
     
     try {
       // 백엔드 로그인 API 호출
-      const response = await fetch('http://localhost:8080/auth/login', {
+      const response = await fetch('/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
