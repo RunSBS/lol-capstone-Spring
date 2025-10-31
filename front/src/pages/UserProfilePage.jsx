@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import StickerShop from "../components/common/StickerShop";
 import StickerInventory from "../components/common/StickerInventory";
 import StickerBanner from "../components/common/StickerBanner";
+import backendApi from "../data/backendApi";
 import { 
   purchaseSticker, 
   useSticker, 
@@ -12,6 +13,7 @@ import {
   removeStickerFromBannerById,
   updateBannerSticker
 } from "../utils/stickerUtils";
+import { BORDER_ITEM_CODES, BANNER_ITEM_CODES, getStickerItemCode, getFrontendIdFromItemCode } from "../utils/shopItemMapper";
 
 function loadUser(username) {
   const usersJson = localStorage.getItem("users") || "[]";
@@ -138,8 +140,66 @@ export default function UserProfilePage() {
     }
   ];
   useEffect(() => {
-    setUser(loadUser(username));
+    loadUserData();
   }, [username]);
+
+  const loadUserData = async () => {
+    // 먼저 로컬 스토리지에서 사용자 로드
+    const localUser = loadUser(username);
+    setUser(localUser);
+    
+    // 현재 사용자가 본인이고 로그인된 상태라면 백엔드에서 데이터 가져오기
+    const currentLoggedInUser = localStorage.getItem("currentUser");
+    if (currentLoggedInUser === username) {
+      try {
+        const userInfo = await backendApi.getCurrentUser();
+        const myItems = await backendApi.getMyItems();
+        
+        
+        if (userInfo && userInfo.username === username) {
+          // 백엔드 데이터를 프론트엔드 형식으로 변환
+          const borders = [];
+          const banners = [];
+          const stickers = {};
+          
+          myItems.forEach(item => {
+            const itemCode = item.shopItem?.itemCode;
+            const itemType = item.shopItem?.itemType;
+            
+            if (itemType === 'BORDER') {
+              const borderId = getFrontendIdFromItemCode(itemCode);
+              if (!borders.includes(borderId)) {
+                borders.push(borderId);
+              }
+            } else if (itemType === 'BANNER') {
+              const bannerId = getFrontendIdFromItemCode(itemCode);
+              if (!banners.includes(bannerId)) {
+                banners.push(bannerId);
+              }
+            } else if (itemType === 'STICKER') {
+              const stickerId = getFrontendIdFromItemCode(itemCode);
+              stickers[stickerId] = (stickers[stickerId] || 0) + item.quantity;
+            }
+          });
+          
+          // 토큰 잔액 처리: 0도 유효한 값이므로 != null 체크
+          const tokenBalance = (userInfo.tokenBalance != null && userInfo.tokenBalance !== undefined) 
+            ? Number(userInfo.tokenBalance) 
+            : localUser.tokens;
+          
+          setUser(prev => ({
+            ...prev,
+            tokens: tokenBalance,
+            borders: borders.length > 0 ? borders : prev.borders,
+            banners: banners.length > 0 ? banners : prev.banners,
+            stickers: Object.keys(stickers).length > 0 ? { ...prev.stickers, ...stickers } : prev.stickers
+          }));
+        }
+      } catch (error) {
+        console.error('사용자 정보 로드 실패:', error.message);
+      }
+    }
+  };
 
   const handleAvatarChange = (e) => {
     const file = e.target.files && e.target.files[0];
@@ -159,7 +219,7 @@ export default function UserProfilePage() {
   };
 
   // 테두리 구매 함수
-  const buyBorder = (borderId) => {
+  const buyBorder = async (borderId) => {
     const border = borderShop.find(b => b.id === borderId);
     if (!border) return;
     
@@ -168,36 +228,87 @@ export default function UserProfilePage() {
       return;
     }
     
-    const updatedUser = {
-      ...user,
-      tokens: user.tokens - border.price,
-      borders: [...(user.borders || []), borderId]
-    };
-    
-    setUser(updatedUser);
-    saveUser(updatedUser);
-    alert(`${border.name}을(를) 구매했습니다!`);
+    try {
+      const itemCode = BORDER_ITEM_CODES[borderId] || `border_${borderId}`;
+      const result = await backendApi.purchaseItem(itemCode, 1);
+      
+      // 백엔드에서 업데이트된 사용자 정보 가져오기
+      const userInfo = await backendApi.getCurrentUser();
+      const myItems = await backendApi.getMyItems();
+      
+      // 백엔드 데이터에서 borders 배열 재구성
+      const borders = [];
+      myItems.forEach(item => {
+        if (item.shopItem?.itemType === 'BORDER') {
+          const id = getFrontendIdFromItemCode(item.shopItem.itemCode);
+          if (!borders.includes(id)) {
+            borders.push(id);
+          }
+        }
+      });
+      
+      const updatedUser = {
+        ...user,
+        tokens: userInfo?.tokenBalance != null ? userInfo.tokenBalance : (result.remainingTokens != null ? result.remainingTokens : user.tokens - border.price),
+        borders: borders.length > 0 ? borders : [...(user.borders || []), borderId]
+      };
+      
+      setUser(updatedUser);
+      saveUser(updatedUser);
+      alert(`${border.name}을(를) 구매했습니다!`);
+      } catch (error) {
+        alert(error.message || "구매 중 오류가 발생했습니다.");
+      }
   };
 
   // 테두리 적용 함수
-  const applyBorder = (borderId) => {
+  const applyBorder = async (borderId) => {
     if (!user.borders || !user.borders.includes(borderId)) {
       alert("보유하지 않은 테두리입니다!");
       return;
     }
     
-    const updatedUser = {
-      ...user,
-      currentBorder: borderId
-    };
-    
-    setUser(updatedUser);
-    saveUser(updatedUser);
-    alert("테두리가 적용되었습니다!");
+    try {
+      // 백엔드에서 내 아이템 조회
+      const myItems = await backendApi.getMyItems();
+      const itemCode = BORDER_ITEM_CODES[borderId] || `border_${borderId}`;
+      
+      // 해당 아이템 찾기
+      const userItem = myItems.find(item => item.shopItem?.itemCode === itemCode);
+      if (userItem) {
+        // 다른 BORDER 타입 아이템 해제 후 이 아이템 장착
+        const borderItems = myItems.filter(item => item.shopItem?.itemType === 'BORDER');
+        for (const item of borderItems) {
+          if (item.id !== userItem.id && item.isEquipped) {
+            await backendApi.equipItem(item.id, false);
+          }
+        }
+        await backendApi.equipItem(userItem.id, true);
+      }
+      
+      const updatedUser = {
+        ...user,
+        currentBorder: borderId
+      };
+      
+      setUser(updatedUser);
+      saveUser(updatedUser);
+      alert("테두리가 적용되었습니다!");
+    } catch (error) {
+      console.error('테두리 적용 실패:', error);
+      // 백엔드 연동 실패 시 로컬만 업데이트
+      const updatedUser = {
+        ...user,
+        currentBorder: borderId
+      };
+      setUser(updatedUser);
+      saveUser(updatedUser);
+      alert("테두리가 적용되었습니다!");
+    }
   };
 
   // 배너 구매 함수
-  const buyBanner = (bannerId) => {
+  const buyBanner = async (bannerId) => {
     const banner = bannerShop.find(b => b.id === bannerId);
     if (!banner) return;
     
@@ -206,67 +317,168 @@ export default function UserProfilePage() {
       return;
     }
     
-    const updatedUser = {
-      ...user,
-      tokens: user.tokens - banner.price,
-      banners: [...(user.banners || []), bannerId]
-    };
-    
-    setUser(updatedUser);
-    saveUser(updatedUser);
-    alert(`${banner.name}을(를) 구매했습니다!`);
+    try {
+      const itemCode = BANNER_ITEM_CODES[bannerId] || `banner_${bannerId}`;
+      const result = await backendApi.purchaseItem(itemCode, 1);
+      
+      // 백엔드에서 업데이트된 사용자 정보 가져오기
+      const userInfo = await backendApi.getCurrentUser();
+      const myItems = await backendApi.getMyItems();
+      
+      // 백엔드 데이터에서 banners 배열 재구성
+      const banners = [];
+      myItems.forEach(item => {
+        if (item.shopItem?.itemType === 'BANNER') {
+          const id = getFrontendIdFromItemCode(item.shopItem.itemCode);
+          if (!banners.includes(id)) {
+            banners.push(id);
+          }
+        }
+      });
+      
+      const updatedUser = {
+        ...user,
+        tokens: userInfo?.tokenBalance != null ? userInfo.tokenBalance : (result.remainingTokens != null ? result.remainingTokens : user.tokens - banner.price),
+        banners: banners.length > 0 ? banners : [...(user.banners || []), bannerId]
+      };
+      
+      setUser(updatedUser);
+      saveUser(updatedUser);
+      alert(`${banner.name}을(를) 구매했습니다!`);
+    } catch (error) {
+      console.error('배너 구매 실패:', error);
+      alert(error.message || "구매 중 오류가 발생했습니다.");
+    }
   };
 
   // 배너 적용 함수
-  const applyBanner = (bannerId) => {
+  const applyBanner = async (bannerId) => {
     if (!user.banners || !user.banners.includes(bannerId)) {
       alert("보유하지 않은 배너입니다!");
       return;
     }
     
-    const updatedUser = {
-      ...user,
-      currentBanner: bannerId
-    };
-    
-    setUser(updatedUser);
-    saveUser(updatedUser);
-    alert("배너가 적용되었습니다!");
+    try {
+      // 백엔드에서 내 아이템 조회
+      const myItems = await backendApi.getMyItems();
+      const itemCode = BANNER_ITEM_CODES[bannerId] || `banner_${bannerId}`;
+      
+      // 해당 아이템 찾기
+      const userItem = myItems.find(item => item.shopItem?.itemCode === itemCode);
+      if (userItem) {
+        // 다른 BANNER 타입 아이템 해제 후 이 아이템 장착
+        const bannerItems = myItems.filter(item => item.shopItem?.itemType === 'BANNER');
+        for (const item of bannerItems) {
+          if (item.id !== userItem.id && item.isEquipped) {
+            await backendApi.equipItem(item.id, false);
+          }
+        }
+        await backendApi.equipItem(userItem.id, true);
+      }
+      
+      const updatedUser = {
+        ...user,
+        currentBanner: bannerId
+      };
+      
+      setUser(updatedUser);
+      saveUser(updatedUser);
+      alert("배너가 적용되었습니다!");
+    } catch (error) {
+      console.error('배너 적용 실패:', error);
+      // 백엔드 연동 실패 시 로컬만 업데이트
+      const updatedUser = {
+        ...user,
+        currentBanner: bannerId
+      };
+      setUser(updatedUser);
+      saveUser(updatedUser);
+      alert("배너가 적용되었습니다!");
+    }
   };
 
   // 스티커 구매 함수
-  const handleStickerPurchase = (sticker) => {
+  const handleStickerPurchase = async (sticker) => {
     try {
-      const updatedUser = purchaseSticker(user, sticker, (newUser) => {
-        setUser(newUser);
-        saveUser(newUser);
+      const itemCode = getStickerItemCode(sticker.id);
+      const result = await backendApi.purchaseItem(itemCode, 1);
+      
+      // 백엔드에서 업데이트된 사용자 정보 가져오기
+      const userInfo = await backendApi.getCurrentUser();
+      const myItems = await backendApi.getMyItems();
+      
+      // 백엔드 데이터에서 stickers 객체 재구성
+      const stickers = { ...user.stickers };
+      myItems.forEach(item => {
+        if (item.shopItem?.itemType === 'STICKER') {
+          const stickerId = getFrontendIdFromItemCode(item.shopItem.itemCode);
+          stickers[stickerId] = item.quantity;
+        }
       });
+      
+      // 백엔드 연동 성공
+      const updatedUser = {
+        ...user,
+        tokens: userInfo?.tokenBalance != null ? userInfo.tokenBalance : (result.remainingTokens != null ? result.remainingTokens : user.tokens - sticker.price),
+        stickers: stickers
+      };
+      
+      setUser(updatedUser);
+      saveUser(updatedUser);
       alert(`${sticker.name} 스티커를 구매했습니다!`);
     } catch (error) {
-      alert(error.message);
+      console.error('스티커 구매 실패:', error);
+      // 백엔드 연동 실패 시 기존 로컬 로직 사용
+      try {
+        const updatedUser = purchaseSticker(user, sticker, (newUser) => {
+          setUser(newUser);
+          saveUser(newUser);
+        });
+        alert(`${sticker.name} 스티커를 구매했습니다!`);
+      } catch (localError) {
+        alert(localError.message || error.message);
+      }
     }
   };
 
   // 스티커 인벤토리에서 선택
   const handleStickerInventory = (sticker) => {
-    console.log('Sticker selected from inventory:', sticker);
     setSelectedStickerId(sticker.id);
     setSelectedStickerImageUrl(sticker.image || null);
     setIsStickerEditMode(true);
   };
 
   // 스티커를 배너에 추가
-  const handleStickerAdd = (sticker) => {
+  const handleStickerAdd = async (sticker) => {
     try {
-      console.log('Adding sticker to banner:', sticker);
       
-      // 스티커 사용 (인벤토리에서 차감)
-      const userAfterUse = useSticker(user, sticker.stickerId, () => {});
+      const itemCode = getStickerItemCode(sticker.stickerId || sticker.id);
       
-      // 배너에 스티커 추가
+      // 백엔드 API로 스티커 부착
+      const bannerSticker = await backendApi.addStickerToBanner(
+        itemCode,
+        sticker.positionX || 0.5,
+        sticker.positionY || 0.5,
+        sticker.width || 100,
+        sticker.height || 100
+      );
+      
+      // 백엔드 연동 성공
       const updatedUser = {
-        ...userAfterUse,
-        bannerStickers: [...(userAfterUse.bannerStickers || []), sticker]
+        ...user,
+        bannerStickers: [...(user.bannerStickers || []), {
+          id: bannerSticker.id,
+          stickerId: sticker.stickerId || sticker.id,
+          image: sticker.image,
+          positionX: bannerSticker.positionX,
+          positionY: bannerSticker.positionY,
+          width: bannerSticker.width,
+          height: bannerSticker.height
+        }],
+        stickers: {
+          ...user.stickers,
+          [sticker.stickerId || sticker.id]: Math.max(0, (user.stickers?.[sticker.stickerId || sticker.id] || 0) - 1)
+        }
       };
       
       setUser(updatedUser);
@@ -275,37 +487,86 @@ export default function UserProfilePage() {
       setSelectedStickerId(null);
       setIsStickerEditMode(false);
       
-      console.log('Sticker added successfully');
     } catch (error) {
-      console.error('Error adding sticker:', error);
-      alert(error.message);
+      // 백엔드 연동 실패 시 로컬 로직 사용
+      try {
+        const userAfterUse = useSticker(user, sticker.stickerId || sticker.id, () => {});
+        
+        const updatedUser = {
+          ...userAfterUse,
+          bannerStickers: [...(userAfterUse.bannerStickers || []), sticker]
+        };
+        
+        setUser(updatedUser);
+        saveUser(updatedUser);
+        
+        setSelectedStickerId(null);
+        setIsStickerEditMode(false);
+      } catch (localError) {
+        alert(localError.message || error.message);
+      }
     }
   };
 
   // 배너 스티커 업데이트
-  const handleStickerUpdate = (updatedSticker) => {
-    updateBannerSticker(user, updatedSticker, (newUser) => {
-      setUser(newUser);
-      saveUser(newUser);
-    });
-  };
-
-  // 배너에서 스티커 제거
-  const handleStickerRemove = (stickerId) => {
-    const sticker = user.bannerStickers?.find(s => s.id === stickerId);
-    if (sticker) {
-      // 스티커를 인벤토리로 복구
-      removeStickerFromBanner(user, sticker.stickerId, (newUser) => {
+  const handleStickerUpdate = async (updatedSticker) => {
+    try {
+      // 백엔드 API로 스티커 위치 업데이트
+      if (updatedSticker.id) {
+        await backendApi.updateBannerSticker(
+          updatedSticker.id,
+          updatedSticker.positionX,
+          updatedSticker.positionY,
+          updatedSticker.width,
+          updatedSticker.height
+        );
+      }
+      
+      // 백엔드 연동 성공
+      updateBannerSticker(user, updatedSticker, (newUser) => {
+        setUser(newUser);
+        saveUser(newUser);
+      });
+    } catch (error) {
+      console.error('스티커 위치 업데이트 실패:', error);
+      // 백엔드 연동 실패 시 로컬만 업데이트
+      updateBannerSticker(user, updatedSticker, (newUser) => {
         setUser(newUser);
         saveUser(newUser);
       });
     }
+  };
 
-    // 배너에서 스티커 제거
-    removeStickerFromBannerById(user, stickerId, (newUser) => {
-      setUser(newUser);
-      saveUser(newUser);
-    });
+  // 배너에서 스티커 제거
+  const handleStickerRemove = async (stickerId) => {
+    try {
+      const sticker = user.bannerStickers?.find(s => s.id === stickerId);
+      
+      // 백엔드 API로 스티커 제거 (백엔드에서 자동으로 수량 복구하지 않음)
+      if (sticker?.id) {
+        await backendApi.removeStickerFromBanner(sticker.id);
+      }
+      
+      // 백엔드 연동 성공 - 로컬에서도 제거
+      removeStickerFromBannerById(user, stickerId, (newUser) => {
+        setUser(newUser);
+        saveUser(newUser);
+      });
+    } catch (error) {
+      console.error('스티커 제거 실패:', error);
+      // 백엔드 연동 실패 시 로컬만 업데이트
+      const sticker = user.bannerStickers?.find(s => s.id === stickerId);
+      if (sticker) {
+        removeStickerFromBanner(user, sticker.stickerId, (newUser) => {
+          setUser(newUser);
+          saveUser(newUser);
+        });
+      }
+      removeStickerFromBannerById(user, stickerId, (newUser) => {
+        setUser(newUser);
+        saveUser(newUser);
+      });
+    }
   };
 
   // 스티커 인벤토리에서 삭제

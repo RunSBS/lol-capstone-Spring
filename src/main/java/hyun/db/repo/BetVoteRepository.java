@@ -13,4 +13,7 @@ import java.util.Optional;
 public interface BetVoteRepository extends JpaRepository<BetVote, Long> {
     Optional<BetVote> findByBetAndUser(Bet bet, User user);
     List<BetVote> findByBet(Bet bet);
+    boolean existsByBetAndUser(Bet bet, User user);
+    long countByBet(Bet bet);
+    List<BetVote> findByBetAndSelectedOption(Bet bet, String selectedOption);
 }

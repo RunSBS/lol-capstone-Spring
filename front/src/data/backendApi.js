@@ -31,9 +31,6 @@ const backendApi = {
 
   // 게시글 작성
   createPost: async (postData) => {
-    const token = localStorage.getItem('accessToken');
-    console.log('Sending POST request with token:', token ? 'Token exists' : 'No token');
-    
     const response = await fetch(`${API_BASE_URL}/api/posts`, {
       method: 'POST',
       headers: getAuthHeaders(),
@@ -46,7 +43,6 @@ const backendApi = {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('POST request failed:', response.status, errorText);
       throw new Error(errorText || '게시글 작성 실패');
     }
 
@@ -115,9 +111,6 @@ const backendApi = {
 
   // 댓글 작성
   createComment: async (postId, content) => {
-    const token = localStorage.getItem('accessToken');
-    console.log('Creating comment with token:', token ? 'Token exists' : 'No token');
-    
     const response = await fetch(`${API_BASE_URL}/api/comments`, {
       method: 'POST',
       headers: getAuthHeaders(),
@@ -129,7 +122,6 @@ const backendApi = {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Comment creation failed:', response.status, errorText);
       throw new Error(errorText || '댓글 작성 실패');
     }
 
@@ -257,6 +249,176 @@ const backendApi = {
 
     if (!response.ok) {
       throw new Error('싫어요 취소 실패');
+    }
+
+    return await response.json();
+  },
+
+  // ============================================
+  // 상점 관련 API
+  // ============================================
+
+  // 상품 목록 조회
+  getShopItems: async (itemType) => {
+    const url = itemType 
+      ? `${API_BASE_URL}/api/shop/items?itemType=${itemType}`
+      : `${API_BASE_URL}/api/shop/items`;
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      throw new Error('상품 목록 조회 실패');
+    }
+
+    return await response.json();
+  },
+
+  // 상품 구매
+  purchaseItem: async (itemCode, quantity = 1) => {
+    const response = await fetch(`${API_BASE_URL}/api/shop/purchase`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        itemCode: itemCode,
+        quantity: quantity
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || '상품 구매 실패');
+    }
+
+    return await response.json();
+  },
+
+  // 내 보유 아이템 조회
+  getMyItems: async () => {
+    const response = await fetch(`${API_BASE_URL}/api/shop/my-items`, {
+      method: 'GET',
+      headers: getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      throw new Error('보유 아이템 조회 실패');
+    }
+
+    return await response.json();
+  },
+
+  // 아이템 장착/해제
+  equipItem: async (userItemId, equip) => {
+    const response = await fetch(`${API_BASE_URL}/api/shop/equip/${userItemId}?equip=${equip}`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      throw new Error('아이템 장착 실패');
+    }
+
+    return await response.text();
+  },
+
+  // 배너에 스티커 부착
+  addStickerToBanner: async (itemCode, positionX, positionY, width, height) => {
+    const response = await fetch(`${API_BASE_URL}/api/shop/banner/sticker`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        itemCode: itemCode,
+        positionX: positionX,
+        positionY: positionY,
+        width: width,
+        height: height
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || '스티커 부착 실패');
+    }
+
+    return await response.json();
+  },
+
+  // 배너에서 스티커 제거
+  removeStickerFromBanner: async (bannerStickerId) => {
+    const response = await fetch(`${API_BASE_URL}/api/shop/banner/sticker/${bannerStickerId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      throw new Error('스티커 제거 실패');
+    }
+
+    return await response.text();
+  },
+
+  // 배너 스티커 목록 조회
+  getBannerStickers: async () => {
+    const response = await fetch(`${API_BASE_URL}/api/shop/banner/stickers`, {
+      method: 'GET',
+      headers: getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      throw new Error('배너 스티커 조회 실패');
+    }
+
+    return await response.json();
+  },
+
+  // 배너 스티커 위치 업데이트
+  updateBannerSticker: async (bannerStickerId, positionX, positionY, width, height) => {
+    const response = await fetch(`${API_BASE_URL}/api/shop/banner/sticker/${bannerStickerId}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        positionX: positionX,
+        positionY: positionY,
+        width: width,
+        height: height
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('스티커 위치 업데이트 실패');
+    }
+
+    return await response.json();
+  },
+
+  // ============================================
+  // 사용자 관련 API
+  // ============================================
+
+  // 현재 로그인한 사용자 정보 조회
+  getCurrentUser: async () => {
+    const token = localStorage.getItem('accessToken');
+    if (!token) {
+      throw new Error('로그인이 필요합니다. 토큰이 없습니다.');
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/user/me`, {
+      method: 'GET',
+      headers: getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      if (response.status === 403) {
+        // 403 에러 발생 시 토큰 제거하고 로그인 페이지로 리다이렉트
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('currentUser');
+        window.dispatchEvent(new Event('loginStateChanged'));
+        throw new Error('인증에 실패했습니다. 다시 로그인해주세요.');
+      }
+      const errorText = await response.text();
+      throw new Error(`사용자 정보 조회 실패: ${response.status} ${errorText}`);
     }
 
     return await response.json();

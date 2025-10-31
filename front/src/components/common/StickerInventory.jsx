@@ -1,14 +1,20 @@
-import React, { useState } from 'react';
-import { buildChampionSquareUrl, buildItemIconUrl } from '../../data/ddragon';
+import React, { useState, useEffect } from 'react';
+import { buildChampionSquareUrl, buildItemIconUrl, tryBuildRuneIconUrl, buildRuneStyleIcon, loadRuneMap } from '../../data/ddragon';
 
 export default function StickerInventory({ user, onStickerSelect, onStickerRemove }) {
   const [selectedSticker, setSelectedSticker] = useState(null);
+  const [runeMapLoaded, setRuneMapLoaded] = useState(false);
+
+  // 룬 매핑 데이터 로드
+  useEffect(() => {
+    loadRuneMap('15.18.1', 'ko_KR')
+      .then(() => setRuneMapLoaded(true))
+      .catch(() => {}); // 실패해도 fallback URL 사용
+  }, []);
 
   const handleStickerSelect = (stickerId) => {
-    console.log('Selecting sticker:', stickerId);
     setSelectedSticker(stickerId);
     const sticker = ownedStickers.find(s => s.id === stickerId);
-    console.log('Found sticker:', sticker);
     if (sticker) {
       onStickerSelect(sticker);
     }
@@ -41,6 +47,9 @@ export default function StickerInventory({ user, onStickerSelect, onStickerRemov
     });
   }
 
+  // 룬 매핑이 로드되면 재렌더링을 위해 key 업데이트 (이미지 URL이 변경되므로)
+  const stickerKey = runeMapLoaded ? 'loaded' : 'loading';
+
   // 스티커 이름 매핑 (실제로는 API에서 가져와야 함)
   function getStickerName(stickerId) {
     // 챔피언 스티커
@@ -70,8 +79,21 @@ export default function StickerInventory({ user, onStickerSelect, onStickerRemov
     
     // 룬 스티커
     if (stickerId.startsWith('rune_') || stickerId.startsWith('style_')) {
-      // 룬 이름은 Data Dragon에서 가져온 실제 이름을 사용
-      return stickerId.replace('rune_', '').replace('style_', '');
+      // 룬 ID만 표시 (나중에 백엔드에서 이름을 가져오면 더 좋음)
+      const runeId = stickerId.replace('rune_', '').replace('style_', '');
+      // 룬 스타일의 경우 더 친절한 이름 표시
+      const styleMap = {
+        '8000': '정밀',
+        '8100': '지배',
+        '8200': '마법',
+        '8300': '영감',
+        '8400': '결의'
+      };
+      if (stickerId.startsWith('style_')) {
+        return styleMap[runeId] || `룬 스타일 ${runeId}`;
+      }
+      // 개별 룬의 경우 ID만 표시 (실제 이름은 Data Dragon API를 통해 가져와야 함)
+      return `룬 ${runeId}`;
     }
     
     // 기존 에모트 스티커
@@ -88,7 +110,7 @@ export default function StickerInventory({ user, onStickerSelect, onStickerRemov
     return nameMap[stickerId] || stickerId;
   }
 
-  // 스티커 이미지 매핑 (실제로는 API에서 가져와야 함)
+  // 스티커 이미지 매핑
   function getStickerImage(stickerId) {
     const ddVer = '15.18.1';
     
@@ -106,12 +128,13 @@ export default function StickerInventory({ user, onStickerSelect, onStickerRemov
     
     // 룬 스티커
     if (stickerId.startsWith('rune_') || stickerId.startsWith('style_')) {
-      // 룬 이미지는 Data Dragon CDN에서 가져옴
       const runeId = stickerId.replace('rune_', '').replace('style_', '');
+      const runeIdNum = Number(runeId);
+      
       if (stickerId.startsWith('style_')) {
-        return `https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/${runeId}.png`;
+        return buildRuneStyleIcon(runeIdNum);
       } else {
-        return `https://ddragon.leagueoflegends.com/cdn/img/perk-images/${runeId}.png`;
+        return tryBuildRuneIconUrl(runeIdNum);
       }
     }
     
@@ -176,10 +199,16 @@ export default function StickerInventory({ user, onStickerSelect, onStickerRemov
             {/* 스티커 이미지 */}
             <div style={{ textAlign: 'center', marginBottom: '10px' }}>
               <img 
-                src={sticker.image} 
+                key={`${sticker.id}-img-${stickerKey}`}
+                src={getStickerImage(sticker.id)} 
                 alt={sticker.name}
                 onError={(e) => {
-                  e.target.src = 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Ahri.png';
+                  // 룬 스티커는 다른 fallback 이미지 사용
+                  if (sticker.id.startsWith('rune_') || sticker.id.startsWith('style_')) {
+                    e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ4IiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iMjQiIHk9IjI0IiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuNGVtIj7ri6Q8L3RleHQ+PC9zdmc+';
+                  } else {
+                    e.target.src = 'https://ddragon.leagueoflegends.com/cdn/15.18.1/img/champion/Ahri.png';
+                  }
                 }}
                 style={{ 
                   width: '48px', 

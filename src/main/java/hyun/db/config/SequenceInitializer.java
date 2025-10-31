@@ -8,7 +8,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import lombok.RequiredArgsConstructor;
 
 @Slf4j
-//@Component  // DB 연결 실패 시 비활성화
+@Component  // DB 연결 실패 시 비활성화
 @RequiredArgsConstructor
 public class SequenceInitializer {
     private final JdbcTemplate jdbcTemplate;
@@ -17,7 +17,9 @@ public class SequenceInitializer {
     public void createSequences() {
         String[] sequences = {
             "USERS_SEQ", "POSTS_SEQ", "COMMENTS_SEQ", "BETS_SEQ", 
-            "BET_VOTES_SEQ", "BET_SETTLEMENTS_SEQ", "POST_REACTION_SEQ"
+            "BET_VOTES_SEQ", "BET_SETTLEMENTS_SEQ", "POST_REACTION_SEQ",
+            "SHOP_ITEMS_SEQ", "USER_ITEMS_SEQ", "BANNER_STICKERS_SEQ",
+            "PURCHASE_HISTORY_SEQ", "TOKEN_TRANSACTIONS_SEQ"
         };
         
         for (String seqName : sequences) {
