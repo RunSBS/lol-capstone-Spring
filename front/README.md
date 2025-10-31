@@ -17,6 +17,8 @@
 
 ## 실행 방법
 
+### 프론트엔드 개발 서버 실행
+
 1) 의존성 설치
 
 ```bash
@@ -34,6 +36,53 @@ npm i react-router-dom
 ```bash
 npm run dev
 ```
+
+### 백엔드 Docker 이미지 실행 (필수)
+
+프론트엔드가 백엔드 API를 호출하므로, 먼저 백엔드 서버를 실행해야 합니다.
+
+#### 실행 방법
+
+1. **터미널에서 실행** (권장)
+   ```bash
+   cd front
+   docker pull paqas/lol-backend:ver1.3
+   docker-compose -f docker-compose.backend.yml up -d
+   ```
+
+2. **Docker Desktop에서 실행**
+   - Docker Desktop 실행
+   - 왼쪽 사이드바에서 "Containers" 또는 "Images" 선택
+   - 우측 상단 "..." 메뉴 → "Import from file" 또는 "Compose" 선택
+   - 또는 `docker-compose.backend.yml` 파일을 Docker Desktop에 드래그 앤 드롭
+   - 실행 버튼 클릭
+
+**완료!** 환경변수는 `.env.backend` 파일에 설정되어 있어 바로 실행됩니다.
+
+**중지:**
+```bash
+docker-compose -f docker-compose.backend.yml down
+```
+
+#### 방법 2: docker run 사용
+
+```bash
+docker pull paqas/lol-backend:ver1.3
+
+docker run -d -p 8080:8080 \
+  -e SPRING_PROFILES_ACTIVE=docker \
+  -e TNS_ADMIN=/app/wallet \
+  -e DB_TNS_NAME=ruf8a028o85qyaux_high \
+  -e DB_USERNAME=ADMIN \
+  -e DB_PASSWORD=실제_비밀번호 \
+  -e RIOT_API_KEY=실제_API_키 \
+  -e JAVA_OPTS=-Duser.timezone=Asia/Seoul \
+  --name lol-backend \
+  paqas/lol-backend:ver1.3
+```
+
+**백엔드 서버 확인:**
+- 브라우저에서 `http://localhost:8080` 접속하여 확인
 
 ## 라우팅
 

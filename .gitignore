@@ -43,3 +43,6 @@ out/
 
 # Wallet 파일 (Oracle DB 인증서)
 /wallet/
+
+# .env.example은 Git에 포함 (템플릿이므로)
+!.env.example

@@ -21,10 +21,11 @@ out/
 .DS_Store
 Thumbs.db
 
-# Node
+# Node / Frontend
 node_modules/
 npm-debug.log
 yarn-error.log
+front/
 
 # Misc
 *.log

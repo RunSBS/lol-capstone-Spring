@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import '../styles/summoner.css'
-import { recentChampionsData, masteryData, playedWithData, winData, lossData, recentGamesSummaryData } from '../data/mockData.js'
+// mockData는 api.js의 fallback에서만 사용됨
 import Header from '../components/common/Header.jsx'
 import Footer from '../components/common/Footer.jsx'
 import SummonerProfile from '../components/summoner/SummonerProfile.jsx'

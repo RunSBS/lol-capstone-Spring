@@ -4,29 +4,26 @@
 FROM eclipse-temurin:17-jdk-alpine AS builder
 WORKDIR /app
 
-# Gradle wrapper 및 빌드 파일 복사
-COPY gradlew .
-COPY gradle gradle
-COPY build.gradle settings.gradle ./
-COPY src src
+# 모든 파일 복사
+COPY . .
 
 # Gradle wrapper 권한 설정
 RUN chmod +x ./gradlew
 
-# JAR 빌드 (의존성 캐시 최적화)
+# JAR 빌드
 RUN ./gradlew clean bootJar --no-daemon
 
 # 2. 런타임 이미지
 FROM eclipse-temurin:17-jdk-alpine
 WORKDIR /app
 
-# 필요한 시스템 패키지 설치
+# 필요한 시스템 패키지 설치 (healthcheck용)
 RUN apk add --no-cache curl
 
 # Oracle Wallet 디렉토리 생성
 RUN mkdir -p /app/wallet
 
-# Oracle Wallet 파일 복사 (로컬 wallet 디렉토리에서)
+# Oracle Wallet 파일 복사 (docker-compose volume 마운트 대신 이미지에 포함)
 COPY wallet /app/wallet
 
 # JAR 파일 복사
@@ -35,12 +32,10 @@ COPY --from=builder /app/build/libs/*.jar app.jar
 # 환경 변수 설정
 ENV TZ=Asia/Seoul
 ENV JAVA_OPTS="-Duser.timezone=Asia/Seoul -Xmx512m"
+ENV TNS_ADMIN=/app/wallet
 
 # 포트 노출
 EXPOSE 8080
-
-# Oracle Wallet 경로 설정
-ENV TNS_ADMIN=/app/wallet
 
 # 실행
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
