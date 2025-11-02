@@ -38,7 +38,10 @@ const backendApi = {
       body: JSON.stringify({
         title: postData.title,
         content: postData.content,
-        category: postData.category
+        category: postData.category,
+        writerB: postData.writerB || null,
+        vote: postData.vote || null,
+        matchData: postData.matchData || null
       })
     });
 
@@ -71,7 +74,10 @@ const backendApi = {
       headers: getAuthHeaders(),
       body: JSON.stringify({
         title: postData.title,
-        content: postData.content
+        content: postData.content,
+        contentB: postData.contentB || null,
+        matchData: postData.matchData || null,
+        vote: postData.vote || null
       })
     });
 

@@ -5,7 +5,8 @@ import { normalizeRiotIdQuery } from '../../data/normalize.js'
 import { searchAutocompleteMockData } from '../../data/mockData.js'
 
 function AutocompleteSearch({ 
-  placeholder = "플레이어 이름 (태그는 자동으로 #KR1이 추가됩니다)"
+  placeholder = "플레이어 이름 (태그는 자동으로 #KR1이 추가됩니다)",
+  onSummonerSelect = null
 }) {
   const [keyword, setKeyword] = useState('')
   const [suggestions, setSuggestions] = useState([])
@@ -122,7 +123,14 @@ function AutocompleteSearch({
     
     setShowSuggestions(false)
     setSuggestions([])
-    navigate(`/summoner/${encodeURIComponent(normalizedQuery)}`)
+    
+    // 콜백이 있으면 콜백 호출, 없으면 기본 동작 (페이지 이동)
+    if (onSummonerSelect) {
+      const [name, tag] = normalizedQuery.split('#')
+      onSummonerSelect({ gameName: name, tagLine: tag || 'KR1', fullName: normalizedQuery, suggestion: null })
+    } else {
+      navigate(`/summoner/${encodeURIComponent(normalizedQuery)}`)
+    }
   }
 
   // 자동완성 항목 클릭 핸들러
@@ -141,10 +149,20 @@ function AutocompleteSearch({
     setShowSuggestions(false)
     setSuggestions([])
     
-    // 자동으로 검색 실행
-    setTimeout(() => {
-      handleSearch(fullName)
-    }, 100)
+    // 콜백이 있으면 콜백 호출, 없으면 기본 동작 (페이지 이동)
+    if (onSummonerSelect) {
+      onSummonerSelect({ 
+        gameName: suggestion.name, 
+        tagLine: finalTag, 
+        fullName: fullName, 
+        suggestion: suggestion 
+      })
+    } else {
+      // 자동으로 검색 실행
+      setTimeout(() => {
+        handleSearch(fullName)
+      }, 100)
+    }
   }
 
   // 외부 클릭 시 자동완성 닫기

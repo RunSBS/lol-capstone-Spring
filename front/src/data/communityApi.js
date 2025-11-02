@@ -88,7 +88,10 @@ const boardApi = {
           title: post.title,
           content: post.content,
           category: post.category,
-          tags: post.tags || []
+          tags: post.tags || [],
+          writerB: post.writerB || null,
+          vote: post.vote || null,
+          matchData: post.matchData || null
         });
         
         resolve(savedPost);
@@ -133,6 +136,8 @@ const boardApi = {
             if (typeof updatedPost.tags !== "undefined") draft.tags = updatedPost.tags;
             if (typeof updatedPost.content === "string") draft.content = updatedPost.content; // writerA side
             if (typeof updatedPost.contentB === "string") draft.contentB = updatedPost.contentB; // writerB side
+            if (updatedPost.matchData !== undefined) draft.matchData = updatedPost.matchData;
+            if (updatedPost.vote !== undefined) draft.vote = updatedPost.vote;
             posts[idx] = draft;
           } else {
             posts[idx] = { ...posts[idx], ...updatedPost };

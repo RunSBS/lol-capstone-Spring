@@ -128,21 +128,6 @@ function VoteSection({ voteData, onVoteChange, isEditMode = false }) {
               )}
             </div>
           ))}
-          <button
-            type="button"
-            onClick={addOption}
-            style={{
-              padding: "8px 16px",
-              backgroundColor: "#28a745",
-              color: "white",
-              border: "none",
-              borderRadius: 4,
-              cursor: "pointer",
-              marginTop: 8
-            }}
-          >
-            + 답변 추가
-          </button>
         </div>
 
         {/* 추가 설명 */}
