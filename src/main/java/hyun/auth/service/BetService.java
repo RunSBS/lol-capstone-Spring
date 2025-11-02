@@ -3,6 +3,7 @@ package hyun.auth.service;
 import hyun.db.entity.Bet;
 import hyun.db.entity.BetSettlement;
 import hyun.db.entity.BetVote;
+import hyun.db.entity.Post;
 import hyun.db.entity.TokenTransaction;
 import hyun.db.entity.User;
 import hyun.db.repo.BetRepository;
@@ -30,6 +31,36 @@ public class BetService {
     private final BetSettlementRepository betSettlementRepository;
     private final UserRepository userRepository;
     private final TokenTransactionRepository tokenTransactionRepository;
+
+    /**
+     * Bet 생성 (롤문철 게시글 작성 시 자동 생성)
+     */
+    @Transactional
+    public Bet createBet(Post post, User bettorA, String bettorBUsername, String betTitle, String optionA, String optionB, Instant deadline) {
+        // bettorB 찾기
+        User bettorB = userRepository.findByUsername(bettorBUsername)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "상대 사용자를 찾을 수 없습니다: " + bettorBUsername));
+        
+        // Bet 생성
+        Bet bet = new Bet();
+        bet.setPost(post);
+        bet.setBettorA(bettorA);
+        bet.setBettorB(bettorB);
+        bet.setBetTitle(betTitle != null ? betTitle : "누가 이길까요?");
+        bet.setOptionA(optionA != null ? optionA : "사용자A");
+        bet.setOptionB(optionB != null ? optionB : "사용자B");
+        bet.setDeadline(deadline != null ? deadline : Instant.now().plusSeconds(7 * 24 * 60 * 60)); // 기본값: 7일 후
+        bet.setTotalVotes(0L);
+        bet.setVotesForA(0L);
+        bet.setVotesForB(0L);
+        bet.setCreatedAt(Instant.now());
+        
+        Bet saved = betRepository.save(bet);
+        log.info("Bet 생성 완료: betId={}, postId={}, bettorA={}, bettorB={}", 
+            saved.getId(), post.getId(), bettorA.getUsername(), bettorB.getUsername());
+        
+        return saved;
+    }
 
     /**
      * 투표하기
@@ -66,7 +97,17 @@ public class BetService {
         vote.setCreatedAt(Instant.now());
         betVoteRepository.save(vote);
         
-        log.info("투표 완료: betId={}, userId={}, option={}", betId, userId, option);
+        // 6. Bet의 투표 수 업데이트
+        bet.setTotalVotes(bet.getTotalVotes() + 1);
+        if ("A".equals(option)) {
+            bet.setVotesForA(bet.getVotesForA() + 1);
+        } else {
+            bet.setVotesForB(bet.getVotesForB() + 1);
+        }
+        betRepository.save(bet);
+        
+        log.info("투표 완료: betId={}, userId={}, option={}, 총투표={}, A={}, B={}", 
+            betId, userId, option, bet.getTotalVotes(), bet.getVotesForA(), bet.getVotesForB());
     }
     
     /**

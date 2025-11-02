@@ -8,6 +8,7 @@ import hyun.lol.dto.ParticipantDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.ClientResponse;
@@ -30,6 +31,7 @@ public class MatchService {
     @Qualifier("riotRegionalClient")
     private final WebClient riotRegionalClient;
 
+    @Lazy
     private final SummonerService summonerService; // puuid 조회 재사용
     
     // MatchDto 캐시 (matchId -> Mono<MatchDto>)

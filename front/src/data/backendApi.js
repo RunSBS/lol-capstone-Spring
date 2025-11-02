@@ -32,14 +32,32 @@ const backendApi = {
 
   // 게시글 작성
   createPost: async (postData) => {
+    const requestBody = {
+      title: postData.title,
+      content: postData.content,
+      category: postData.category
+    };
+    
+    // writerB 추가 (롤문철 카테고리일 때 필요)
+    if (postData.writerB) {
+      requestBody.writerB = postData.writerB;
+    }
+    
+    // vote 데이터 추가
+    if (postData.vote) {
+      requestBody.vote = {
+        question: postData.vote.question || null,
+        options: postData.vote.options || null,
+        description: postData.vote.description || null,
+        hasEndTime: postData.vote.hasEndTime || false,
+        endTime: postData.vote.endTime || null
+      };
+    }
+    
     const response = await fetch(`${API_BASE_URL}/posts`, {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify({
-        title: postData.title,
-        content: postData.content,
-        category: postData.category
-      })
+      body: JSON.stringify(requestBody)
     });
 
     if (!response.ok) {

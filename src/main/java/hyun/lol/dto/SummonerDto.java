@@ -12,6 +12,8 @@ import lombok.ToString;
 @ToString
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class SummonerDto {
+    // 소환사의 암호화된 ID (챔피언 숙련도 조회에 필요)
+    private String id;
     // 소환사의 글로벌 고유 Id
     private String puuid;
     // 프로필에 표시되는 아이콘의 정수ID, Data Dragon에서 이미지로 랜더링됨.

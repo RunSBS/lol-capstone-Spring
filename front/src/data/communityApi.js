@@ -84,12 +84,24 @@ const boardApi = {
     new Promise(async (resolve, reject) => {
       try {
         // 백엔드에만 저장 (Oracle Cloud ADB)
-        const savedPost = await backendApi.createPost({
+        const requestData = {
           title: post.title,
           content: post.content,
           category: post.category,
           tags: post.tags || []
-        });
+        };
+        
+        // writerB 추가 (롤문철 카테고리일 때 필요)
+        if (post.writerB) {
+          requestData.writerB = post.writerB;
+        }
+        
+        // vote 데이터 추가
+        if (post.vote) {
+          requestData.vote = post.vote;
+        }
+        
+        const savedPost = await backendApi.createPost(requestData);
         
         resolve(savedPost);
       } catch (error) {
