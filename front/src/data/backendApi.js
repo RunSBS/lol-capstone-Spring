@@ -54,6 +54,11 @@ const backendApi = {
       };
     }
     
+    // matchData 추가
+    if (postData.matchData) {
+      requestBody.matchData = postData.matchData;
+    }
+    
     const response = await fetch(`${API_BASE_URL}/posts`, {
       method: 'POST',
       headers: getAuthHeaders(),
@@ -89,7 +94,10 @@ const backendApi = {
       headers: getAuthHeaders(),
       body: JSON.stringify({
         title: postData.title,
-        content: postData.content
+        content: postData.content,
+        contentB: postData.contentB || null,
+        matchData: postData.matchData || null,
+        vote: postData.vote || null
       })
     });
 

@@ -1,7 +1,7 @@
 # Oracle ADB를 사용하는 Docker 이미지
 
 # 1. 빌드 단계
-FROM eclipse-temurin:17-jdk-alpine AS builder
+FROM eclipse-temurin:21-jdk-alpine AS builder
 WORKDIR /app
 
 # 모든 파일 복사
@@ -14,7 +14,7 @@ RUN chmod +x ./gradlew
 RUN ./gradlew clean bootJar --no-daemon
 
 # 2. 런타임 이미지
-FROM eclipse-temurin:17-jdk-alpine
+FROM eclipse-temurin:21-jdk-alpine
 WORKDIR /app
 
 # 필요한 시스템 패키지 설치 (healthcheck용)

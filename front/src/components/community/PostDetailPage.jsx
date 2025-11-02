@@ -286,8 +286,26 @@ function PostDetailPage({ currentUser, adminId, postId }) {
         </div>
         <hr />
         {/* top rectangle area */}
-        <div style={{ height: 80, border: "1px solid #eee", marginBottom: 12, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", background: "#fafafa" }}>
-          롤문철 매치업
+        <div style={{ height: 80, border: "1px solid #eee", marginBottom: 12, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", background: "#fafafa", flexDirection: "column", padding: 10 }}>
+          <div style={{ fontSize: "1.2em", fontWeight: "bold", marginBottom: 5 }}>롤문철 매치업</div>
+          {post.matchData && post.matchData.match && (
+            <div style={{ fontSize: "0.9em", color: "#666" }}>
+              <div style={{ marginTop: 5 }}>
+                {post.matchData.summoner?.fullName} - {post.matchData.match.gameType} - {post.matchData.match.result} - {post.matchData.match.duration}
+              </div>
+              {post.matchData.match.champion && (
+                <div style={{ marginTop: 3 }}>
+                  {post.matchData.match.champion.name}
+                  {post.matchData.match.champion.level && ` (Lv.${post.matchData.match.champion.level})`}
+                  {post.matchData.match.kda && (
+                    <span style={{ marginLeft: 10 }}>
+                      {post.matchData.match.kda.kills}/{post.matchData.match.kda.deaths}/{post.matchData.match.kda.assists}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
         {/* split content area */}
         <div style={{ 
@@ -337,17 +355,6 @@ function PostDetailPage({ currentUser, adminId, postId }) {
           </div>
         </div>
 
-        {/* 투표 섹션 */}
-        {voteData && (
-          <VoteDisplay 
-            voteData={voteData} 
-            userVoteOption={userVoteOption}
-            onVoteSubmit={handleVoteSubmit}
-            onVoteCancel={handleVoteCancel}
-            currentUser={currentUser}
-          />
-        )}
-
         {/* 추천/반대 버튼 */}
         <div style={{ margin: "24px 0", textAlign: "center" }}>
           <button onClick={() => handleVoteToggle("like")}>
@@ -359,7 +366,10 @@ function PostDetailPage({ currentUser, adminId, postId }) {
           </button>
           <span style={{ margin: "0 16px" }}>반대: {dislike}</span>
         </div>
-        
+
+        {/* 투표 섹션 - 본문과 댓글 사이 */}
+        <VoteDisplayStatic />
+
         <CommentSection postId={post.id} currentUser={currentUser} />
       </div>
     );
@@ -602,6 +612,171 @@ function VoteDisplay({ voteData, userVoteOption, onVoteSubmit, onVoteCancel, cur
         <p style={{ color: "#28a745", fontWeight: "bold" }}>
           ✓ 투표가 완료되었습니다.
         </p>
+      )}
+    </div>
+  );
+}
+
+// 정적 투표 컴포넌트 (모습만 표시)
+function VoteDisplayStatic() {
+  const [selectedOption, setSelectedOption] = useState(null);
+  const [hasVoted, setHasVoted] = useState(false);
+
+  const handleVote = () => {
+    if (selectedOption === null) {
+      alert("진영을 선택해주세요.");
+      return;
+    }
+    setHasVoted(true);
+    alert("투표가 완료되었습니다.");
+  };
+
+  const voteResults = {
+    0: { votes: 15, percentage: 75 },
+    1: { votes: 5, percentage: 25 }
+  };
+
+  const totalVotes = 20;
+
+  return (
+    <div style={{ 
+      border: "1px solid #ddd", 
+      borderRadius: 8, 
+      padding: 20, 
+      marginBottom: 20,
+      marginTop: 20,
+      backgroundColor: "#f9f9f9"
+    }}>
+      <h3 style={{ marginBottom: 15, color: "#333" }}>📊 투표</h3>
+      
+      <div style={{ marginBottom: 15 }}>
+        <h4 style={{ marginBottom: 10 }}>누가 이길까요?</h4>
+        <p style={{ color: "#666", fontSize: "0.9em", marginBottom: 15 }}>
+          종료 시간: 2024-12-31 23:59
+        </p>
+      </div>
+
+      {!hasVoted ? (
+        <>
+          {/* 투표 선택 창 */}
+          <div style={{ marginBottom: 15 }}>
+            <div style={{ marginBottom: 8 }}>
+              <label style={{ display: "flex", alignItems: "center", cursor: "pointer", padding: "10px", border: "1px solid #ddd", borderRadius: 4, backgroundColor: "#fff" }}>
+                <input
+                  type="radio"
+                  name="voteOption"
+                  value="0"
+                  checked={selectedOption === 0}
+                  onChange={() => setSelectedOption(0)}
+                  style={{ marginRight: 10 }}
+                />
+                <span>사용자A</span>
+              </label>
+            </div>
+            <div style={{ marginBottom: 8 }}>
+              <label style={{ display: "flex", alignItems: "center", cursor: "pointer", padding: "10px", border: "1px solid #ddd", borderRadius: 4, backgroundColor: "#fff" }}>
+                <input
+                  type="radio"
+                  name="voteOption"
+                  value="1"
+                  checked={selectedOption === 1}
+                  onChange={() => setSelectedOption(1)}
+                  style={{ marginRight: 10 }}
+                />
+                <span>사용자B</span>
+              </label>
+            </div>
+          </div>
+
+          <button
+            onClick={handleVote}
+            style={{
+              padding: "10px 20px",
+              backgroundColor: "#007bff",
+              color: "white",
+              border: "none",
+              borderRadius: 4,
+              cursor: "pointer",
+              fontSize: "16px",
+              fontWeight: "bold"
+            }}
+          >
+            투표 완료
+          </button>
+        </>
+      ) : (
+        <>
+          {/* 투표 결과 표시 */}
+          <div style={{ marginBottom: 15 }}>
+            <div style={{ 
+              marginBottom: 10, 
+              padding: 10, 
+              border: selectedOption === 0 ? "2px solid #007bff" : "1px solid #ddd",
+              borderRadius: 4,
+              backgroundColor: selectedOption === 0 ? "#e3f2fd" : "#fff"
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
+                <span style={{ fontWeight: selectedOption === 0 ? "bold" : "normal" }}>
+                  사용자A {selectedOption === 0 && "✓"}
+                </span>
+                <span style={{ flexShrink: 0, marginLeft: 10 }}>{voteResults[0].votes}표 ({voteResults[0].percentage}%)</span>
+              </div>
+              <div style={{ 
+                width: "100%", 
+                height: 8, 
+                backgroundColor: "#e0e0e0", 
+                borderRadius: 4,
+                overflow: "hidden"
+              }}>
+                <div style={{
+                  width: `${voteResults[0].percentage}%`,
+                  height: "100%",
+                  backgroundColor: selectedOption === 0 ? "#007bff" : "#28a745",
+                  transition: "width 0.3s ease"
+                }} />
+              </div>
+            </div>
+
+            <div style={{ 
+              marginBottom: 10, 
+              padding: 10, 
+              border: selectedOption === 1 ? "2px solid #007bff" : "1px solid #ddd",
+              borderRadius: 4,
+              backgroundColor: selectedOption === 1 ? "#e3f2fd" : "#fff"
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
+                <span style={{ fontWeight: selectedOption === 1 ? "bold" : "normal" }}>
+                  사용자B {selectedOption === 1 && "✓"}
+                </span>
+                <span style={{ flexShrink: 0, marginLeft: 10 }}>{voteResults[1].votes}표 ({voteResults[1].percentage}%)</span>
+              </div>
+              <div style={{ 
+                width: "100%", 
+                height: 8, 
+                backgroundColor: "#e0e0e0", 
+                borderRadius: 4,
+                overflow: "hidden"
+              }}>
+                <div style={{
+                  width: `${voteResults[1].percentage}%`,
+                  height: "100%",
+                  backgroundColor: selectedOption === 1 ? "#007bff" : "#28a745",
+                  transition: "width 0.3s ease"
+                }} />
+              </div>
+            </div>
+            
+            <p style={{ color: "#666", fontSize: "0.9em", marginTop: 10 }}>
+              총 {totalVotes}표
+            </p>
+          </div>
+
+          <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+            <p style={{ color: "#28a745", fontWeight: "bold", margin: 0 }}>
+              ✓ 투표가 완료되었습니다.
+            </p>
+          </div>
+        </>
       )}
     </div>
   );

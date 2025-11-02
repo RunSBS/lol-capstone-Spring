@@ -218,7 +218,7 @@ function MediaAttachment({ onMediaInsert, content, setContent }) {
                       fontSize: '12px'
                     }}
                   >
-                    이미지삽입
+                    {mediaData.type === 'image' ? '이미지삽입' : '영상삽입'}
                   </button>
                   <button 
                     type="button"
