@@ -15,7 +15,7 @@ import MainContent from '../components/summoner/MainContent.jsx'
 // 백엔드 API 호출 유틸
 import { fetchSummonerView, fetchRecentMatches, fetchDDragonVersion, fetchChampionMastery, fetchPlayedWith } from '../data/api.js'
 // Data Dragon 아이콘 URL 유틸
-import { buildChampionSquareUrl, buildItemIconUrl, tryBuildSummonerSpellIconUrl, tryBuildRuneIconUrl, buildRuneStyleIcon, loadSpellMap, loadRuneMap, inferStyleIdFromPerkId, getStyleStaticIcon } from '../data/ddragon.js'
+import { buildChampionSquareUrl, buildItemIconUrl, tryBuildSummonerSpellIconUrl, tryBuildRuneIconUrl, buildRuneStyleIcon, loadSpellMap, loadRuneMap, inferStyleIdFromPerkId, getStyleStaticIcon, loadChampions } from '../data/ddragon.js'
 function SummonerPage() {
   // URL 파라미터에서 gameName#tagLine 분리
   const { nickname } = useParams()
@@ -27,6 +27,8 @@ function SummonerPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [masteryData, setMasteryData] = useState([])
   const [playedWithData, setPlayedWithData] = useState([])
+  const [champNameMap, setChampNameMap] = useState({})
+  const [lastUpdatedAt, setLastUpdatedAt] = useState(null)
 
   const { gameName, tagLine } = useMemo(() => {
     const decoded = decodeURIComponent(nickname || '')
@@ -52,6 +54,7 @@ function SummonerPage() {
         if (!mounted) return
         setDdVer(ver || '15.18.1')
         setView(v)
+        setLastUpdatedAt(v?.revisionDate || Date.now())
         // 스펠/룬 매핑 사전 로딩 (아이콘 URL 매핑)
         try { await Promise.all([loadSpellMap(ver), loadRuneMap(ver)]) } catch {}
         
@@ -78,6 +81,24 @@ function SummonerPage() {
       .finally(() => { if (mounted) setLoading(false) })
     return () => { mounted = false }
   }, [gameName, tagLine])
+
+  // 챔피언 한글명 매핑 로드 (ko_KR)
+  useEffect(() => {
+    let mounted = true
+    const ver = ddVer || '15.18.1'
+    loadChampions(ver, 'ko_KR')
+      .then((list) => {
+        if (!mounted) return
+        const map = {}
+        ;(list || []).forEach((ch) => {
+          // ch.id는 영문 키, ch.name은 현지화된 이름(ko_KR)
+          map[ch.id] = ch.name || ch.id
+        })
+        setChampNameMap(map)
+      })
+      .catch(() => {})
+    return () => { mounted = false }
+  }, [ddVer])
   const handleRefresh = async () => {
     // 전적 갱신 버튼 대응: 다시 view/최근전적 로드
     if (!gameName) return // gameName만 확인, tagLine은 기본값이 있으므로 제거
@@ -85,6 +106,7 @@ function SummonerPage() {
     try {
       const v = await fetchSummonerView(gameName, tagLine)
       setView(v)
+      setLastUpdatedAt(Date.now())
       try {
         const [m, mastery, playedWith] = await Promise.all([
           fetchRecentMatches(gameName, tagLine, 20),
@@ -398,6 +420,7 @@ function SummonerPage() {
         .sort((a,b) => b.games - a.games)
         .slice(0, 7)
         .map(c => {
+          const displayName = champNameMap[c.name] || c.name
           if (isSeason) {
             // S2025 탭: CS, KDA는 평균치, 게임수와 승률은 합산
             const avgCs = Math.round(c.cs / c.games)
@@ -407,7 +430,7 @@ function SummonerPage() {
             const avgA = (c.a / c.games).toFixed(1)
             
             return {
-              name: c.name,
+              name: displayName,
               imageUrl: c.imageUrl,
               cs: avgCs, // 평균 CS
               kdaRatio: `${((c.k + c.a) / Math.max(1, c.d)).toFixed(2)}:1 평점`, // 전체 KDA 비율
@@ -416,11 +439,12 @@ function SummonerPage() {
               games: `${c.games} 게임` // 게임 수 (합산)
             }
           } else {
-            // 개인/자유랭크 탭: 기존 방식 (게임당 평균)
+            // 개인/자유랭크 탭: CS도 평균값으로 표시
+            const avgCs = Math.round(c.cs / Math.max(1, c.games))
             return {
-              name: c.name,
+              name: displayName,
               imageUrl: c.imageUrl,
-              cs: c.cs,
+              cs: avgCs, // 평균 CS
               kdaRatio: `${((c.k + c.a) / Math.max(1, c.d)).toFixed(2)}:1 평점`,
               kdaNumbers: `${(c.k / c.games).toFixed(1)} / ${(c.d / c.games).toFixed(1)} / ${(c.a / c.games).toFixed(1)}`,
               winrate: Math.round((c.wins / c.games) * 100) + '%',
@@ -431,11 +455,11 @@ function SummonerPage() {
     }
 
     return {
-      season: transformChampData(byChamp, true), // S2025 탭: 평균치로 표시
-      solo: transformChampData(soloByChamp, false), // 개인랭크: 기존 방식
-      flex: transformChampData(flexByChamp, false) // 자유랭크: 기존 방식
+      season: transformChampData(byChamp, true),
+      solo: transformChampData(soloByChamp, false),
+      flex: transformChampData(flexByChamp, false)
     }
-  }, [transformedMatches, view])
+  }, [transformedMatches, view, champNameMap])
 
   return (
     <>
@@ -449,6 +473,7 @@ function SummonerPage() {
           tagLine={view?.tagLine}
           puuid={view?.puuid}
           revisionDate={view?.revisionDate}
+          lastUpdated={lastUpdatedAt}
           ddVer={ddVer}
           onRefresh={handleRefresh}
           isRefreshing={refreshing}
