@@ -449,6 +449,32 @@ const backendApi = {
     }
 
     return await response.json();
+  },
+
+  // 토큰 보유 순위 조회 (상위 10명) - 인증 없이도 조회 가능
+  getTokenRanking: async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/user/ranking`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        // 에러 발생 시 빈 배열 반환 (fallback to localStorage)
+        if (response.status === 401 || response.status === 403 || response.status === 404) {
+          return [];
+        }
+        const errorText = await response.text();
+        throw new Error(`순위 조회 실패: ${response.status} ${errorText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('토큰 순위 조회 에러:', error);
+      return []; // 에러 발생 시 빈 배열 반환 (fallback to localStorage)
+    }
   }
 };
 

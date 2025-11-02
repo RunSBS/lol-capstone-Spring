@@ -46,6 +46,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/posts/**").permitAll()
                         // 댓글 조회는 인증 없이 가능
                         .requestMatchers(HttpMethod.GET, "/api/comments/**").permitAll()
+                        // 토큰 순위 조회는 인증 없이 가능 (구체적인 경로를 먼저 배치)
+                        .requestMatchers("/api/user/ranking").permitAll()
                         // 그 외는 인증 필요
                         .anyRequest().authenticated()
                 )

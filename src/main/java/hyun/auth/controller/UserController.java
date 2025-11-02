@@ -4,6 +4,7 @@ import hyun.db.entity.User;
 import hyun.db.repo.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -14,7 +15,9 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/user")
@@ -46,6 +49,26 @@ public class UserController {
         userInfo.put("role", user.getRole());
         
         return ResponseEntity.ok(userInfo);
+    }
+
+    /**
+     * 토큰 보유 순위 조회 (상위 10명)
+     */
+    @GetMapping("/ranking")
+    public ResponseEntity<List<Map<String, Object>>> getTokenRanking() {
+        List<User> users = userRepository.findAll(Sort.by(Sort.Direction.DESC, "tokenBalance"));
+        
+        List<Map<String, Object>> ranking = users.stream()
+            .limit(10)
+            .map(user -> {
+                Map<String, Object> userData = new HashMap<>();
+                userData.put("username", user.getUsername());
+                userData.put("tokens", user.getTokenBalance());
+                return userData;
+            })
+            .collect(Collectors.toList());
+        
+        return ResponseEntity.ok(ranking);
     }
 }
 

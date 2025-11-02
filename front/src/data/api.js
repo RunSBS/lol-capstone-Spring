@@ -7,7 +7,7 @@ export async function fetchSummonerView(gameName, tagLine) {
   try {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 3000)
-    const res = await fetch(`/summoner/view/${g}/${t}`, { method: 'POST', signal: controller.signal })
+    const res = await fetch(`/summoner/view/${g}/${t}`, { method: 'GET', signal: controller.signal })
     clearTimeout(timeoutId)
     if (!res.ok) {
       const text = await safeText(res)

@@ -9,7 +9,7 @@ function PlayedWithCard({ data }) {
         {displayData.length > 0 ? (
           displayData.map((player, index) => (
             <li key={index}>
-              <img src={player.iconUrl} alt={player.name} />
+              {player.iconUrl && <img src={player.iconUrl} alt={player.name || 'player'} />}
               <div className="player-info">
                 <p className="player-name-tag">{player.name} <span>{player.tag}</span></p>
                 <p className="player-level">레벨 {player.level}</p>

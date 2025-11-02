@@ -90,17 +90,17 @@ function MatchDetails({ matchData }) {
       <div key={index} className={`player-row ${player.team === 'win' ? 'win-team' : 'loss-team'}`}>
         <div className="player-identity">
           <div className="champ-icon-wrapper">
-            <img className="champ-icon" src={player.champion.imageUrl} alt={player.champion.name} />
-            <span className="champ-level">{player.champion.level}</span>
+            {player.champion?.imageUrl && <img className="champ-icon" src={player.champion.imageUrl} alt={player.champion.name || 'champion'} />}
+            <span className="champ-level">{player.champion?.level || ''}</span>
           </div>
           <div className="spells-runes">
             <div className="spells">
-              <img src={player.spells[0]} />
-              <img src={player.spells[1]} />
+              {player.spells?.[0] && <img src={player.spells[0]} alt="spell 1" />}
+              {player.spells?.[1] && <img src={player.spells[1]} alt="spell 2" />}
             </div>
             <div className="runes">
-              {(Array.isArray(player.runes) ? player.runes : []).filter(Boolean).map((src, idx) => (
-                <img key={idx} src={src} />
+              {(Array.isArray(player.runes) ? player.runes : []).filter(src => src && src.trim()).map((src, idx) => (
+                <img key={idx} src={src} alt={`rune ${idx + 1}`} />
               ))}
             </div>
           </div>
@@ -134,9 +134,9 @@ function MatchDetails({ matchData }) {
         </div>
         <div className="items-details">
           {itemSlots.map((item, i) => (
-            item ? <img key={i} src={item} /> : <div key={i} className="empty-item"></div>
+            item && item.trim() ? <img key={i} src={item} alt={`item ${i}`} /> : <div key={i} className="empty-item"></div>
           ))}
-          {player.trinket ? <img className="trinket" src={player.trinket} /> : <div className="empty-item trinket"></div>}
+          {player.trinket && player.trinket.trim() ? <img className="trinket" src={player.trinket} alt="trinket" /> : <div className="empty-item trinket"></div>}
         </div>
       </div>
     )

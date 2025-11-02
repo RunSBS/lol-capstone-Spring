@@ -33,17 +33,17 @@ function MatchHistoryItem({ matchData }) {
         </div>
         <div className="champion-info">
           <div className="champion-portrait">
-            <img src={champion.imageUrl} alt={champion.name} />
-            <span className="level">{champion.level}</span>
+            {champion.imageUrl && <img src={champion.imageUrl} alt={champion.name || 'champion'} />}
+            <span className="level">{champion.level || ''}</span>
           </div>
           <div className="spells-runes">
             <div className="spells">
-              {spellIcons.map((src, i) => (
+              {spellIcons.filter(src => src && src.trim()).map((src, i) => (
                 <img key={i} src={src} alt={`spell ${i + 1}`} />
               ))}
             </div>
             <div className="runes">
-              {runeIcons.map((src, i) => (
+              {runeIcons.filter(src => src && src.trim()).map((src, i) => (
                 <img key={i} src={src} alt={`rune ${i + 1}`} />
               ))}
             </div>
@@ -61,13 +61,13 @@ function MatchHistoryItem({ matchData }) {
         </div>
         <div className="item-build">
           {Array.from({ length: 6 }, (_, i) => items[i] || '').map((item, index) => (
-            item ? <img key={index} src={item} alt={`item ${index}`} /> : <div key={index} className="empty-item"></div>
+            item && item.trim() ? <img key={index} src={item} alt={`item ${index}`} /> : <div key={index} className="empty-item"></div>
           ))}
-          {trinket ? <img src={trinket} alt="trinket" className="trinket" /> : <div className="empty-item trinket"></div>}
+          {trinket && trinket.trim() ? <img src={trinket} alt="trinket" className="trinket" /> : <div className="empty-item trinket"></div>}
         </div>
         <div className="player-lists">
-          <div className="team">{team1.map((p, i) => <div key={i} className="player"><img src={p.champion} alt={p.name}/><span>{p.name}</span></div>)}</div>
-          <div className="team">{team2.map((p, i) => <div key={i} className="player"><img src={p.champion} alt={p.name}/><span>{p.name}</span></div>)}</div>
+          <div className="team">{team1.map((p, i) => <div key={i} className="player">{p.champion && <img src={p.champion} alt={p.name || 'player'}/>}<span>{p.name || ''}</span></div>)}</div>
+          <div className="team">{team2.map((p, i) => <div key={i} className="player">{p.champion && <img src={p.champion} alt={p.name || 'player'}/>}<span>{p.name || ''}</span></div>)}</div>
         </div>
         <div className="details-toggle" onClick={() => setExpanded(!expanded)}>
           <div className={expanded ? 'arrow-up' : 'arrow-down'}></div>

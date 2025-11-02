@@ -1,18 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-
-function loadUser(username) {
-  const usersJson = localStorage.getItem("users") || "[]";
-  const users = JSON.parse(usersJson);
-  const user = users.find(u => u.username === username) || { username, password: "", bio: "", tokens: 0, avatar: "" };
-  
-  // admin1 계정의 토큰을 9999로 설정
-  if (username === "admin1") {
-    user.tokens = 9999;
-  }
-  
-  return user;
-}
+import backendApi from '../../data/backendApi';
 
 function TokenRanking() {
   const [rankings, setRankings] = useState([]);
@@ -22,25 +10,62 @@ function TokenRanking() {
     loadRankings();
   }, []);
 
-  const loadRankings = () => {
+  const loadRankings = async () => {
     try {
-      const usersJson = localStorage.getItem("users") || "[]";
-      const users = JSON.parse(usersJson);
+      // 백엔드 API에서 토큰 순위 가져오기
+      const backendRankings = await backendApi.getTokenRanking();
       
-      // 토큰 순으로 정렬 (내림차순)
-      const sortedUsers = users
-        .map(user => ({
+      if (backendRankings && backendRankings.length > 0) {
+        // 백엔드 데이터 사용 (username, tokens)
+        const formattedRankings = backendRankings.map(user => ({
           username: user.username,
           tokens: user.tokens || 0,
-          avatar: user.avatar || null
-        }))
-        .sort((a, b) => b.tokens - a.tokens)
-        .slice(0, 10); // 상위 10명만
+          avatar: null // 백엔드에서 아바타 정보가 없으므로 null
+        }));
+        setRankings(formattedRankings);
+      } else {
+        // 백엔드에서 데이터가 없으면 localStorage에서 가져오기 (fallback)
+        try {
+          const usersJson = localStorage.getItem("users") || "[]";
+          const users = JSON.parse(usersJson);
+          
+          // 토큰 순으로 정렬 (내림차순)
+          const sortedUsers = users
+            .map(user => ({
+              username: user.username,
+              tokens: user.tokens || 0,
+              avatar: user.avatar || null
+            }))
+            .sort((a, b) => b.tokens - a.tokens)
+            .slice(0, 10); // 상위 10명만
 
-      setRankings(sortedUsers);
+          setRankings(sortedUsers);
+        } catch (localError) {
+          console.error('로컬 순위 로드 실패:', localError);
+          setRankings([]);
+        }
+      }
     } catch (error) {
       console.error('순위 로드 실패:', error);
-      setRankings([]);
+      // 에러 발생 시 localStorage에서 가져오기 (fallback)
+      try {
+        const usersJson = localStorage.getItem("users") || "[]";
+        const users = JSON.parse(usersJson);
+        
+        const sortedUsers = users
+          .map(user => ({
+            username: user.username,
+            tokens: user.tokens || 0,
+            avatar: user.avatar || null
+          }))
+          .sort((a, b) => b.tokens - a.tokens)
+          .slice(0, 10);
+
+        setRankings(sortedUsers);
+      } catch (localError) {
+        console.error('로컬 순위 로드 실패:', localError);
+        setRankings([]);
+      }
     } finally {
       setLoading(false);
     }
