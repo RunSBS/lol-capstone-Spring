@@ -451,16 +451,30 @@ export default function UserProfilePage() {
   // 스티커를 배너에 추가
   const handleStickerAdd = async (sticker) => {
     try {
-      
       const itemCode = getStickerItemCode(sticker.stickerId || sticker.id);
+      
+      // 프론트엔드 형식(x, y, scale)을 DB 형식(positionX, positionY, width, height)으로 변환
+      // x, y는 퍼센트 형식(0-100)이므로 0-1 범위로 변환
+      const positionX = sticker.positionX !== undefined 
+        ? sticker.positionX 
+        : (sticker.x !== undefined ? sticker.x / 100 : 0.5);
+      const positionY = sticker.positionY !== undefined 
+        ? sticker.positionY 
+        : (sticker.y !== undefined ? sticker.y / 100 : 0.5);
+      
+      // scale을 width, height에 적용 (기본 크기 100px 기준)
+      const scale = sticker.scale || 1;
+      const baseSize = 100; // 기본 스티커 크기 (픽셀)
+      const newWidth = baseSize * scale;
+      const newHeight = baseSize * scale;
       
       // 백엔드 API로 스티커 부착
       const bannerSticker = await backendApi.addStickerToBanner(
         itemCode,
-        sticker.positionX || 0.5,
-        sticker.positionY || 0.5,
-        sticker.width || 100,
-        sticker.height || 100
+        positionX,
+        positionY,
+        newWidth,
+        newHeight
       );
       
       // 백엔드 연동 성공
@@ -473,7 +487,13 @@ export default function UserProfilePage() {
           positionX: bannerSticker.positionX,
           positionY: bannerSticker.positionY,
           width: bannerSticker.width,
-          height: bannerSticker.height
+          height: bannerSticker.height,
+          // 프론트엔드 표시용 데이터
+          x: sticker.x !== undefined ? sticker.x : (bannerSticker.positionX * 100),
+          y: sticker.y !== undefined ? sticker.y : (bannerSticker.positionY * 100),
+          scale: sticker.scale || 1,
+          rotation: sticker.rotation || 0,
+          zIndex: sticker.zIndex || (user.bannerStickers?.length || 0) + 1
         }],
         stickers: {
           ...user.stickers,
@@ -512,17 +532,38 @@ export default function UserProfilePage() {
   const handleStickerUpdate = async (updatedSticker) => {
     try {
       // 백엔드 API로 스티커 위치 업데이트
+      // 프론트엔드 형식(x, y, scale)을 DB 형식(positionX, positionY, width, height)으로 변환
       if (updatedSticker.id) {
+        // 기존 스티커 정보에서 width 가져오기 (기본값 100)
+        const existingSticker = user.bannerStickers?.find(s => s.id === updatedSticker.id);
+        const currentWidth = existingSticker?.width || updatedSticker.width || 100;
+        
+        // scale이 변경되었으면 scale 기준으로 계산, 아니면 기존 width 사용
+        const scale = updatedSticker.scale !== undefined ? updatedSticker.scale : 
+          (existingSticker?.scale || 1);
+        const baseSize = 100; // 기본 스티커 크기 (픽셀)
+        const newWidth = baseSize * scale;
+        const newHeight = baseSize * scale;
+        
+        // x, y를 positionX, positionY로 변환 (이미 퍼센트 형식이면 그대로 사용)
+        const positionX = updatedSticker.positionX !== undefined 
+          ? updatedSticker.positionX 
+          : (updatedSticker.x !== undefined ? updatedSticker.x / 100 : 0.5);
+        const positionY = updatedSticker.positionY !== undefined 
+          ? updatedSticker.positionY 
+          : (updatedSticker.y !== undefined ? updatedSticker.y / 100 : 0.5);
+        
+        // DB에 업데이트
         await backendApi.updateBannerSticker(
           updatedSticker.id,
-          updatedSticker.positionX,
-          updatedSticker.positionY,
-          updatedSticker.width,
-          updatedSticker.height
+          positionX,
+          positionY,
+          newWidth,
+          newHeight
         );
       }
       
-      // 백엔드 연동 성공
+      // 백엔드 연동 성공 - 로컬 상태도 업데이트
       updateBannerSticker(user, updatedSticker, (newUser) => {
         setUser(newUser);
         saveUser(newUser);
