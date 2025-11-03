@@ -33,14 +33,16 @@ public class Post {
     @Lob 
     @Column(nullable = false)
     private String content;      // 내용
-
-    @Lob
-    @Column(name = "CONTENT_B")
-    private String contentB;      // 작성자 B의 내용 (롤문철 카테고리용, null 가능)
-
     @Lob
     @Column(name = "MATCH_DATA")
     private String matchData;     // 전적 데이터 (JSON 형식, 롤문철 카테고리용)
+
+    @Lob
+    @Column(name = "CONTENT_B")
+    private String contentB;      // 작성자B 본문 (롤문철 카테고리용)
+
+    @Column(length = 100, name = "WRITER_B")
+    private String writerB;       // 작성자B 닉네임 (롤문철 카테고리용)
 
     @Column(length = 50)
     private String category;     // 카테고리 (free, guide, lolmuncheol)

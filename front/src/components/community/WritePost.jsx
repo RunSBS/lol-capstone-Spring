@@ -120,6 +120,7 @@ function WritePost({ currentUser }) {
   // 수정 모드인지 확인
   const postToEdit = location.state?.postToEdit;
   const isEditMode = !!postToEdit;
+  const isLol = formData.category === "lolmuncheol";
 
   useEffect(() => {
     if (isEditMode && postToEdit) {
@@ -275,10 +276,11 @@ function WritePost({ currentUser }) {
         if (isLol) {
           // 작성자B는 오른쪽 칸만 수정, 작성자A는 왼쪽 칸만 수정
           if (currentUser === postToEdit.writerB) {
+            delete payload.title; // 제목은 수정 불가
             delete payload.content; // 왼쪽 본문은 건드리지 않음
             payload.contentB = formData.content; // 오른쪽 본문 갱신
           } else {
-            // 작성자A 또는 관리자: 왼쪽 본문 갱신, 오른쪽은 유지
+            // 작성자A 또는 관리자: 제목과 왼쪽 본문 갱신, 오른쪽은 유지
             delete payload.contentB;
           }
         }
@@ -748,11 +750,16 @@ function WritePost({ currentUser }) {
             value={formData.title}
             onChange={handleInputChange}
             placeholder="제목을 입력하세요"
+            disabled={isEditMode && isLol && currentUser === postToEdit?.writerB}
             style={{ 
               width: "100%", 
               padding: 10, 
               border: "1px solid #ddd",
-              borderRadius: 4 
+              borderRadius: 4,
+              ...(isEditMode && isLol && currentUser === postToEdit?.writerB && {
+                backgroundColor: "#f5f5f5",
+                cursor: "not-allowed"
+              })
             }}
             required
           />
