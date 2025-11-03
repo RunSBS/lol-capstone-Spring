@@ -43,7 +43,7 @@ public class PostController {
         public record VoteData(String question, String[] options, String description, 
                               Boolean hasEndTime, String endTime) {}
     }
-    public record UpdatePostReq(String title, String content) {}
+    public record UpdatePostReq(String title, String content, String contentB) {}
 
     @GetMapping
     public ResponseEntity<List<PostDto>> getAllPosts(@RequestParam(required = false) String category) {
@@ -134,7 +134,7 @@ public class PostController {
 
     @PutMapping("/{id}")
     public ResponseEntity<Post> updatePost(@PathVariable Long id, @RequestBody UpdatePostReq req) {
-        Post post = postService.update(id, req.title(), req.content());
+        Post post = postService.update(id, req.title(), req.content(), req.contentB());
         return ResponseEntity.ok(post);
     }
 
@@ -309,10 +309,10 @@ public class PostController {
             log.warn("사용자 투표 정보 조회 실패: {}", e.getMessage());
         }
         
-        return ResponseEntity.ok(Map.of(
-            "voteData", voteData,
-            "userVote", userVote != null ? userVote : null
-        ));
+        Map<String, Object> responseMap = new HashMap<>();
+        responseMap.put("voteData", voteData);
+        responseMap.put("userVote", userVote);
+        return ResponseEntity.ok(responseMap);
     }
 }
 

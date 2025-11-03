@@ -248,22 +248,59 @@ public class PostService {
     }
 
     @Transactional
-    public Post update(Long postId, String title, String content) {
+    public Post update(Long postId, String title, String content, String contentB) {
         User u = me();
         Post p = posts.findById(postId).orElseThrow();
-        if (!p.getUser().getId().equals(u.getId())) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "작성자만 수정 가능");
-        p.setTitle(title);
-        p.setContent(content);
-        p.setUpdatedAt(Instant.now());
         
-        // 기존 미디어 파일 삭제 후 새로운 미디어 파일 저장
-        try {
-            postMediaRepository.deleteByPostId(postId);
-            savePostMedia(p, content);
-        } catch (Exception e) {
-            log.warn("미디어 파일 정보 업데이트 중 오류 (무시): {}", e.getMessage());
+        // 작성자A 권한 확인
+        boolean isAuthor = p.getUser().getId().equals(u.getId());
+        
+        // 롤문철 카테고리인 경우 작성자B도 수정 가능
+        boolean isAuthorB = false;
+        if ("lolmuncheol".equals(p.getCategory())) {
+            var betOpt = betRepository.findByPost_Id(postId);
+            if (betOpt.isPresent()) {
+                Bet bet = betOpt.get();
+                try {
+                    isAuthorB = bet.getBettorB() != null && bet.getBettorB().getId().equals(u.getId());
+                } catch (Exception e) {
+                    log.warn("bettorB 조회 실패: {}", e.getMessage());
+                }
+            }
         }
         
+        if (!isAuthor && !isAuthorB) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "작성자만 수정 가능");
+        }
+        
+        // 작성자A인 경우 title과 content 수정
+        if (isAuthor) {
+            p.setTitle(title);
+            p.setContent(content);
+            
+            // 기존 미디어 파일 삭제 후 새로운 미디어 파일 저장
+            try {
+                postMediaRepository.deleteByPostId(postId);
+                savePostMedia(p, content);
+            } catch (Exception e) {
+                log.warn("미디어 파일 정보 업데이트 중 오류 (무시): {}", e.getMessage());
+            }
+        }
+        
+        // 작성자B인 경우 contentB 수정
+        if (isAuthorB && contentB != null) {
+            p.setContentB(contentB);
+            
+            // 기존 미디어 파일 삭제 후 새로운 미디어 파일 저장
+            try {
+                postMediaRepository.deleteByPostId(postId);
+                savePostMedia(p, contentB);
+            } catch (Exception e) {
+                log.warn("미디어 파일 정보 업데이트 중 오류 (무시): {}", e.getMessage());
+            }
+        }
+        
+        p.setUpdatedAt(Instant.now());
         return posts.save(p);
     }
 
@@ -425,6 +462,7 @@ public class PostService {
                         writer,
                         p.getTitle() != null ? p.getTitle() : "",
                         p.getContent() != null ? p.getContent() : "",
+                        p.getContentB() != null ? p.getContentB() : null,
                         p.getCategory() != null ? p.getCategory() : "",
                         p.getCreatedAt() != null ? p.getCreatedAt() : Instant.now(),
                         p.getUpdatedAt() != null ? p.getUpdatedAt() : Instant.now(),
@@ -443,6 +481,7 @@ public class PostService {
                         "Unknown",
                         "",
                         "",
+                        null,
                         "",
                         Instant.now(),
                         Instant.now(),
@@ -473,146 +512,127 @@ public class PostService {
         
         List<PostDto> result = new java.util.ArrayList<>();
         
+        // category가 "all"이거나 null이면 모든 게시글 반환
+        List<Post> postList = new java.util.ArrayList<>();
         try {
-            // category가 "all"이거나 null이면 모든 게시글 반환
-            List<Post> postList = new java.util.ArrayList<>();
-            try {
-                log.info("DB에서 게시글 조회 시작...");
-                List<Post> allPosts = posts.findAll();
-                log.info("DB에서 {} 개 게시글 조회 완료", allPosts.size());
-                
-                if (category == null || category.isEmpty() || "all".equalsIgnoreCase(category)) {
-                    postList = allPosts.stream()
-                            .sorted((a, b) -> {
-                                if (a.getCreatedAt() == null || b.getCreatedAt() == null) {
-                                    return 0;
-                                }
-                                return b.getCreatedAt().compareTo(a.getCreatedAt());
-                            })
-                            .collect(java.util.stream.Collectors.toList());
-                } else {
-                    // 특정 카테고리 필터링
-                    postList = allPosts.stream()
-                            .filter(p -> category.equals(p.getCategory()))
-                            .sorted((a, b) -> {
-                                if (a.getCreatedAt() == null || b.getCreatedAt() == null) {
-                                    return 0;
-                                }
-                                return b.getCreatedAt().compareTo(a.getCreatedAt());
-                            })
-                            .collect(java.util.stream.Collectors.toList());
-                }
-                log.info("필터링 후 {} 개 게시글", postList.size());
-            } catch (Exception e) {
-                log.error("Error fetching posts from database: {}", e.getMessage(), e);
-                e.printStackTrace();
-                return result; // 빈 리스트 반환
-            }
+            log.info("DB에서 게시글 조회 시작...");
+            List<Post> allPosts = posts.findAll();
+            log.info("DB에서 {} 개 게시글 조회 완료", allPosts.size());
             
-            log.info("Found {} posts to process", postList.size());
-            
-            // 리스트로 먼저 변환한 후 DTO 변환
-            for (Post p : postList) {
-                try {
-                    // User 정보 먼저 로드 (lazy loading 방지)
-                    String writer = "Unknown";
-                    try {
-                        if (p.getUser() != null) {
-                            writer = p.getUser().getUsername();
-                        }
-                    } catch (Exception e) {
-                        log.warn("Error getting writer for post {}: {}", p.getId(), e.getMessage());
-                    }
-                    
-                    // 좋아요/싫어요 개수 가져오기
-                    int likeCount = 0;
-                    int dislikeCount = 0;
-                    try {
-                        var reactionOpt = reactions.findByPost_Id(p.getId());
-                        if (reactionOpt.isPresent()) {
-                            PostReaction reaction = reactionOpt.get();
-                            likeCount = reaction.getLikes() != null ? reaction.getLikes().intValue() : 0;
-                            dislikeCount = reaction.getDislikes() != null ? reaction.getDislikes().intValue() : 0;
-                        }
-                    } catch (Exception e) {
-                        log.warn("Error getting reaction for post {}: {}", p.getId(), e.getMessage());
-                    }
-                    
-                    // Bet 정보에서 writerB와 vote 정보 가져오기 (롤문철 카테고리인 경우)
-                    String writerB = null;
-                    PostDto.VoteInfo voteInfo = null;
-                    if ("lolmuncheol".equals(p.getCategory())) {
-                        log.info("롤문철 게시글 처리 시작: postId={}, title={}", p.getId(), p.getTitle());
-                        try {
-                            var betOpt = betRepository.findByPost_Id(p.getId());
-                            log.info("Bet 조회 결과: postId={}, isPresent={}", p.getId(), betOpt.isPresent());
-                            if (betOpt.isPresent()) {
-                                Bet bet = betOpt.get();
-                                log.info("Bet 정보: postId={}, betTitle={}, optionA={}, optionB={}, votesForA={}, votesForB={}", 
-                                    p.getId(), bet.getBetTitle(), bet.getOptionA(), bet.getOptionB(), 
-                                    bet.getVotesForA(), bet.getVotesForB());
-                                
-                                // Lazy loading을 트랜잭션 내에서 강제로 로드
-                                try {
-                                    if (bet.getBettorB() != null) {
-                                        // Lazy 객체 접근을 강제
-                                        writerB = bet.getBettorB().getUsername();
-                                        log.info("writerB: {}", writerB);
-                                    }
-                                } catch (org.hibernate.LazyInitializationException e) {
-                                    log.warn("LazyInitializationException for bettorB in post {}: {}", p.getId(), e.getMessage());
-                                } catch (Exception e) {
-                                    log.warn("Error getting bettorB username for post {}: {}", p.getId(), e.getMessage());
-                                }
-                                
-                                // Vote 정보 구성
-                                Map<Integer, Integer> results = new HashMap<>();
-                                try {
-                                    results.put(0, bet.getVotesForA() != null ? bet.getVotesForA().intValue() : 0);
-                                    results.put(1, bet.getVotesForB() != null ? bet.getVotesForB().intValue() : 0);
-                                    log.info("Vote results 구성 완료: {}", results);
-                                } catch (Exception e) {
-                                    log.warn("Error getting vote counts for post {}: {}", p.getId(), e.getMessage());
-                                    results.put(0, 0);
-                                    results.put(1, 0);
-                                }
-                                
-                                try {
-                                    voteInfo = new PostDto.VoteInfo(
-                                            bet.getBetTitle() != null ? bet.getBetTitle() : "",
-                                            new String[]{
-                                                bet.getOptionA() != null ? bet.getOptionA() : "",
-                                                bet.getOptionB() != null ? bet.getOptionB() : ""
-                                            },
-                                            results,
-                                            bet.getDeadline() != null ? bet.getDeadline().toString() : null
-                                    );
-                                    log.info("VoteInfo 생성 완료: question={}, options={}, results={}", 
-                                        voteInfo.getQuestion(), java.util.Arrays.toString(voteInfo.getOptions()), voteInfo.getResults());
-                                } catch (Exception e) {
-                                    log.warn("Error creating VoteInfo for post {}: {}", p.getId(), e.getMessage(), e);
-                                }
-                            } else {
-                                log.warn("롤문철 게시글이지만 Bet 정보가 없음: postId={}, title={}", p.getId(), p.getTitle());
-                                // Bet이 없어도 기본 VoteInfo 생성 (투표 기능 활성화된 상태로 표시)
-                                try {
-                                    Map<Integer, Integer> defaultResults = new HashMap<>();
-                                    defaultResults.put(0, 0);
-                                    defaultResults.put(1, 0);
-                                    voteInfo = new PostDto.VoteInfo(
-                                        "투표를 시작해보세요!",
-                                        new String[]{"옵션 A", "옵션 B"},
-                                        defaultResults,
-                                        null
-                                    );
-                                    log.info("Bet 없음 - 기본 VoteInfo 생성: postId={}", p.getId());
-                                } catch (Exception e2) {
-                                    log.error("기본 VoteInfo 생성 실패: postId={}", p.getId(), e2);
-                                }
+            if (category == null || category.isEmpty() || "all".equalsIgnoreCase(category)) {
+                postList = allPosts.stream()
+                        .sorted((a, b) -> {
+                            if (a.getCreatedAt() == null || b.getCreatedAt() == null) {
+                                return 0;
                             }
-                        } catch (Exception e) {
-                            log.error("Error getting bet info for post {}: {}", p.getId(), e.getMessage(), e);
-                            // 에러 발생 시에도 기본 VoteInfo 생성
+                            return b.getCreatedAt().compareTo(a.getCreatedAt());
+                        })
+                        .collect(java.util.stream.Collectors.toList());
+            } else {
+                // 특정 카테고리 필터링
+                postList = allPosts.stream()
+                        .filter(p -> category.equals(p.getCategory()))
+                        .sorted((a, b) -> {
+                            if (a.getCreatedAt() == null || b.getCreatedAt() == null) {
+                                return 0;
+                            }
+                            return b.getCreatedAt().compareTo(a.getCreatedAt());
+                        })
+                        .collect(java.util.stream.Collectors.toList());
+            }
+            log.info("필터링 후 {} 개 게시글", postList.size());
+        } catch (Exception e) {
+            log.error("Error fetching posts from database: {}", e.getMessage(), e);
+            e.printStackTrace();
+            return result; // 빈 리스트 반환
+        }
+        
+        log.info("Found {} posts to process", postList.size());
+        
+        // 리스트로 먼저 변환한 후 DTO 변환
+        for (Post p : postList) {
+            try {
+                // User 정보 먼저 로드 (lazy loading 방지)
+                String writer = "Unknown";
+                try {
+                    if (p.getUser() != null) {
+                        writer = p.getUser().getUsername();
+                    }
+                } catch (Exception e) {
+                    log.warn("Error getting writer for post {}: {}", p.getId(), e.getMessage());
+                }
+                
+                // 좋아요/싫어요 개수 가져오기
+                int likeCount = 0;
+                int dislikeCount = 0;
+                try {
+                    var reactionOpt = reactions.findByPost_Id(p.getId());
+                    if (reactionOpt.isPresent()) {
+                        PostReaction reaction = reactionOpt.get();
+                        likeCount = reaction.getLikes() != null ? reaction.getLikes().intValue() : 0;
+                        dislikeCount = reaction.getDislikes() != null ? reaction.getDislikes().intValue() : 0;
+                    }
+                } catch (Exception e) {
+                    log.warn("Error getting reaction for post {}: {}", p.getId(), e.getMessage());
+                }
+                
+                // Bet 정보에서 writerB와 vote 정보 가져오기 (롤문철 카테고리인 경우)
+                String writerB = null;
+                PostDto.VoteInfo voteInfo = null;
+                if ("lolmuncheol".equals(p.getCategory())) {
+                    log.info("롤문철 게시글 처리 시작: postId={}, title={}", p.getId(), p.getTitle());
+                    try {
+                        var betOpt = betRepository.findByPost_Id(p.getId());
+                        log.info("Bet 조회 결과: postId={}, isPresent={}", p.getId(), betOpt.isPresent());
+                        if (betOpt.isPresent()) {
+                            Bet bet = betOpt.get();
+                            log.info("Bet 정보: postId={}, betTitle={}, optionA={}, optionB={}, votesForA={}, votesForB={}", 
+                                p.getId(), bet.getBetTitle(), bet.getOptionA(), bet.getOptionB(), 
+                                bet.getVotesForA(), bet.getVotesForB());
+                            
+                            // Lazy loading을 트랜잭션 내에서 강제로 로드
+                            try {
+                                if (bet.getBettorB() != null) {
+                                    // Lazy 객체 접근을 강제
+                                    writerB = bet.getBettorB().getUsername();
+                                    log.info("writerB: {}", writerB);
+                                }
+                            } catch (org.hibernate.LazyInitializationException e) {
+                                log.warn("LazyInitializationException for bettorB in post {}: {}", p.getId(), e.getMessage());
+                            } catch (Exception e) {
+                                log.warn("Error getting bettorB username for post {}: {}", p.getId(), e.getMessage());
+                            }
+                            
+                            // Vote 정보 구성
+                            Map<Integer, Integer> results = new HashMap<>();
+                            try {
+                                results.put(0, bet.getVotesForA() != null ? bet.getVotesForA().intValue() : 0);
+                                results.put(1, bet.getVotesForB() != null ? bet.getVotesForB().intValue() : 0);
+                                log.info("Vote results 구성 완료: {}", results);
+                            } catch (Exception e) {
+                                log.warn("Error getting vote counts for post {}: {}", p.getId(), e.getMessage());
+                                results.put(0, 0);
+                                results.put(1, 0);
+                            }
+                            
+                            try {
+                                voteInfo = new PostDto.VoteInfo(
+                                        bet.getBetTitle() != null ? bet.getBetTitle() : "",
+                                        new String[]{
+                                            bet.getOptionA() != null ? bet.getOptionA() : "",
+                                            bet.getOptionB() != null ? bet.getOptionB() : ""
+                                        },
+                                        results,
+                                        bet.getDeadline() != null ? bet.getDeadline().toString() : null
+                                );
+                                log.info("VoteInfo 생성 완료: question={}, options={}, results={}", 
+                                    voteInfo.getQuestion(), java.util.Arrays.toString(voteInfo.getOptions()), voteInfo.getResults());
+                            } catch (Exception e) {
+                                log.warn("Error creating VoteInfo for post {}: {}", p.getId(), e.getMessage(), e);
+                            }
+                        } else {
+                            log.warn("롤문철 게시글이지만 Bet 정보가 없음: postId={}, title={}", p.getId(), p.getTitle());
+                            // Bet이 없어도 기본 VoteInfo 생성 (투표 기능 활성화된 상태로 표시)
                             try {
                                 Map<Integer, Integer> defaultResults = new HashMap<>();
                                 defaultResults.put(0, 0);
@@ -623,65 +643,80 @@ public class PostService {
                                     defaultResults,
                                     null
                                 );
+                                log.info("Bet 없음 - 기본 VoteInfo 생성: postId={}", p.getId());
                             } catch (Exception e2) {
                                 log.error("기본 VoteInfo 생성 실패: postId={}", p.getId(), e2);
                             }
                         }
-                    }
-                    
-                    PostDto dto = new PostDto(
-                            p.getId(),
-                            p.getUserId(),
-                            writer,
-                            p.getTitle() != null ? p.getTitle() : "",
-                            p.getContent() != null ? p.getContent() : "",
-                            p.getCategory() != null ? p.getCategory() : "",
-                            p.getCreatedAt(),
-                            p.getUpdatedAt(),
-                            likeCount,
-                            dislikeCount,
-                            writerB,
-                            p.getMatchData() != null ? p.getMatchData() : null,
-                            voteInfo
-                    );
-                    if ("lolmuncheol".equals(p.getCategory())) {
-                        log.info("롤문철 PostDto 생성: postId={}, voteInfo={}, voteInfo 타입={}", 
-                            p.getId(), voteInfo != null ? "존재" : "null",
-                            voteInfo != null ? voteInfo.getClass().getSimpleName() : "null");
-                    }
-                    result.add(dto);
-                } catch (Exception e) {
-                    log.error("Error processing post {}: {}", p.getId(), e.getMessage(), e);
-                    // 개별 게시글 오류는 무시하고 기본값으로 처리
-                    try {
-                        result.add(new PostDto(
-                                p.getId(),
-                                p.getUserId() != null ? p.getUserId() : 0L,
-                                "Unknown",
-                                p.getTitle() != null ? p.getTitle() : "",
-                                p.getContent() != null ? p.getContent() : "",
-                                p.getCategory() != null ? p.getCategory() : "",
-                                p.getCreatedAt() != null ? p.getCreatedAt() : Instant.now(),
-                                p.getUpdatedAt() != null ? p.getUpdatedAt() : Instant.now(),
-                                0,
-                                0,
-                                null,
-                                null,
+                    } catch (Exception e) {
+                        log.error("Error getting bet info for post {}: {}", p.getId(), e.getMessage(), e);
+                        // 에러 발생 시에도 기본 VoteInfo 생성
+                        try {
+                            Map<Integer, Integer> defaultResults = new HashMap<>();
+                            defaultResults.put(0, 0);
+                            defaultResults.put(1, 0);
+                            voteInfo = new PostDto.VoteInfo(
+                                "투표를 시작해보세요!",
+                                new String[]{"옵션 A", "옵션 B"},
+                                defaultResults,
                                 null
-                        ));
-                    } catch (Exception e2) {
-                        log.error("Failed to create default PostDto for post {}: {}", p.getId(), e2.getMessage());
-                        // 최후의 수단: 이 게시글은 건너뛰기
+                            );
+                        } catch (Exception e2) {
+                            log.error("기본 VoteInfo 생성 실패: postId={}", p.getId(), e2);
+                        }
                     }
                 }
+                
+                PostDto dto = new PostDto(
+                        p.getId(),
+                        p.getUserId(),
+                        writer,
+                        p.getTitle() != null ? p.getTitle() : "",
+                        p.getContent() != null ? p.getContent() : "",
+                        p.getContentB() != null ? p.getContentB() : null,
+                        p.getCategory() != null ? p.getCategory() : "",
+                        p.getCreatedAt(),
+                        p.getUpdatedAt(),
+                        likeCount,
+                        dislikeCount,
+                        writerB,
+                        p.getMatchData() != null ? p.getMatchData() : null,
+                        voteInfo
+                );
+                if ("lolmuncheol".equals(p.getCategory())) {
+                    log.info("롤문철 PostDto 생성: postId={}, voteInfo={}, voteInfo 타입={}", 
+                        p.getId(), voteInfo != null ? "존재" : "null",
+                        voteInfo != null ? voteInfo.getClass().getSimpleName() : "null");
+                }
+                result.add(dto);
+            } catch (Exception e) {
+                log.error("Error processing post {}: {}", p.getId(), e.getMessage(), e);
+                // 개별 게시글 오류는 무시하고 기본값으로 처리
+                try {
+                    result.add(new PostDto(
+                            p.getId(),
+                            p.getUserId() != null ? p.getUserId() : 0L,
+                            "Unknown",
+                            p.getTitle() != null ? p.getTitle() : "",
+                            p.getContent() != null ? p.getContent() : "",
+                            null,
+                            p.getCategory() != null ? p.getCategory() : "",
+                            p.getCreatedAt() != null ? p.getCreatedAt() : Instant.now(),
+                            p.getUpdatedAt() != null ? p.getUpdatedAt() : Instant.now(),
+                            0,
+                            0,
+                            null,
+                            null,
+                            null
+                    ));
+                } catch (Exception e2) {
+                    log.error("Failed to create default PostDto for post {}: {}", p.getId(), e2.getMessage());
+                    // 최후의 수단: 이 게시글은 건너뛰기
+                }
             }
-            
-            log.info("Successfully processed {} posts", result.size());
-            return result;
-        } catch (Exception e) {
-            log.error("Error in findAll: {}", e.getMessage(), e);
-            // 트랜잭션 롤백을 방지하기 위해 빈 리스트 반환
-            return new java.util.ArrayList<>();
         }
+        
+        log.info("Successfully processed {} posts", result.size());
+        return result;
     }
 }

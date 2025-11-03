@@ -20,6 +20,7 @@ public class PostDto {
     private String writer;         // 작성자 이름
     private String title;          // 제목
     private String content;        // 내용
+    private String contentB;       // 작성자 B의 내용 (롤문철 카테고리용, null 가능)
     private String category;       // 카테고리 (free, guide, lolmuncheol)
     private Instant createdAt;     // 작성 시간
     private Instant updatedAt;     // 수정 시간
