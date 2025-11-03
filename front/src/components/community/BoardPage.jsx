@@ -9,16 +9,33 @@ function BoardPage({ category }) {
   const [searchKeyword, setSearchKeyword] = useState("");
   const [searchBy, setSearchBy] = useState("all");
   const [searching, setSearching] = useState(false);
+  
+  // 페이징 상태
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
+  const [pageSize] = useState(10); // 페이지당 기본 10개
 
   useEffect(() => {
-    loadPostsAndComments();
+    setCurrentPage(0); // 카테고리 변경 시 첫 페이지로 이동
+    loadPostsAndComments(0);
   }, [category]);
+  
+  useEffect(() => {
+    if (!searching) {
+      loadPostsAndComments(currentPage);
+    }
+  }, [currentPage]);
 
-  const loadPostsAndComments = async () => {
+  const loadPostsAndComments = async (page = 0) => {
     try {
-      console.log('커뮤니티 탭 로드 시작, category:', category)
+      console.log('커뮤니티 탭 로드 시작, category:', category, 'page:', page)
       let posts = [];
+      let totalPagesValue = 0;
+      let totalElementsValue = 0;
+      
       if (category === "highrecommend") {
+        // 추천글은 기존 방식 유지 (모든 카테고리에서 가져와서 필터링)
         const categories = ["free", "guide", "lolmuncheol"];
         let allPosts = [];
         for (const cat of categories) {
@@ -34,30 +51,41 @@ function BoardPage({ category }) {
             console.error(`카테고리 ${cat} 로드 실패:`, error)
           }
         }
-        // 추천수 3개 이상인 글만 필터링 (태그와 관계없이 추천수 기준)
-        // 디버깅: 필터링 전 데이터 확인
-        console.log('전체 게시글 수:', allPosts.length);
         
-        posts = allPosts
+        // 추천수 3개 이상인 글만 필터링
+        const filteredPosts = allPosts
           .filter(post => {
             const likeCount = typeof post.like === 'number' ? post.like : parseInt(post.like) || 0;
-            const hasEnoughLikes = likeCount >= 3;
-            
-            // 디버깅: 추천수 3개 이상인 글만 로그 출력
-            if (hasEnoughLikes) {
-              console.log(`추천글 후보 ID ${post.id}: like=${post.like} (타입: ${typeof post.like}, 변환값: ${likeCount})`);
-            }
-            
-            return hasEnoughLikes;
+            return likeCount >= 3;
           })
           .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         
-        console.log('최종 필터링된 추천글 수 (추천수 3개 이상):', posts.length);
+        // 클라이언트 측 페이징 (추천글은 특수 처리)
+        totalElementsValue = filteredPosts.length;
+        totalPagesValue = Math.ceil(totalElementsValue / pageSize);
+        posts = filteredPosts.slice(page * pageSize, (page + 1) * pageSize);
+        
+        console.log('최종 필터링된 추천글 수 (추천수 3개 이상):', totalElementsValue, '페이지:', page + 1);
       } else {
-        const data = await boardApi.getPosts(0, 100, category);
+        // 일반 게시판: 서버 측 페이징 사용
+        const data = await boardApi.getPosts(page, pageSize, category);
         console.log('API 응답:', data)
-        posts = (data && data.content) ? data.content : (Array.isArray(data) ? data : [])
-        console.log('파싱된 게시글 수:', posts.length)
+        
+        if (data && typeof data === 'object' && 'content' in data) {
+          posts = data.content || [];
+          totalPagesValue = data.totalPages || 0;
+          totalElementsValue = data.totalElements || 0;
+        } else if (Array.isArray(data)) {
+          // 호환성: 배열로 반환된 경우
+          posts = data;
+          totalPagesValue = Math.ceil(posts.length / pageSize);
+          totalElementsValue = posts.length;
+          posts = posts.slice(page * pageSize, (page + 1) * pageSize);
+        } else {
+          posts = [];
+        }
+        
+        console.log('파싱된 게시글 수:', posts.length, '총 페이지:', totalPagesValue)
       }
       
       if (!Array.isArray(posts)) {
@@ -66,6 +94,8 @@ function BoardPage({ category }) {
       }
 
       setPosts(posts);
+      setTotalPages(totalPagesValue);
+      setTotalElements(totalElementsValue);
       setSearching(false);
       setSearchKeyword("");
       setSearchBy("all");
@@ -86,12 +116,15 @@ function BoardPage({ category }) {
       console.error('에러 상세:', error.message, error.stack)
       setPosts([])
       setCommentCounts({})
+      setTotalPages(0)
+      setTotalElements(0)
     }
   };
 
   const handleSearch = async () => {
     if (!searchKeyword.trim()) {
-      await loadPostsAndComments();
+      setCurrentPage(0);
+      await loadPostsAndComments(0);
       return;
     }
 
@@ -264,6 +297,170 @@ function BoardPage({ category }) {
           <option value="comment">댓글</option>
         </select>
         <button onClick={handleSearch}>검색</button>
+      </div>
+      
+      {/* 페이징 UI */}
+      {!searching && totalPages > 0 && (
+        <Pagination 
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          totalElements={totalElements}
+          pageSize={pageSize}
+        />
+      )}
+    </div>
+  );
+}
+
+// 페이징 컴포넌트
+function Pagination({ currentPage, totalPages, onPageChange, totalElements, pageSize }) {
+  // 현재 페이지 그룹 계산 (5개씩)
+  const pageGroupSize = 5;
+  const currentGroup = Math.floor(currentPage / pageGroupSize);
+  const startPage = currentGroup * pageGroupSize;
+  const endPage = Math.min(startPage + pageGroupSize - 1, totalPages - 1);
+  
+  // 표시할 페이지 번호 배열
+  const pageNumbers = [];
+  for (let i = startPage; i <= endPage; i++) {
+    pageNumbers.push(i);
+  }
+  
+  const handlePreviousGroup = () => {
+    if (currentGroup > 0) {
+      onPageChange((currentGroup - 1) * pageGroupSize);
+    }
+  };
+  
+  const handleNextGroup = () => {
+    if (endPage < totalPages - 1) {
+      onPageChange((currentGroup + 1) * pageGroupSize);
+    }
+  };
+  
+  const handleFirstPage = () => {
+    onPageChange(0);
+  };
+  
+  const handleLastPage = () => {
+    onPageChange(totalPages - 1);
+  };
+  
+  const handlePageClick = (page) => {
+    onPageChange(page);
+  };
+  
+  return (
+    <div style={{ 
+      marginTop: 30, 
+      display: 'flex', 
+      justifyContent: 'center', 
+      alignItems: 'center',
+      gap: 5,
+      flexWrap: 'wrap'
+    }}>
+      {/* << 첫 페이지로 */}
+      {currentPage > 0 && (
+        <button
+          onClick={handleFirstPage}
+          style={{
+            padding: '8px 12px',
+            border: '1px solid #ddd',
+            borderRadius: 4,
+            backgroundColor: '#fff',
+            cursor: 'pointer',
+            fontSize: '14px'
+          }}
+          title="첫 페이지"
+        >
+          &lt;&lt;
+        </button>
+      )}
+      
+      {/* < 이전 그룹 */}
+      {currentGroup > 0 && (
+        <button
+          onClick={handlePreviousGroup}
+          style={{
+            padding: '8px 12px',
+            border: '1px solid #ddd',
+            borderRadius: 4,
+            backgroundColor: '#fff',
+            cursor: 'pointer',
+            fontSize: '14px'
+          }}
+          title="이전 페이지 그룹"
+        >
+          &lt;
+        </button>
+      )}
+      
+      {/* 페이지 번호들 */}
+      {pageNumbers.map(pageNum => (
+        <button
+          key={pageNum}
+          onClick={() => handlePageClick(pageNum)}
+          style={{
+            padding: '8px 12px',
+            border: '1px solid #ddd',
+            borderRadius: 4,
+            backgroundColor: pageNum === currentPage ? '#007bff' : '#fff',
+            color: pageNum === currentPage ? '#fff' : '#000',
+            cursor: 'pointer',
+            fontWeight: pageNum === currentPage ? 'bold' : 'normal',
+            fontSize: '14px',
+            minWidth: '40px'
+          }}
+        >
+          {pageNum + 1}
+        </button>
+      ))}
+      
+      {/* > 다음 그룹 */}
+      {endPage < totalPages - 1 && (
+        <button
+          onClick={handleNextGroup}
+          style={{
+            padding: '8px 12px',
+            border: '1px solid #ddd',
+            borderRadius: 4,
+            backgroundColor: '#fff',
+            cursor: 'pointer',
+            fontSize: '14px'
+          }}
+          title="다음 페이지 그룹"
+        >
+          &gt;
+        </button>
+      )}
+      
+      {/* >> 마지막 페이지로 */}
+      {currentPage < totalPages - 1 && (
+        <button
+          onClick={handleLastPage}
+          style={{
+            padding: '8px 12px',
+            border: '1px solid #ddd',
+            borderRadius: 4,
+            backgroundColor: '#fff',
+            cursor: 'pointer',
+            fontSize: '14px'
+          }}
+          title="마지막 페이지"
+        >
+          &gt;&gt;
+        </button>
+      )}
+      
+      {/* 페이지 정보 */}
+      <div style={{ 
+        marginLeft: 20, 
+        fontSize: '14px', 
+        color: '#666',
+        whiteSpace: 'nowrap'
+      }}>
+        전체 {totalElements}개 ({(currentPage + 1)}/{totalPages} 페이지)
       </div>
     </div>
   );

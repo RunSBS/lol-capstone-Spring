@@ -13,10 +13,19 @@ function getAuthHeaders() {
 
 const backendApi = {
   // 게시글 목록 조회
-  getPosts: async (category) => {
-    const url = category 
-      ? `${API_BASE_URL}/posts?category=${category}`
-      : `${API_BASE_URL}/posts`;
+  getPosts: async (category, page = 0, size = 10) => {
+    const params = new URLSearchParams();
+    if (category) {
+      params.append('category', category);
+    }
+    if (page !== undefined && page !== null) {
+      params.append('page', page.toString());
+    }
+    if (size !== undefined && size !== null) {
+      params.append('size', size.toString());
+    }
+    
+    const url = `${API_BASE_URL}/posts${params.toString() ? '?' + params.toString() : ''}`;
     
     console.log('backendApi.getPosts 호출:', url)
     

@@ -47,40 +47,65 @@ public class PostController {
     public record UpdatePostReq(String title, String content, String contentB) {}
 
     @GetMapping
-    public ResponseEntity<List<PostDto>> getAllPosts(@RequestParam(required = false) String category) {
+    public ResponseEntity<?> getAllPosts(
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "10") int size) {
         try {
-            List<PostDto> posts = postService.findAll(category);
-            log.info("Returning {} posts for category: {}", posts.size(), category);
-            
-            // 롤문철 카테고리인 경우 vote 정보 확인
-            if ("lolmuncheol".equals(category) || category == null || "all".equalsIgnoreCase(category)) {
-                try {
-                    posts.stream()
-                        .filter(p -> "lolmuncheol".equals(p.getCategory()))
-                        .forEach(p -> {
-                            try {
-                                log.info("롤문철 게시글 응답: postId={}, title={}, vote={}", 
-                                    p.getId(), p.getTitle(), p.getVote() != null ? "존재" : "null");
-                                if (p.getVote() != null) {
-                                    var vote = p.getVote();
-                                    String optionsStr = vote.getOptions() != null 
-                                        ? java.util.Arrays.toString(vote.getOptions()) 
-                                        : "null";
-                                    log.info("  - vote.question={}, vote.options={}, vote.results={}", 
-                                        vote.getQuestion(), 
-                                        optionsStr,
-                                        vote.getResults());
+            // page와 size가 명시적으로 제공된 경우 페이징된 결과 반환
+            if (page >= 0 && size > 0) {
+                org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
+                org.springframework.data.domain.Page<PostDto> postsPage = postService.findAllPaged(pageable, category);
+                
+                // Spring의 Page 객체를 JSON으로 변환하기 위해 Map으로 변환
+                java.util.Map<String, Object> response = new java.util.HashMap<>();
+                response.put("content", postsPage.getContent());
+                response.put("totalElements", postsPage.getTotalElements());
+                response.put("totalPages", postsPage.getTotalPages());
+                response.put("size", postsPage.getSize());
+                response.put("number", postsPage.getNumber());
+                response.put("numberOfElements", postsPage.getNumberOfElements());
+                response.put("first", postsPage.isFirst());
+                response.put("last", postsPage.isLast());
+                
+                log.info("Returning paginated posts: page={}, size={}, totalElements={}, totalPages={}", 
+                        page, size, postsPage.getTotalElements(), postsPage.getTotalPages());
+                return ResponseEntity.ok(response);
+            } else {
+                // 기존 방식 유지 (페이징 없이 전체 목록)
+                List<PostDto> posts = postService.findAll(category);
+                log.info("Returning {} posts for category: {}", posts.size(), category);
+                
+                // 롤문철 카테고리인 경우 vote 정보 확인
+                if ("lolmuncheol".equals(category) || category == null || "all".equalsIgnoreCase(category)) {
+                    try {
+                        posts.stream()
+                            .filter(p -> "lolmuncheol".equals(p.getCategory()))
+                            .forEach(p -> {
+                                try {
+                                    log.info("롤문철 게시글 응답: postId={}, title={}, vote={}", 
+                                        p.getId(), p.getTitle(), p.getVote() != null ? "존재" : "null");
+                                    if (p.getVote() != null) {
+                                        var vote = p.getVote();
+                                        String optionsStr = vote.getOptions() != null 
+                                            ? java.util.Arrays.toString(vote.getOptions()) 
+                                            : "null";
+                                        log.info("  - vote.question={}, vote.options={}, vote.results={}", 
+                                            vote.getQuestion(), 
+                                            optionsStr,
+                                            vote.getResults());
+                                    }
+                                } catch (Exception e) {
+                                    log.warn("롤문철 게시글 로깅 중 에러: postId={}, {}", p.getId(), e.getMessage());
                                 }
-                            } catch (Exception e) {
-                                log.warn("롤문철 게시글 로깅 중 에러: postId={}, {}", p.getId(), e.getMessage());
-                            }
-                        });
-                } catch (Exception e) {
-                    log.warn("롤문철 게시글 로깅 중 에러: {}", e.getMessage());
+                            });
+                    } catch (Exception e) {
+                        log.warn("롤문철 게시글 로깅 중 에러: {}", e.getMessage());
+                    }
                 }
+                
+                return ResponseEntity.ok(posts);
             }
-            
-            return ResponseEntity.ok(posts);
         } catch (Exception e) {
             log.error("Error getting posts for category {}: {}", category, e.getMessage(), e);
             throw e;

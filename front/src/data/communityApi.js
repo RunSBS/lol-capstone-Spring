@@ -56,23 +56,44 @@ const boardApi = {
       try {
         console.log('communityApi.getPosts 호출:', { page, size, category })
         
-        // 백엔드에서 게시글 목록 가져오기
-        const posts = await backendApi.getPosts(category);
-        console.log('backendApi.getPosts 응답:', posts, '타입:', typeof posts, '배열 여부:', Array.isArray(posts))
+        // 백엔드에서 페이징된 게시글 목록 가져오기
+        const response = await backendApi.getPosts(category, page, size);
+        console.log('backendApi.getPosts 응답:', response)
         
-        // posts가 배열이 아닌 경우 처리
-        if (!Array.isArray(posts)) {
-          console.error('posts가 배열이 아닙니다:', typeof posts, posts)
-          resolve({ content: [], totalPages: 0 });
-          return
+        // 페이징된 응답인 경우 (content, totalPages 등이 있는 경우)
+        if (response && typeof response === 'object' && 'content' in response) {
+          console.log('페이징된 응답:', { 
+            content: response.content?.length, 
+            totalPages: response.totalPages,
+            totalElements: response.totalElements 
+          })
+          resolve({
+            content: response.content || [],
+            totalPages: response.totalPages || 0,
+            totalElements: response.totalElements || 0,
+            number: response.number || 0,
+            size: response.size || size
+          });
+          return;
         }
         
-        // 페이지네이션
-        const pagedPosts = posts.slice(page * size, (page + 1) * size);
-        const totalPages = Math.ceil(posts.length / size);
+        // 기존 방식 (배열로 반환되는 경우) - 호환성 유지
+        if (Array.isArray(response)) {
+          console.log('배열 응답 (기존 방식):', response.length)
+          const pagedPosts = response.slice(page * size, (page + 1) * size);
+          const totalPages = Math.ceil(response.length / size);
+          resolve({ 
+            content: pagedPosts, 
+            totalPages,
+            totalElements: response.length,
+            number: page,
+            size: size
+          });
+          return;
+        }
         
-        console.log('페이지네이션 결과:', { total: posts.length, paged: pagedPosts.length, totalPages })
-        resolve({ content: pagedPosts, totalPages });
+        console.error('예상치 못한 응답 형식:', typeof response, response)
+        resolve({ content: [], totalPages: 0, totalElements: 0, number: 0, size: size });
       } catch (error) {
         console.error('게시글 목록 조회 실패:', error);
         console.error('에러 상세:', error.message, error.stack);

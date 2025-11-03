@@ -14,6 +14,9 @@ import hyun.db.repo.UserRepository;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -27,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
@@ -716,5 +720,138 @@ public class PostService {
         
         log.info("Successfully processed {} posts", result.size());
         return result;
+    }
+    
+    /**
+     * 페이징된 게시글 목록 조회
+     */
+    @Transactional(readOnly = true)
+    public Page<PostDto> findAllPaged(Pageable pageable, String category) {
+        log.info("findAllPaged called with category: {}, page: {}, size: {}", category, pageable.getPageNumber(), pageable.getPageSize());
+        
+        // "all" 카테고리는 null로 변환
+        String categoryParam = (category == null || category.isEmpty() || "all".equalsIgnoreCase(category)) ? null : category;
+        
+        // 페이징된 게시글 조회
+        Page<Post> postPage = posts.findAllByCategory(categoryParam, pageable);
+        log.info("DB에서 {} 개 게시글 조회 완료 (전체: {} 개)", postPage.getNumberOfElements(), postPage.getTotalElements());
+        
+        // Post 엔티티를 PostDto로 변환
+        List<PostDto> dtoList = postPage.getContent().stream()
+                .map(p -> {
+                    try {
+                        // User 정보 먼저 로드
+                        String writer = "Unknown";
+                        if (p.getUser() != null) {
+                            writer = p.getUser().getUsername();
+                        }
+                        
+                        // 좋아요/싫어요 개수 가져오기
+                        int likeCount = 0;
+                        int dislikeCount = 0;
+                        try {
+                            var reactionOpt = reactions.findByPost_Id(p.getId());
+                            if (reactionOpt.isPresent()) {
+                                PostReaction reaction = reactionOpt.get();
+                                likeCount = reaction.getLikes() != null ? reaction.getLikes().intValue() : 0;
+                                dislikeCount = reaction.getDislikes() != null ? reaction.getDislikes().intValue() : 0;
+                            }
+                        } catch (Exception e) {
+                            log.warn("Error getting reaction for post {}: {}", p.getId(), e.getMessage());
+                        }
+                        
+                        // Post 엔티티에서 직접 writerB와 contentB 가져오기
+                        String writerB = p.getWriterB();
+                        String contentB = p.getContentB();
+                        
+                        // Bet 정보에서 vote 정보 가져오기 (롤문철 카테고리인 경우)
+                        PostDto.VoteInfo voteInfo = null;
+                        if ("lolmuncheol".equals(p.getCategory())) {
+                            try {
+                                var betOpt = betRepository.findByPost_Id(p.getId());
+                                if (betOpt.isPresent()) {
+                                    Bet bet = betOpt.get();
+                                    
+                                    Map<Integer, Integer> results = new HashMap<>();
+                                    results.put(0, bet.getVotesForA() != null ? bet.getVotesForA().intValue() : 0);
+                                    results.put(1, bet.getVotesForB() != null ? bet.getVotesForB().intValue() : 0);
+                                    
+                                    voteInfo = new PostDto.VoteInfo(
+                                            bet.getBetTitle() != null ? bet.getBetTitle() : "",
+                                            new String[]{
+                                                    bet.getOptionA() != null ? bet.getOptionA() : "",
+                                                    bet.getOptionB() != null ? bet.getOptionB() : ""
+                                            },
+                                            results,
+                                            bet.getDeadline() != null ? bet.getDeadline().toString() : null
+                                    );
+                                } else {
+                                    Map<Integer, Integer> defaultResults = new HashMap<>();
+                                    defaultResults.put(0, 0);
+                                    defaultResults.put(1, 0);
+                                    voteInfo = new PostDto.VoteInfo(
+                                            "투표를 시작해보세요!",
+                                            new String[]{"옵션 A", "옵션 B"},
+                                            defaultResults,
+                                            null
+                                    );
+                                }
+                            } catch (Exception e) {
+                                log.warn("Error getting bet info for post {}: {}", p.getId(), e.getMessage());
+                                Map<Integer, Integer> defaultResults = new HashMap<>();
+                                defaultResults.put(0, 0);
+                                defaultResults.put(1, 0);
+                                voteInfo = new PostDto.VoteInfo(
+                                        "투표를 시작해보세요!",
+                                        new String[]{"옵션 A", "옵션 B"},
+                                        defaultResults,
+                                        null
+                                );
+                            }
+                        }
+                        
+                        return new PostDto(
+                                p.getId(),
+                                p.getUserId(),
+                                writer,
+                                p.getTitle() != null ? p.getTitle() : "",
+                                p.getContent() != null ? p.getContent() : "",
+                                p.getCategory() != null ? p.getCategory() : "",
+                                p.getCreatedAt(),
+                                p.getUpdatedAt(),
+                                likeCount,
+                                dislikeCount,
+                                writerB,
+                                contentB,
+                                p.getMatchData() != null ? p.getMatchData() : null,
+                                voteInfo
+                        );
+                    } catch (Exception e) {
+                        log.error("Error processing post {}: {}", p.getId(), e.getMessage(), e);
+                        // 기본값으로 처리
+                        return new PostDto(
+                                p.getId(),
+                                p.getUserId() != null ? p.getUserId() : 0L,
+                                "Unknown",
+                                p.getTitle() != null ? p.getTitle() : "",
+                                p.getContent() != null ? p.getContent() : "",
+                                p.getCategory() != null ? p.getCategory() : "",
+                                p.getCreatedAt() != null ? p.getCreatedAt() : Instant.now(),
+                                p.getUpdatedAt() != null ? p.getUpdatedAt() : Instant.now(),
+                                0,
+                                0,
+                                null,
+                                null,
+                                null,
+                                null
+                        );
+                    }
+                })
+                .collect(Collectors.toList());
+        
+        log.info("Successfully processed {} posts", dtoList.size());
+        
+        // Page<PostDto> 반환
+        return new PageImpl<>(dtoList, pageable, postPage.getTotalElements());
     }
 }
