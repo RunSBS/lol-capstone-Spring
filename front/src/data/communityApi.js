@@ -128,6 +128,11 @@ const boardApi = {
         if (post.matchData) {
           requestData.matchData = post.matchData;
         }
+        
+        // betAmount 추가 (롤문철 카테고리)
+        if (post.betAmount !== undefined && post.betAmount !== null) {
+          requestData.betAmount = post.betAmount;
+        }
 
         const savedPost = await backendApi.createPost(requestData);
         

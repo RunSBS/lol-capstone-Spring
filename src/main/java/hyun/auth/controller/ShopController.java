@@ -150,5 +150,20 @@ public class ShopController {
             user.getId(), bannerStickerId, positionX, positionY, width, height);
         return ResponseEntity.ok(result);
     }
+
+    /**
+     * 출석 보상 지급
+     */
+    @PostMapping("/attendance")
+    public ResponseEntity<ShopService.AttendanceResult> claimAttendanceReward() {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findByUsername(username)
+            .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
+        
+        // 기본 출석 보상: 30 토큰
+        Long rewardAmount = 30L;
+        ShopService.AttendanceResult result = shopService.giveAttendanceReward(user.getId(), rewardAmount);
+        return ResponseEntity.ok(result);
+    }
 }
 

@@ -12,6 +12,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.List;
 
 @Service
@@ -163,12 +165,41 @@ public class ShopService {
     }
 
     /**
-     * 출석 보상 지급 (AttendanceService에서 호출)
+     * 오늘 출석 여부 확인
+     * 기준: 한국 시간(Asia/Seoul) 자정(00:00:00) ~ 다음 날 자정 전
+     * 예: 2024-11-04 00:00:00 ~ 2024-11-05 00:00:00 전
+     */
+    @Transactional(readOnly = true)
+    public boolean hasAttendedToday(Long userId) {
+        // 한국 시간대(Asia/Seoul) 기준으로 오늘 자정 계산
+        ZoneId koreaZone = ZoneId.of("Asia/Seoul");
+        ZonedDateTime nowKorea = ZonedDateTime.now(koreaZone);
+        LocalDateTime todayStart = nowKorea.withHour(0).withMinute(0).withSecond(0).withNano(0).toLocalDateTime();
+        LocalDateTime todayEnd = todayStart.plusDays(1);
+        
+        long count = tokenTransactionRepository.countByUser_IdAndTransactionTypeAndCreatedAtBetween(
+            userId, "ATTENDANCE", todayStart, todayEnd);
+        
+        return count > 0;
+    }
+
+    /**
+     * 출석 보상 지급
      */
     @Transactional
-    public void giveAttendanceReward(Long userId, Long rewardAmount) {
+    public AttendanceResult giveAttendanceReward(Long userId, Long rewardAmount) {
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."));
+        
+        // 오늘 이미 출석했는지 확인
+        if (hasAttendedToday(userId)) {
+            log.info("오늘 이미 출석함: userId={}", userId);
+            return AttendanceResult.builder()
+                .attended(false)
+                .tokensEarned(0L)
+                .message("오늘 이미 출석하셨습니다.")
+                .build();
+        }
         
         Long currentBalance = user.getTokenBalance();
         Long newBalance = currentBalance + rewardAmount;
@@ -176,7 +207,7 @@ public class ShopService {
         user.setTokenBalance(newBalance);
         userRepository.save(user);
         
-        // 거래 이력 기록
+        // 거래 이력 기록 (한국 시간대 기준)
         TokenTransaction tx = new TokenTransaction();
         tx.setUser(user);
         tx.setAmount(rewardAmount);
@@ -184,11 +215,20 @@ public class ShopService {
         tx.setBalanceAfter(newBalance);
         tx.setTransactionType("ATTENDANCE");
         tx.setDescription("출석 보상");
-        tx.setCreatedAt(LocalDateTime.now());
+        // 한국 시간대 기준 현재 시간 사용
+        ZoneId koreaZone = ZoneId.of("Asia/Seoul");
+        tx.setCreatedAt(ZonedDateTime.now(koreaZone).toLocalDateTime());
         tokenTransactionRepository.save(tx);
         
         log.info("출석 보상 지급: userId={}, 토큰={}, 잔액={} -> {}", 
             userId, rewardAmount, currentBalance, newBalance);
+        
+        return AttendanceResult.builder()
+            .attended(true)
+            .tokensEarned(rewardAmount)
+            .message("출석 보상이 지급되었습니다.")
+            .newBalance(newBalance)
+            .build();
     }
 
     @Getter
@@ -198,6 +238,15 @@ public class ShopService {
         private String message;
         private Long remainingTokens;
         private Integer newQuantity;
+    }
+
+    @Getter
+    @Builder
+    public static class AttendanceResult {
+        private boolean attended;
+        private Long tokensEarned;
+        private String message;
+        private Long newBalance;
     }
 }
 

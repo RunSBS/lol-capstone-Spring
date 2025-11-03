@@ -57,7 +57,7 @@ public class PostService {
     @Transactional
     public Post create(String title, String content, String category, String writerB, 
                       String betTitle, String optionA, String optionB, String endTime, 
-                      Map<String, Object> matchData) {
+                      Map<String, Object> matchData, Long betAmount) {
         User u = me();
         log.info("Creating post for user: {}, category: {}", u.getUsername(), category);
         Post p = new Post();
@@ -121,9 +121,10 @@ public class PostService {
                     betTitle,
                     optionA,
                     optionB,
-                    deadline
+                    deadline,
+                    betAmount != null ? betAmount : 0L // betAmount 전달, 없으면 0
                 );
-                log.info("Bet 자동 생성 완료: postId={}", saved.getId());
+                log.info("Bet 자동 생성 완료: postId={}, betAmount={}", saved.getId(), betAmount);
             } catch (Exception e) {
                 log.error("Bet 생성 실패: postId={}, error={}", saved.getId(), e.getMessage(), e);
                 // Bet 생성 실패해도 Post는 생성됨 (롤백하지 않음)

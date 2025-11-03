@@ -27,7 +27,8 @@ function WritePost({ currentUser }) {
     category: "free",
     tags: [],
     writerB: "",
-    matchData: null
+    matchData: null,
+    betAmount: 0
   });
   const [showVoteSection, setShowVoteSection] = useState(false);
   const [voteData, setVoteData] = useState(null);
@@ -370,6 +371,12 @@ function WritePost({ currentUser }) {
       // 매치 데이터 포함 (null이어도 전달하여 서버에서 처리)
       payload.matchData = formData.matchData || null;
       console.log('전송되는 matchData:', payload.matchData);
+      
+      // 롤문철 카테고리에서 내기 토큰 포함
+      if (formData.category === "lolmuncheol") {
+        payload.betAmount = formData.betAmount || 0;
+        console.log('전송되는 betAmount:', payload.betAmount);
+      }
       
       if (isEditMode) {
         const isLol = formData.category === "lolmuncheol";
@@ -1067,6 +1074,42 @@ function WritePost({ currentUser }) {
             </button>
           )}
         </div>
+
+        {/* 내기 토큰 입력 섹션 (롤문철 카테고리) */}
+        {formData.category === "lolmuncheol" && !isEditMode && (
+          <div style={{ marginBottom: 15, padding: 15, border: "1px solid #ddd", borderRadius: 4, backgroundColor: "#f9f9f9" }}>
+            <label style={{ display: "block", marginBottom: 8, fontWeight: "bold" }}>
+              내기 토큰 (각 내기자가 걸 토큰 수)
+            </label>
+            <input
+              type="number"
+              name="betAmount"
+              value={formData.betAmount || 0}
+              onChange={(e) => {
+                const value = parseInt(e.target.value) || 0;
+                setFormData(prev => ({ ...prev, betAmount: value >= 0 ? value : 0 }));
+              }}
+              min="0"
+              placeholder="예: 100"
+              style={{
+                width: "200px",
+                padding: "8px",
+                border: "1px solid #ddd",
+                borderRadius: 4
+              }}
+            />
+            <div style={{ marginTop: 5, fontSize: "0.9em", color: "#666" }}>
+              {formData.betAmount > 0 ? (
+                <span>
+                  내기자 A와 B가 각각 <strong>{formData.betAmount}</strong> 토큰씩 차감됩니다.<br />
+                  승리 시 <strong>{formData.betAmount * 2}</strong> 토큰을 받습니다.
+                </span>
+              ) : (
+                <span>토큰을 걸지 않으면 0으로 설정됩니다.</span>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* 투표 섹션 */}
         {showVoteSection && formData.category === "lolmuncheol" && (

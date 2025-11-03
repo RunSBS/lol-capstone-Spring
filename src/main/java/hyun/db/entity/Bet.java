@@ -53,6 +53,9 @@ public class Bet {
     @Column(name = "VOTES_FOR_B", nullable = false)
     private Long votesForB = 0L;    // B에게 투표한 수
 
+    @Column(name = "BET_AMOUNT", nullable = false)
+    private Long betAmount = 0L;   // 각 내기자가 걸 토큰 수
+
     @Column(name = "CREATED_AT")
     private Instant createdAt = Instant.now();
 }

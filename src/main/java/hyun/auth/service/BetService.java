@@ -34,12 +34,62 @@ public class BetService {
 
     /**
      * Bet 생성 (롤문철 게시글 작성 시 자동 생성)
+     * 내기자 둘 다 betAmount만큼 토큰을 차감
      */
     @Transactional
-    public Bet createBet(Post post, User bettorA, String bettorBUsername, String betTitle, String optionA, String optionB, Instant deadline) {
+    public Bet createBet(Post post, User bettorA, String bettorBUsername, String betTitle, String optionA, String optionB, Instant deadline, Long betAmount) {
         // bettorB 찾기
         User bettorB = userRepository.findByUsername(bettorBUsername)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "상대 사용자를 찾을 수 없습니다: " + bettorBUsername));
+        
+        // betAmount 기본값 처리 (null이거나 0 이하면 0으로 설정)
+        long actualBetAmount = (betAmount != null && betAmount > 0) ? betAmount : 0L;
+        
+        // 내기자 둘 다 토큰 차감
+        if (actualBetAmount > 0) {
+            // bettorA 토큰 차감
+            long balanceA = bettorA.getTokenBalance();
+            if (balanceA < actualBetAmount) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, 
+                    "토큰이 부족합니다. 필요: " + actualBetAmount + ", 보유: " + balanceA);
+            }
+            bettorA.setTokenBalance(balanceA - actualBetAmount);
+            userRepository.save(bettorA);
+            
+            // bettorA 거래 이력 기록
+            TokenTransaction txA = new TokenTransaction();
+            txA.setUser(bettorA);
+            txA.setAmount(-actualBetAmount);
+            txA.setBalanceBefore(balanceA);
+            txA.setBalanceAfter(balanceA - actualBetAmount);
+            txA.setTransactionType("BET_REWARD");
+            txA.setDescription("내기 참가 - 게시글 #" + post.getId() + " (A 진영)");
+            txA.setCreatedAt(LocalDateTime.now());
+            tokenTransactionRepository.save(txA);
+            
+            // bettorB 토큰 차감
+            long balanceB = bettorB.getTokenBalance();
+            if (balanceB < actualBetAmount) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, 
+                    "상대방의 토큰이 부족합니다. 필요: " + actualBetAmount + ", 보유: " + balanceB);
+            }
+            bettorB.setTokenBalance(balanceB - actualBetAmount);
+            userRepository.save(bettorB);
+            
+            // bettorB 거래 이력 기록
+            TokenTransaction txB = new TokenTransaction();
+            txB.setUser(bettorB);
+            txB.setAmount(-actualBetAmount);
+            txB.setBalanceBefore(balanceB);
+            txB.setBalanceAfter(balanceB - actualBetAmount);
+            txB.setTransactionType("BET_REWARD");
+            txB.setDescription("내기 참가 - 게시글 #" + post.getId() + " (B 진영)");
+            txB.setCreatedAt(LocalDateTime.now());
+            tokenTransactionRepository.save(txB);
+            
+            log.info("내기자 토큰 차감 완료: bettorA={}, bettorB={}, 각각 {} 토큰 차감", 
+                bettorA.getUsername(), bettorB.getUsername(), actualBetAmount);
+        }
         
         // Bet 생성
         Bet bet = new Bet();
@@ -53,11 +103,12 @@ public class BetService {
         bet.setTotalVotes(0L);
         bet.setVotesForA(0L);
         bet.setVotesForB(0L);
+        bet.setBetAmount(actualBetAmount);
         bet.setCreatedAt(Instant.now());
         
         Bet saved = betRepository.save(bet);
-        log.info("Bet 생성 완료: betId={}, postId={}, bettorA={}, bettorB={}", 
-            saved.getId(), post.getId(), bettorA.getUsername(), bettorB.getUsername());
+        log.info("Bet 생성 완료: betId={}, postId={}, bettorA={}, bettorB={}, betAmount={}", 
+            saved.getId(), post.getId(), bettorA.getUsername(), bettorB.getUsername(), actualBetAmount);
         
         return saved;
     }
@@ -144,48 +195,89 @@ public class BetService {
     
     /**
      * 승리자에게 토큰 지급
+     * - 내기 승리자 (bettorA 또는 bettorB)에게 betAmount * 2 지급 (걸었던 토큰 2배)
+     * - 투표 성공자 (승리 옵션에 투표한 사람들)에게 50 토큰 지급
      */
     @Transactional
     private void rewardWinners(Bet bet, String winnerOption) {
-        // 1. 승리 옵션에 투표한 사용자 조회
+        // 1. 내기 승리자 확인 및 보상 지급
+        User betWinner;
+        if ("A".equals(winnerOption)) {
+            betWinner = bet.getBettorA();
+        } else {
+            betWinner = bet.getBettorB();
+        }
+        
+        // 내기 승리자 보상 지급 (betAmount * 2)
+        long betAmount = bet.getBetAmount() != null ? bet.getBetAmount() : 0L;
+        long betWinnerReward = betAmount * 2; // 걸었던 토큰의 2배
+        
+        if (betWinnerReward > 0) {
+            long currentBalance = betWinner.getTokenBalance();
+            long newBalance = currentBalance + betWinnerReward;
+            betWinner.setTokenBalance(newBalance);
+            userRepository.save(betWinner);
+            
+            // 내기 승리자 거래 이력 기록
+            TokenTransaction betWinnerTx = new TokenTransaction();
+            betWinnerTx.setUser(betWinner);
+            betWinnerTx.setAmount(betWinnerReward);
+            betWinnerTx.setBalanceBefore(currentBalance);
+            betWinnerTx.setBalanceAfter(newBalance);
+            betWinnerTx.setTransactionType("BET_REWARD");
+            betWinnerTx.setDescription("내기 승리 보상 - 내기 #" + bet.getId() + " (" + winnerOption + " 옵션, 걸었던 토큰: " + betAmount + ")");
+            betWinnerTx.setCreatedAt(LocalDateTime.now());
+            tokenTransactionRepository.save(betWinnerTx);
+            
+            log.info("내기 승리자 토큰 지급 완료: userId={}, 걸었던 토큰={}, 지급 토큰={}, 잔액={} -> {}", 
+                betWinner.getId(), betAmount, betWinnerReward, currentBalance, newBalance);
+        } else {
+            log.info("내기 금액이 0이므로 내기 승리자에게 보상 지급하지 않음: betId={}", bet.getId());
+        }
+        
+        // 2. 승리 옵션에 투표한 사용자 조회
         List<BetVote> winningVotes = betVoteRepository
             .findByBetAndSelectedOption(bet, winnerOption);
         
-        if (winningVotes.isEmpty()) {
-            log.info("승리자가 없습니다. betId: {}", bet.getId());
-            return;
-        }
+        // 3. 투표 성공자들에게 토큰 지급 (고정 보상: 50토큰)
+        long voteWinnerReward = 50L;
+        int voteWinnerCount = 0;
         
-        // 2. 토큰 지급량 계산 (고정 보상: 승리자당 50토큰)
-        long rewardPerWinner = 50L;
-        
-        // 3. 각 승리자에게 토큰 지급
         for (BetVote vote : winningVotes) {
             User user = vote.getUser();
-            long currentBalance = user.getTokenBalance();
-            long newBalance = currentBalance + rewardPerWinner;
+            
+            // 내기 승리자와 동일 인물인 경우 중복 지급 방지
+            if (user.getId().equals(betWinner.getId())) {
+                log.info("내기 승리자가 투표도 성공했으나, 이미 보상을 받았으므로 건너뜀: userId={}", user.getId());
+                continue;
+            }
+            
+            long voteUserBalance = user.getTokenBalance();
+            long voteUserNewBalance = voteUserBalance + voteWinnerReward;
             
             // 토큰 지급
-            user.setTokenBalance(newBalance);
+            user.setTokenBalance(voteUserNewBalance);
             userRepository.save(user);
             
             // 거래 이력 기록
             TokenTransaction tx = new TokenTransaction();
             tx.setUser(user);
-            tx.setAmount(rewardPerWinner);
-            tx.setBalanceBefore(currentBalance);
-            tx.setBalanceAfter(newBalance);
+            tx.setAmount(voteWinnerReward);
+            tx.setBalanceBefore(voteUserBalance);
+            tx.setBalanceAfter(voteUserNewBalance);
             tx.setTransactionType("BET_REWARD");
             tx.setDescription("투표 승리 보상 - 내기 #" + bet.getId() + " (" + winnerOption + " 옵션)");
             tx.setCreatedAt(LocalDateTime.now());
             tokenTransactionRepository.save(tx);
             
-            log.info("토큰 지급 완료: userId={}, 추가 토큰={}, 잔액={} -> {}", 
-                user.getId(), rewardPerWinner, currentBalance, newBalance);
+            log.info("투표 승리자 토큰 지급 완료: userId={}, 추가 토큰={}, 잔액={} -> {}", 
+                user.getId(), voteWinnerReward, voteUserBalance, voteUserNewBalance);
+            
+            voteWinnerCount++;
         }
         
-        log.info("정산 완료: betId={}, winnerOption={}, 승리자={}명, 지급 토큰={}개/인", 
-            bet.getId(), winnerOption, winningVotes.size(), rewardPerWinner);
+        log.info("정산 완료: betId={}, winnerOption={}, 내기승리자=1명, 투표승리자={}명, 지급 토큰=50개/인", 
+            bet.getId(), winnerOption, voteWinnerCount);
     }
 }
 

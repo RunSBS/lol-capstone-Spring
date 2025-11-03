@@ -39,7 +39,8 @@ public class PostController {
     public record CreatePostReq(String title, String content, String category, 
                                String writerB, 
                                VoteData vote,
-                               Map<String, Object> matchData) {
+                               Map<String, Object> matchData,
+                               Long betAmount) {
         public record VoteData(String question, String[] options, String description, 
                               Boolean hasEndTime, String endTime) {}
     }
@@ -110,8 +111,9 @@ public class PostController {
         }
         
         Post post = postService.create(req.title(), req.content(), req.category(), 
-                                      req.writerB(), betTitle, optionA, optionB, endTime, req.matchData());
-        log.info("Created post with ID: {}, matchData included: {}", post.getId(), req.matchData() != null);
+                                      req.writerB(), betTitle, optionA, optionB, endTime, req.matchData(), req.betAmount());
+        log.info("Created post with ID: {}, matchData included: {}, betAmount: {}", 
+                post.getId(), req.matchData() != null, req.betAmount());
         return ResponseEntity.ok(post);
     }
 

@@ -35,12 +35,19 @@ function Login({ onLogin, onShowRegister }) {
         localStorage.setItem('currentUser', formData.username);
         onLogin(formData.username);
         
-        // 출석 보상 체크
-        const attendanceResult = processAttendance(formData.username);
-        if (attendanceResult.attended) {
-          setAttendanceTokens(attendanceResult.tokensEarned);
-          setShowAttendanceModal(true);
-        } else {
+        // 출석 보상 체크 (백엔드 API 호출)
+        try {
+          const attendanceResult = await processAttendance(formData.username);
+          if (attendanceResult.attended) {
+            setAttendanceTokens(attendanceResult.tokensEarned);
+            setShowAttendanceModal(true);
+          } else {
+            window.dispatchEvent(new Event('loginStateChanged'));
+            navigate(-1);
+          }
+        } catch (attendanceError) {
+          console.error('출석 보상 체크 실패:', attendanceError);
+          // 출석 보상 체크 실패해도 로그인은 유지
           window.dispatchEvent(new Event('loginStateChanged'));
           navigate(-1);
         }
