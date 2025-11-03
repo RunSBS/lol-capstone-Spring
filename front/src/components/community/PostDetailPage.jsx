@@ -284,6 +284,69 @@ function PostDetailPage({ currentUser, adminId, postId }) {
       </div>`;
     });
     
+    // URL을 하이퍼링크로 변환 (이미 HTML 태그 안에 있는 URL은 제외)
+    // http://, https://, www.로 시작하는 URL 패턴
+    const urlRegex = /(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.[a-zA-Z]{2,}[^\s<>"']*)/gi;
+    
+    let lastIndex = 0;
+    let result = '';
+    let match;
+    
+    while ((match = urlRegex.exec(processedContent)) !== null) {
+      const url = match[0];
+      const offset = match.index;
+      
+      // 현재 URL 앞의 텍스트 추가
+      result += processedContent.substring(lastIndex, offset);
+      
+      // 현재 URL 앞뒤의 컨텍스트 확인
+      const beforeText = processedContent.substring(Math.max(0, offset - 100), offset);
+      const afterText = processedContent.substring(offset + url.length, Math.min(processedContent.length, offset + url.length + 100));
+      
+      // HTML 태그 속성 내부인지 확인 (href=", src=", url( 등)
+      const isInHtmlAttribute = /(?:href|src|url)\s*=\s*["']/i.test(beforeText) ||
+                                  /^["']/.test(afterText);
+      
+      // HTML 태그 내부인지 확인 (<a>, <img> 등의 태그 내부)
+      const tagMatch = beforeText.match(/<[^>]*$/);
+      const isInHtmlTag = tagMatch && (tagMatch[0].includes('<a') || tagMatch[0].includes('<img') || 
+                       tagMatch[0].includes('<video') || tagMatch[0].includes('<iframe') ||
+                       tagMatch[0].includes('<link') || tagMatch[0].includes('<script'));
+      
+      // 이미 링크로 변환된 URL인지 확인
+      const isAlreadyLink = beforeText.includes('<a') && afterText.includes('</a>');
+      
+      if (isInHtmlAttribute || isInHtmlTag || isAlreadyLink) {
+        // HTML 태그 내부의 URL은 그대로 추가
+        result += url;
+      } else {
+        // URL을 링크로 변환
+        let linkUrl = url;
+        // www.로 시작하는 경우 http://를 추가
+        if (url.startsWith('www.')) {
+          linkUrl = 'http://' + url;
+        }
+        // 프로토콜이 없는 경우 http://를 추가 (단, 도메인 패턴인 경우)
+        else if (!url.startsWith('http://') && !url.startsWith('https://') && 
+                 /^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.[a-zA-Z]{2,}/.test(url)) {
+          linkUrl = 'http://' + url;
+        }
+        
+        // HTML 이스케이프 처리
+        const escapedUrl = url.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        const escapedLinkUrl = linkUrl.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        
+        result += `<a href="${escapedLinkUrl}" target="_blank" rel="noopener noreferrer" style="color: #007bff; text-decoration: underline;">${escapedUrl}</a>`;
+      }
+      
+      lastIndex = offset + url.length;
+    }
+    
+    // 나머지 텍스트 추가
+    result += processedContent.substring(lastIndex);
+    
+    processedContent = result;
+    
     return processedContent;
   };
 
@@ -315,10 +378,14 @@ function PostDetailPage({ currentUser, adminId, postId }) {
 
   if (!post) return <div>로딩중...</div>;
 
-  // lolmuncheol: writerA or writerB can edit; others only admin
+  // 롤문철 카테고리: 작성자A, 작성자B, 관리자만 수정 가능
+  // 일반 카테고리: 작성자, 관리자만 수정 가능
   const canEdit = post.category === "lolmuncheol"
     ? (post.writer === currentUser || post.writerB === currentUser || currentUser === adminId)
     : (post.writer === currentUser || currentUser === adminId);
+  
+  // 롤문철에서 작성자 B가 수정할 수 있는지 확인
+  const isWriterB = post.category === "lolmuncheol" && post.writerB === currentUser;
 
   if (post.category === "lolmuncheol") {
     return (
@@ -554,9 +621,6 @@ function VoteDisplay({ voteData, userVoteOption, onVoteSubmit, onVoteCancel, cur
       
       <div style={{ marginBottom: 15 }}>
         <h4 style={{ marginBottom: 10 }}>{voteData.question}</h4>
-        {voteData.description && (
-          <p style={{ color: "#666", marginBottom: 15 }}>{voteData.description}</p>
-        )}
         
         {endTimeText && (
           <p style={{ color: "#666", fontSize: "0.9em", marginBottom: 15 }}>

@@ -141,26 +141,6 @@ function VoteSection({ voteData, onVoteChange, isEditMode = false, isLolmuncheol
           ))}
         </div>
 
-        {/* 추가 설명 */}
-        <div style={{ marginBottom: 15 }}>
-          <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
-            추가 설명
-          </label>
-          <textarea
-            value={vote.description}
-            onChange={handleDescriptionChange}
-            placeholder="투표에 대한 세부 설명을 입력하세요"
-            rows={3}
-            style={{
-              width: "100%",
-              padding: 10,
-              border: "1px solid #ddd",
-              borderRadius: 4,
-              resize: "vertical"
-            }}
-          />
-        </div>
-
         {/* 종료 설정 */}
         <div style={{ marginBottom: 15 }}>
           <label style={{ display: "block", marginBottom: 10, fontWeight: "bold" }}>
@@ -226,9 +206,6 @@ function VoteSection({ voteData, onVoteChange, isEditMode = false, isLolmuncheol
       
       <div style={{ marginBottom: 15 }}>
         <h4 style={{ marginBottom: 10 }}>{vote.question}</h4>
-        {vote.description && (
-          <p style={{ color: "#666", marginBottom: 15 }}>{vote.description}</p>
-        )}
         
         {endTimeText && (
           <p style={{ color: "#666", fontSize: "0.9em", marginBottom: 15 }}>

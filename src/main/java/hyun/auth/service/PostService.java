@@ -269,21 +269,31 @@ public class PostService {
             if (canEdit) {
                 if (isWriterA) {
                     // 작성자 A는 제목과 왼쪽 본문(content)만 수정
-                    p.setTitle(title);
-                    p.setContent(content);
+                    if (title != null) {
+                        p.setTitle(title);
+                    }
+                    if (content != null) {
+                        p.setContent(content);
+                    }
                 } else if (isWriterB) {
-                    // 작성자 B는 오른쪽 본문(contentB)만 수정
+                    // 작성자 B는 오른쪽 본문(contentB)만 수정 가능
+                    // 제목과 왼쪽 본문은 수정 불가
                     if (contentB != null) {
                         p.setContentB(contentB);
                     }
+                    // 작성자 B가 제목이나 왼쪽 본문을 수정하려고 시도해도 무시됨 (이미 null이어야 함)
                 }
             }
         } else {
             // 일반 카테고리는 작성자만 수정 가능
             canEdit = p.getUser().getId().equals(u.getId());
             if (canEdit) {
-                p.setTitle(title);
-                p.setContent(content);
+                if (title != null) {
+                    p.setTitle(title);
+                }
+                if (content != null) {
+                    p.setContent(content);
+                }
             }
         }
         

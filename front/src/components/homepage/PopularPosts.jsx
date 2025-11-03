@@ -140,7 +140,11 @@ function PopularPosts() {
               </span>
             </p>
             <p className="popular-meta">
-              {formatTimeAgo(post.createdAt)} {post.writer || '작성자 없음'}
+              {formatTimeAgo(post.createdAt)} {
+                post.category === "lolmuncheol" && post.writerB 
+                  ? `${post.writer || '작성자 없음'} vs ${post.writerB}`
+                  : (post.writer || '작성자 없음')
+              }
             </p>
             <div style={{ marginTop: '5px', fontSize: '12px', color: '#666', display: 'flex', alignItems: 'center', gap: '10px' }}>
               {/* 투표 현황 */}

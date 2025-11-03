@@ -117,20 +117,32 @@ const backendApi = {
 
   // 게시글 수정
   updatePost: async (id, postData) => {
+    // 백엔드 UpdatePostReq는 title, content, contentB만 받습니다
+    const requestBody = {
+      title: postData.title !== undefined ? postData.title : null,
+      content: postData.content !== undefined ? postData.content : null,
+      contentB: postData.contentB !== undefined ? postData.contentB : null
+    };
+    
     const response = await fetch(`${API_BASE_URL}/posts/${id}`, {
       method: 'PUT',
       headers: getAuthHeaders(),
-      body: JSON.stringify({
-        title: postData.title,
-        content: postData.content,
-        contentB: postData.contentB || null,
-        matchData: postData.matchData || null,
-        vote: postData.vote || null
-      })
+      body: JSON.stringify(requestBody)
     });
 
     if (!response.ok) {
-      throw new Error('게시글 수정 실패');
+      let errorMessage = '게시글 수정 실패';
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.message || errorData.error || errorMessage;
+      } catch (e) {
+        const errorText = await response.text();
+        if (errorText) {
+          errorMessage = errorText;
+        }
+      }
+      console.error('게시글 수정 에러:', response.status, errorMessage);
+      throw new Error(errorMessage);
     }
 
     return await response.json();

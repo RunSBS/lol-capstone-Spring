@@ -177,6 +177,7 @@ function WritePost({ currentUser }) {
   useEffect(() => {
     if (isEditMode && postToEdit) {
       const isLol = (postToEdit.category || "") === "lolmuncheol";
+      // 롤문철 카테고리이고 현재 사용자가 작성자 B인 경우, contentB를 표시
       const initialContent = isLol && currentUser === postToEdit.writerB
         ? (postToEdit.contentB || "")
         : (postToEdit.content || "");
@@ -189,10 +190,12 @@ function WritePost({ currentUser }) {
         matchData: postToEdit.matchData || null
       });
       
-      // 투표 데이터가 있으면 표시
+      // 투표 데이터가 있으면 표시 (롤문철 수정 시에는 투표 섹션 숨김 처리 안 함)
       if (postToEdit.vote) {
         setVoteData(postToEdit.vote);
-        setShowVoteSection(true);
+        if (isLol) {
+          setShowVoteSection(true);
+        }
       }
       
       // 매치 데이터가 있으면 소환사 정보도 설정
@@ -200,7 +203,7 @@ function WritePost({ currentUser }) {
         setSelectedSummoner(postToEdit.matchData.summoner || null);
       }
     }
-  }, [isEditMode, postToEdit]);
+  }, [isEditMode, postToEdit, currentUser]);
 
   // 롤문철 글 작성 시 투표 강제 생성 (처음 작성 모드일 때만)
   useEffect(() => {
@@ -326,14 +329,18 @@ function WritePost({ currentUser }) {
       if (isEditMode) {
         const isLol = formData.category === "lolmuncheol";
         if (isLol) {
-          // 작성자B는 오른쪽 칸만 수정, 작성자A는 왼쪽 칸만 수정
+          // 롤문철 카테고리: 작성자 B는 오른쪽 본문(contentB)만 수정 가능
           if (currentUser === postToEdit.writerB) {
-            delete payload.title; // 제목은 수정 불가
-            delete payload.content; // 왼쪽 본문은 건드리지 않음
-            payload.contentB = formData.content; // 오른쪽 본문 갱신
+            // 작성자 B는 제목과 왼쪽 본문(content) 수정 불가
+            // null로 설정하여 백엔드에서 무시되도록 함
+            payload.title = null;
+            payload.content = null;
+            // 오른쪽 본문(contentB)만 갱신
+            payload.contentB = formData.content;
           } else {
-            // 작성자A 또는 관리자: 제목과 왼쪽 본문 갱신, 오른쪽은 유지
-            delete payload.contentB;
+            // 작성자 A 또는 관리자: 제목과 왼쪽 본문(content)만 수정, 오른쪽(contentB)은 유지
+            // contentB를 undefined로 설정하여 기존 값 유지
+            payload.contentB = undefined;
           }
         }
         await boardApi.updatePost(postToEdit.id, payload);
