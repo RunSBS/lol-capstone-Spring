@@ -561,13 +561,70 @@ function PostDetailPage({ currentUser, adminId, postId }) {
 function VoteDisplay({ voteData, userVoteOption, onVoteSubmit, onVoteCancel, currentUser }) {
   const [selectedOption, setSelectedOption] = useState(userVoteOption);
   const [hasVoted, setHasVoted] = useState(userVoteOption !== null);
+  const [isExpired, setIsExpired] = useState(false);
+
+  // userVoteOption이 변경될 때 상태 업데이트
+  useEffect(() => {
+    setSelectedOption(userVoteOption);
+    setHasVoted(userVoteOption !== null);
+  }, [userVoteOption]);
+
+  // 투표 종료 시간 체크 및 업데이트
+  useEffect(() => {
+    // endTime이 있으면 hasEndTime도 true로 간주
+    const hasEndTime = voteData?.hasEndTime || (voteData?.endTime != null && voteData?.endTime !== '');
+    
+    if (!voteData || !hasEndTime || !voteData.endTime) {
+      setIsExpired(false);
+      return;
+    }
+
+    // 초기 체크
+    const checkExpired = () => {
+      try {
+        const now = new Date();
+        let endTime = new Date(voteData.endTime);
+        
+        // endTime이 유효하지 않은 경우 처리
+        if (isNaN(endTime.getTime())) {
+          console.warn('유효하지 않은 종료 시간:', voteData.endTime);
+          setIsExpired(false);
+          return;
+        }
+        
+        const expired = now.getTime() > endTime.getTime();
+        
+        // 상태 업데이트 (이전 값과 다를 때만 로그 출력)
+        setIsExpired(prev => {
+          if (prev !== expired) {
+            console.log('투표 종료 상태 변경:', {
+              이전: prev,
+              현재: expired,
+              현재시간: now.toISOString(),
+              종료시간: endTime.toISOString()
+            });
+          }
+          return expired;
+        });
+      } catch (error) {
+        console.error('종료 시간 체크 중 오류:', error);
+        setIsExpired(false);
+      }
+    };
+
+    checkExpired();
+
+    // 1초마다 체크 (종료 시간이 있을 때만)
+    const interval = setInterval(checkExpired, 1000);
+
+    return () => clearInterval(interval);
+  }, [voteData]);
 
   // voteData가 없으면 기본값 설정
   if (!voteData || !voteData.question || !voteData.options) {
     return null; // 필수 데이터가 없으면 렌더링하지 않음
   }
 
-  const isExpired = voteData.hasEndTime && voteData.endTime && new Date() > new Date(voteData.endTime);
   const endTimeText = voteData.hasEndTime && voteData.endTime 
     ? new Date(voteData.endTime).toLocaleString() 
     : null;
@@ -751,9 +808,19 @@ function VoteDisplay({ voteData, userVoteOption, onVoteSubmit, onVoteCancel, cur
       )}
 
       {hasVoted && isExpired && (
-        <p style={{ color: "#28a745", fontWeight: "bold" }}>
-          ✓ 투표가 완료되었습니다.
-        </p>
+        <div style={{ marginTop: 10 }}>
+          <p style={{ color: "#28a745", fontWeight: "bold", margin: 0 }}>
+            ✓ 투표가 완료되었습니다. (투표가 종료되어 결과를 확인할 수 있습니다)
+          </p>
+        </div>
+      )}
+
+      {!hasVoted && isExpired && (
+        <div style={{ marginTop: 10 }}>
+          <p style={{ color: "#666", fontSize: "0.9em", margin: 0 }}>
+            투표가 종료되었습니다. 위의 결과를 확인하세요.
+          </p>
+        </div>
       )}
     </div>
   );
