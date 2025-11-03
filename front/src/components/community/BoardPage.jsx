@@ -34,9 +34,25 @@ function BoardPage({ category }) {
             console.error(`카테고리 ${cat} 로드 실패:`, error)
           }
         }
+        // 추천수 3개 이상인 글만 필터링 (태그와 관계없이 추천수 기준)
+        // 디버깅: 필터링 전 데이터 확인
+        console.log('전체 게시글 수:', allPosts.length);
+        
         posts = allPosts
-          .filter(post => post.tags && post.tags.includes("highrecommend"))
+          .filter(post => {
+            const likeCount = typeof post.like === 'number' ? post.like : parseInt(post.like) || 0;
+            const hasEnoughLikes = likeCount >= 3;
+            
+            // 디버깅: 추천수 3개 이상인 글만 로그 출력
+            if (hasEnoughLikes) {
+              console.log(`추천글 후보 ID ${post.id}: like=${post.like} (타입: ${typeof post.like}, 변환값: ${likeCount})`);
+            }
+            
+            return hasEnoughLikes;
+          })
           .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        
+        console.log('최종 필터링된 추천글 수 (추천수 3개 이상):', posts.length);
       } else {
         const data = await boardApi.getPosts(0, 100, category);
         console.log('API 응답:', data)
@@ -86,7 +102,12 @@ function BoardPage({ category }) {
         const res = await boardApi.searchPosts(searchKeyword, cat);
         allResults = allResults.concat(res);
       }
-      const filteredPosts = allResults.filter(post => post.tags && post.tags.includes("highrecommend"));
+      // 추천수 3개 이상 필터링 (태그와 관계없이 추천수 기준)
+      const filteredPosts = allResults
+        .filter(post => {
+          const likeCount = typeof post.like === 'number' ? post.like : parseInt(post.like) || 0;
+          return likeCount >= 3;
+        });
       setPosts(filteredPosts);
       setSearching(true);
 
