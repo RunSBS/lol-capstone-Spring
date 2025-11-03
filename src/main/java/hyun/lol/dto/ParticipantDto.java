@@ -18,6 +18,7 @@ public class ParticipantDto {
     // ===== 팀 리스트 표시용 (10명 모두 공통) =====
     private String puuid;              // 고유 ID (백엔드에서 메인 참가자 찾기용)
     private String riotIdGameName;     // 게임 닉네임
+    private String riotIdTagline;      // 라이엇 ID 태그라인 (프론트엔드에서 참가자 찾기용)
     private String summonerName;       // 소환사 이름
     private String championName;        // 플레이한 챔피언
     private int teamId;                // 100=블루팀, 200=레드팀

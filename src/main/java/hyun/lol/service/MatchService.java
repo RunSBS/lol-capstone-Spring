@@ -183,6 +183,7 @@ public class MatchService {
                 ParticipantDto x = new ParticipantDto();
                 x.setPuuid(p.getPuuid());
                 x.setRiotIdGameName(p.getRiotIdGameName());
+                x.setRiotIdTagline(p.getRiotIdTagline()); // 태그라인 추가
                 x.setSummonerName(resolveSummonerName(p));
                 x.setChampionName(p.getChampionName());
                 x.setTeamId(nz(p.getTeamId()));
@@ -318,6 +319,7 @@ public class MatchService {
         dto.setTeamId(teamId);
         dto.setPuuid(p.getPuuid());
         dto.setRiotIdGameName(p.getRiotIdGameName());
+        dto.setRiotIdTagline(p.getRiotIdTagline()); // 태그라인 추가
         dto.setSummonerName(resolveSummonerName(p));
         dto.setChampionName(p.getChampionName());
         dto.setKills(kills);
