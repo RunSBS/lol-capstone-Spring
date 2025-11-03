@@ -156,7 +156,15 @@ function BoardPage({ category }) {
               <h4>{post.title}</h4>
             </Link>
             <div>
-              <a href={`/user/${encodeURIComponent(post.writer)}`} target="_blank" rel="noopener noreferrer">{post.writer}</a> · {new Date(post.createdAt).toLocaleString()} · {post.category}
+              {post.category === "lolmuncheol" && post.writerB ? (
+                <>
+                  <a href={`/user/${encodeURIComponent(post.writer)}`} target="_blank" rel="noopener noreferrer">{post.writer}</a> vs <a href={`/user/${encodeURIComponent(post.writerB)}`} target="_blank" rel="noopener noreferrer">{post.writerB}</a>
+                </>
+              ) : (
+                <a href={`/user/${encodeURIComponent(post.writer)}`} target="_blank" rel="noopener noreferrer">{post.writer}</a>
+              )}
+              {" · "}
+              {new Date(post.createdAt).toLocaleString()} · {post.category}
               {post.tags && post.tags.includes("highrecommend") && (
                 <span style={{
                   marginLeft: 8, padding: "2px 6px", fontSize: 12,

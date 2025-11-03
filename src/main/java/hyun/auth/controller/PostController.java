@@ -134,8 +134,18 @@ public class PostController {
 
     @PutMapping("/{id}")
     public ResponseEntity<Post> updatePost(@PathVariable Long id, @RequestBody UpdatePostReq req) {
-        Post post = postService.update(id, req.title(), req.content(), req.contentB());
-        return ResponseEntity.ok(post);
+        log.info("게시글 수정 요청: postId={}, title={}, content={}, contentB={}", 
+                 id, req.title() != null ? "제공됨" : "null", 
+                 req.content() != null ? "제공됨" : "null", 
+                 req.contentB() != null ? "제공됨" : "null");
+        try {
+            Post post = postService.update(id, req.title(), req.content(), req.contentB());
+            log.info("게시글 수정 성공: postId={}", id);
+            return ResponseEntity.ok(post);
+        } catch (Exception e) {
+            log.error("게시글 수정 실패: postId={}, error={}", id, e.getMessage(), e);
+            throw e;
+        }
     }
 
     @DeleteMapping("/{id}")

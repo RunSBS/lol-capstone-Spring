@@ -159,32 +159,22 @@ const boardApi = {
     }),
 
   updatePost: (id, updatedPost) =>
-    new Promise((resolve, reject) => {
-      const categories = ["free", "guide", "lolmuncheol"];
-      let updated = false;
-      categories.forEach((category) => {
-        const posts = loadPosts(category);
-        const idx = posts.findIndex((p) => p.id === Number(id));
-        if (idx !== -1) {
-          // For lolmuncheol, allow separate sides to be updated individually
-          if (posts[idx].category === "lolmuncheol") {
-            const draft = { ...posts[idx] };
-            if (typeof updatedPost.title === "string") draft.title = updatedPost.title;
-            if (typeof updatedPost.tags !== "undefined") draft.tags = updatedPost.tags;
-            if (typeof updatedPost.content === "string") draft.content = updatedPost.content; // writerA side
-            if (typeof updatedPost.contentB === "string") draft.contentB = updatedPost.contentB; // writerB side
-            if (updatedPost.matchData !== undefined) draft.matchData = updatedPost.matchData;
-            if (updatedPost.vote !== undefined) draft.vote = updatedPost.vote;
-            posts[idx] = draft;
-          } else {
-            posts[idx] = { ...posts[idx], ...updatedPost };
-          }
-          savePosts(category, posts);
-          updated = true;
-        }
-      });
-      if (updated) resolve(true);
-      else reject("수정 실패");
+    new Promise(async (resolve, reject) => {
+      try {
+        // 백엔드에 수정 요청
+        const requestData = {
+          title: updatedPost.title,
+          content: updatedPost.content,
+          contentB: updatedPost.contentB
+        };
+        
+        // 백엔드 API 호출
+        await backendApi.updatePost(id, requestData);
+        resolve(true);
+      } catch (error) {
+        console.error('게시글 수정 실패:', error);
+        reject(error.message || "수정 실패");
+      }
     }),
 
   // lolmuncheol cheer APIs
