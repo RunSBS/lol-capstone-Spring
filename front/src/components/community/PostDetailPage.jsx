@@ -3,6 +3,8 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import boardApi from "../../data/communityApi";
 import CommentSection from "./CommentSection";
 import VoteSection from "./VoteSection";
+import MatchHistoryItem from "../summoner/MatchHistoryItem";
+import "../../styles/summoner.css";
 
 function PostDetailPage({ currentUser, adminId, postId }) {
   const id = postId || useParams().id;
@@ -403,27 +405,43 @@ function PostDetailPage({ currentUser, adminId, postId }) {
           )}
         </div>
         <hr />
-        {/* top rectangle area */}
-        <div style={{ height: 80, border: "1px solid #eee", marginBottom: 12, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", background: "#fafafa", flexDirection: "column", padding: 10 }}>
-          <div style={{ fontSize: "1.2em", fontWeight: "bold", marginBottom: 5 }}>롤문철 매치업</div>
-          {post.matchData && post.matchData.match && (
-            <div style={{ fontSize: "0.9em", color: "#666" }}>
-              <div style={{ marginTop: 5 }}>
-                {post.matchData.summoner?.fullName} - {post.matchData.match.gameType} - {post.matchData.match.result} - {post.matchData.match.duration}
+        {/* 롤문철 매치업 섹션 */}
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: "1.2em", fontWeight: "bold", marginBottom: 10, textAlign: "center" }}>롤문철 매치업</div>
+          {post.matchData && post.matchData.match && (() => {
+            // MatchDetails를 위한 원본 데이터 병합
+            const matchWithRawData = {
+              ...post.matchData.match,
+              // 원본 매치 데이터에서 participants와 기타 정보 가져오기
+              rawParticipants: post.matchData.originalMatch?.info?.participants || 
+                               post.matchData.originalMatch?.participants ||
+                               [],
+              participants: post.matchData.originalMatch?.info?.participants || 
+                           post.matchData.originalMatch?.participants ||
+                           [],
+              teams: post.matchData.originalMatch?.info?.teams || 
+                     post.matchData.originalMatch?.teams ||
+                     post.matchData.match.teams || [],
+              gameDuration: post.matchData.originalMatch?.info?.gameDuration || 
+                            post.matchData.originalMatch?.gameDuration ||
+                            post.matchData.match.gameDuration,
+              gameCreation: post.matchData.originalMatch?.info?.gameCreation || 
+                           post.matchData.originalMatch?.gameCreation ||
+                           post.matchData.match.gameCreation,
+              ddVer: post.matchData.match.ddVer || '15.18.1',
+              id: post.matchData.matchId,
+              matchId: post.matchData.matchId
+            };
+            return (
+              <div style={{ 
+                border: "2px solid #5383e8",
+                borderRadius: 4,
+                overflow: "hidden"
+              }}>
+                <MatchHistoryItem matchData={matchWithRawData} />
               </div>
-              {post.matchData.match.champion && (
-                <div style={{ marginTop: 3 }}>
-                  {post.matchData.match.champion.name}
-                  {post.matchData.match.champion.level && ` (Lv.${post.matchData.match.champion.level})`}
-                  {post.matchData.match.kda && (
-                    <span style={{ marginLeft: 10 }}>
-                      {post.matchData.match.kda.kills}/{post.matchData.match.kda.deaths}/{post.matchData.match.kda.assists}
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
+            );
+          })()}
         </div>
         {/* split content area */}
         <div style={{ 

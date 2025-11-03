@@ -4,6 +4,7 @@ import boardApi from "../../data/communityApi";
 import VoteSection from "./VoteSection";
 import MediaAttachment from "./MediaAttachment";
 import AutocompleteSearch from "../common/AutocompleteSearch";
+import MatchHistoryItem from "../summoner/MatchHistoryItem";
 import { fetchRecentMatches, fetchDDragonVersion } from "../../data/api";
 import {
   buildChampionSquareUrl,
@@ -12,8 +13,10 @@ import {
   buildRuneStyleIcon,
   tryBuildRuneIconUrl,
   loadSpellMap,
-  loadRuneMap
+  loadRuneMap,
+  PLACEHOLDER_IMG
 } from "../../data/ddragon";
+import "../../styles/summoner.css";
 
 function WritePost({ currentUser }) {
   const navigate = useNavigate();
@@ -121,19 +124,54 @@ function WritePost({ currentUser }) {
         const isWin = !!me?.win;
         const champ = me?.championName || undefined;
 
-        // 스펠/룬/아이템/팀 정보 추출
-        const spells = [me?.summoner1Id, me?.summoner2Id].filter((x) => Number.isFinite(Number(x)));
-        const runes = {
-          primaryStyleId: me?.primaryStyleId,
-          subStyleId: me?.subStyleId,
-          keystoneId: me?.keystoneId,
-          perkIds: Array.isArray(me?.perkIds) ? me.perkIds : []
-        };
-        const items = [me?.item0, me?.item1, me?.item2, me?.item3, me?.item4, me?.item5, me?.item6];
+        // 스펠 아이콘 URL 배열 생성
+        const spellUrls = [
+          tryBuildSummonerSpellIconUrl(ddVer, me?.summoner1Id),
+          tryBuildSummonerSpellIconUrl(ddVer, me?.summoner2Id)
+        ].filter(url => url && url !== PLACEHOLDER_IMG);
+
+        // 룬 아이콘 URL 배열 생성 (키스톤 + 메인/서브 스타일)
+        const runeUrls = [];
+        if (me?.keystoneId) {
+          runeUrls.push(tryBuildRuneIconUrl(me.keystoneId));
+        }
+        if (me?.primaryStyleId) {
+          runeUrls.push(buildRuneStyleIcon(me.primaryStyleId));
+        }
+        if (me?.subStyleId && me.subStyleId !== me?.primaryStyleId) {
+          runeUrls.push(buildRuneStyleIcon(me.subStyleId));
+        }
+
+        // 아이템 URL 배열 생성 (6개 아이템 + 장신구)
+        const itemUrls = [
+          buildItemIconUrl(ddVer, me?.item0),
+          buildItemIconUrl(ddVer, me?.item1),
+          buildItemIconUrl(ddVer, me?.item2),
+          buildItemIconUrl(ddVer, me?.item3),
+          buildItemIconUrl(ddVer, me?.item4),
+          buildItemIconUrl(ddVer, me?.item5)
+        ].filter(url => url && url.trim());
+        const trinketUrl = buildItemIconUrl(ddVer, me?.item6);
+
+        // CS 계산
         const cs = Number(me?.csTotal || 0);
-        const team100 = participants.filter(p => p?.teamId === 100).map(p => ({ name: p?.riotIdGameName || p?.summonerName || '-', isMe: p === me }));
-        const team200 = participants.filter(p => p?.teamId === 200).map(p => ({ name: p?.riotIdGameName || p?.summonerName || '-', isMe: p === me }));
-        
+        const durationMin = Number(info?.gameDuration || 0) / 60;
+        const csPerMinute = durationMin > 0 ? (cs / durationMin).toFixed(1) : '0.0';
+
+        // 팀원 정보 생성 (MatchHistoryItem 형식: team 1=블루팀, team 2=레드팀)
+        const teams = participants.map(p => ({
+          team: p?.teamId === 100 ? 1 : 2,
+          name: p?.riotIdGameName || p?.summonerName || '-',
+          champion: p?.championName ? buildChampionSquareUrl(ddVer, p.championName) : undefined
+        }));
+
+        // 킬관여율 계산 (간단한 추정)
+        const team100Kills = participants.filter(p => p?.teamId === 100).reduce((sum, p) => sum + (p?.kills || 0), 0);
+        const myTeamKills = me?.teamId === 100 ? team100Kills : (participants.filter(p => p?.teamId === 200).reduce((sum, p) => sum + (p?.kills || 0), 0));
+        const killParticipation = myTeamKills > 0 
+          ? Math.round(((me.kills || 0) + (me.assists || 0)) / myTeamKills * 100)
+          : 0;
+
         return {
           matchId,
           gameType: queueTypeMap[info?.queueId] || info?.gameMode || '게임',
@@ -144,21 +182,28 @@ function WritePost({ currentUser }) {
             name: champ,
             level: me.champLevel ?? 0,
             imageUrl: champ ? buildChampionSquareUrl(ddVer, champ) : undefined,
+            spells: spellUrls,
+            runes: runeUrls
           },
           kda: {
             kills: me.kills ?? 0,
             deaths: me.deaths ?? 0,
             assists: me.assists ?? 0,
           },
-          spells,
-          runes,
-          items,
-          cs,
-          teams: { team100, team200 },
+          items: itemUrls,
+          trinket: trinketUrl || undefined,
+          teams: teams,
+          stats: {
+            killParticipation,
+            cs,
+            csPerMinute,
+            rank: '' // 랭크 정보는 현재 없음
+          },
           gameMode: info?.gameMode,
           queueId: info?.queueId,
           gameCreation: info?.gameCreation,
           gameDuration: info?.gameDuration,
+          ddVer: ddVer || '15.18.1', // MatchDetails를 위한 ddVer 추가
         };
       })
       .filter(Boolean); // null인 항목 제거 (참가자를 찾지 못한 매치 제거)
@@ -607,25 +652,47 @@ function WritePost({ currentUser }) {
 
   // 매치 선택 핸들러
   const handleMatchSelect = (match) => {
+    // 원본 매치 데이터 찾기 (MatchDetails에서 사용하기 위해)
+    const originalMatch = matchList.find(m => {
+      const matchId = m?.metadata?.matchId || m?.matchId;
+      return matchId === match?.matchId;
+    });
+
     setFormData(prev => ({
       ...prev,
       matchData: {
         matchId: match?.matchId,
         match: match,
+        originalMatch: originalMatch, // MatchDetails를 위한 원본 데이터
         summoner: selectedSummoner
       }
     }));
+    // 전적 선택 시 목록 숨김
+    setMatchList([]);
     alert('전적이 선택되었습니다.');
   };
 
   // 선택한 매치 제거
-  const handleMatchRemove = () => {
+  const handleMatchRemove = async () => {
     setFormData(prev => ({
       ...prev,
       matchData: null
     }));
-    setSelectedSummoner(null);
-    setMatchList([]);
+    
+    // 소환사가 선택되어 있으면 전적 목록 다시 로드
+    if (selectedSummoner) {
+      setMatchList([]);
+      setLoadingMatches(true);
+      try {
+        const matches = await fetchRecentMatches(selectedSummoner.gameName, selectedSummoner.tagLine, 10);
+        setMatchList(matches || []);
+      } catch (error) {
+        console.error('매치 조회 실패:', error);
+        setMatchList([]);
+      } finally {
+        setLoadingMatches(false);
+      }
+    }
   };
 
 
@@ -695,146 +762,97 @@ function WritePost({ currentUser }) {
                 </div>
               )}
 
-              {!loadingMatches && transformedMatchList.length > 0 && (
+              {/* 전적 목록: 선택된 전적이 없을 때만 표시 */}
+              {!formData.matchData && !loadingMatches && transformedMatchList.length > 0 && (
                 <div style={{ 
-                  maxHeight: "360px", 
-                  overflowY: "auto", 
-                  border: "1px solid #ddd", 
-                  borderRadius: 4,
-                  padding: 10
+                  maxHeight: "600px", 
+                  overflowY: "auto"
                 }}>
-                  <div style={{ marginBottom: 10, fontWeight: "bold" }}>
+                  <div style={{ marginBottom: 10, fontWeight: "bold", color: "#cdd2e2" }}>
                     최근 전적 목록 (클릭하여 선택)
                   </div>
-                  {transformedMatchList.map((match, index) => {
-                    const isWin = match.result === '승리';
-                    const rowBg = isWin ? '#e8f5e9' : '#ffebee';
-                    const resultColor = isWin ? '#2e7d32' : '#c62828';
-                    return (
+                  <div className="match-history-list">
+                    {transformedMatchList.map((match, index) => (
                       <div
                         key={match.matchId || index}
-                        onClick={() => handleMatchSelect(match)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'stretch',
-                          gap: 12,
-                          padding: 10,
-                          marginBottom: 10,
-                          border: '1px solid #ddd',
-                          borderRadius: 6,
-                          background: rowBg,
-                          cursor: 'pointer'
+                        onClick={(e) => {
+                          // details-toggle 클릭 시에는 선택하지 않음
+                          if (e.target.closest('.details-toggle')) {
+                            return;
+                          }
+                          handleMatchSelect(match);
                         }}
+                        style={{ cursor: 'pointer' }}
                       >
-                        {/* 좌측 메타 정보 */}
-                        <div style={{ width: 140, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                          <div style={{ fontWeight: 'bold' }}>{match.gameType}</div>
-                          <div style={{ color: resultColor, fontWeight: 'bold', marginTop: 4 }}>{match.result}</div>
-                          <div style={{ color: '#666', marginTop: 2 }}>{match.duration}</div>
-                          <div style={{ color: '#888', fontSize: 12 }}>{match.timeAgo}</div>
-                        </div>
-
-                        {/* 챔피언 + 룬/스펠 + KDA */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 220 }}>
-                          <div style={{ position: 'relative', width: 56, height: 56 }}>
-                            {match.champion?.imageUrl && (
-                              <img src={match.champion.imageUrl} alt={match.champion.name} style={{ width: 56, height: 56, borderRadius: 6, objectFit: 'cover', border: '1px solid #ccc' }} />
-                            )}
-                            {match.champion?.level > 0 && (
-                              <div style={{ position: 'absolute', bottom: -8, left: 4, background: '#333', color: '#fff', fontSize: 12, padding: '2px 6px', borderRadius: 10 }}>Lv.{match.champion.level}</div>
-                            )}
-                          </div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            {/* 룬 스타일 아이콘 / 핵심 룬 */}
-                            <div style={{ display: 'flex', gap: 6 }}>
-                              {match.runes?.primaryStyleId && (
-                                <img src={buildRuneStyleIcon(match.runes.primaryStyleId)} alt="Primary" style={{ width: 18, height: 18, borderRadius: 3 }} />
-                              )}
-                              {match.runes?.subStyleId && (
-                                <img src={buildRuneStyleIcon(match.runes.subStyleId)} alt="Sub" style={{ width: 18, height: 18, borderRadius: 3 }} />
-                              )}
-                              {match.runes?.keystoneId && (
-                                <img src={tryBuildRuneIconUrl(match.runes.keystoneId)} alt="Keystone" style={{ width: 18, height: 18, borderRadius: 3 }} />
-                              )}
-                            </div>
-                            {/* 스펠 아이콘 */}
-                            <div style={{ display: 'flex', gap: 6 }}>
-                              {match.spells?.slice(0,2).map((sp, i) => (
-                                <img key={i} src={tryBuildSummonerSpellIconUrl(ddVer, sp)} alt={`Spell${i+1}`} style={{ width: 18, height: 18, borderRadius: 3 }} />
-                              ))}
-                            </div>
-                          </div>
-                          <div style={{ fontWeight: 'bold', fontSize: 16 }}>
-                            {match.kda.kills}/{match.kda.deaths}/{match.kda.assists}
-                            {Number.isFinite(match.cs) && <span style={{ color: '#666', fontSize: 12, marginLeft: 6 }}>CS {match.cs}</span>}
-                          </div>
-                        </div>
-
-                        {/* 아이템 */}
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 32px)', gap: 6, alignItems: 'center' }}>
-                          {Array.isArray(match.items) && match.items.map((it, idx) => (
-                            <div key={idx} style={{ width: 32, height: 32, background: '#f7f7f7', borderRadius: 4, border: '1px solid #ddd', overflow: 'hidden' }}>
-                              {it ? (
-                                <img src={buildItemIconUrl(ddVer, it)} alt={`item${idx}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                              ) : null}
-                            </div>
-                          ))}
-                        </div>
-
-                        {/* 팀원 이름 */}
-                        <div style={{ marginLeft: 'auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, minWidth: 220 }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            {match.teams?.team100?.map((p, i) => (
-                              <div key={i} style={{ fontSize: 12, color: '#2e7d32', fontWeight: p.isMe ? 'bold' : 400 }}>{p.name}</div>
-                            ))}
-                          </div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            {match.teams?.team200?.map((p, i) => (
-                              <div key={i} style={{ fontSize: 12, color: '#c62828', fontWeight: p.isMe ? 'bold' : 400 }}>{p.name}</div>
-                            ))}
-                          </div>
-                        </div>
+                        <MatchHistoryItem matchData={match} />
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {formData.matchData && (
-                <div style={{ 
-                  marginTop: 10, 
-                  padding: 10, 
-                  backgroundColor: "#e8f5e9", 
-                  borderRadius: 4,
-                  border: "2px solid #4caf50"
-                }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div>
-                      <strong>선택된 전적:</strong>
-                      <div style={{ marginTop: 5 }}>
-                        {formData.matchData.match?.gameType} - {formData.matchData.match?.result} - {formData.matchData.match?.duration}
-                      </div>
-                      <div style={{ fontSize: "0.9em", color: "#666" }}>
-                        소환사: {formData.matchData.summoner?.fullName}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleMatchRemove}
-                      style={{
-                        padding: "5px 10px",
-                        backgroundColor: "#f44336",
-                        color: "white",
-                        border: "none",
-                        borderRadius: 4,
-                        cursor: "pointer"
-                      }}
-                    >
-                      제거
-                    </button>
+                    ))}
                   </div>
                 </div>
               )}
+
+              {/* 선택된 전적: MatchHistoryItem 스타일로 표시 */}
+              {formData.matchData && formData.matchData.match && (() => {
+                // 원본 데이터를 match 객체에 병합 (MatchDetails에서 사용)
+                const matchWithRawData = {
+                  ...formData.matchData.match,
+                  // 원본 매치 데이터에서 participants와 기타 정보 가져오기
+                  rawParticipants: formData.matchData.originalMatch?.info?.participants || 
+                                   formData.matchData.originalMatch?.participants ||
+                                   [],
+                  participants: formData.matchData.originalMatch?.info?.participants || 
+                               formData.matchData.originalMatch?.participants ||
+                               [],
+                  teams: formData.matchData.originalMatch?.info?.teams || 
+                         formData.matchData.originalMatch?.teams ||
+                         formData.matchData.match.teams || [],
+                  gameDuration: formData.matchData.originalMatch?.info?.gameDuration || 
+                                formData.matchData.originalMatch?.gameDuration ||
+                                formData.matchData.match.gameDuration,
+                  gameCreation: formData.matchData.originalMatch?.info?.gameCreation || 
+                                formData.matchData.originalMatch?.gameCreation ||
+                                formData.matchData.match.gameCreation,
+                  ddVer: ddVer || '15.18.1',
+                  id: formData.matchData.matchId,
+                  matchId: formData.matchData.matchId
+                };
+                return (
+                  <div style={{ marginTop: 10 }}>
+                    <div style={{ 
+                      marginBottom: 10, 
+                      fontWeight: "bold", 
+                      color: "#cdd2e2",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center"
+                    }}>
+                      <span>선택된 전적</span>
+                      <button
+                        type="button"
+                        onClick={handleMatchRemove}
+                        style={{
+                          padding: "6px 12px",
+                          backgroundColor: "#e84057",
+                          color: "white",
+                          border: "none",
+                          borderRadius: 4,
+                          cursor: "pointer",
+                          fontSize: "12px"
+                        }}
+                      >
+                        제거
+                      </button>
+                    </div>
+                    <div style={{ 
+                      border: "2px solid #5383e8",
+                      borderRadius: 4,
+                      overflow: "hidden"
+                    }}>
+                      <MatchHistoryItem matchData={matchWithRawData} />
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </>
         )}
