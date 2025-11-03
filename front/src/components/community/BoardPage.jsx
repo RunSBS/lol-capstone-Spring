@@ -15,32 +15,62 @@ function BoardPage({ category }) {
   }, [category]);
 
   const loadPostsAndComments = async () => {
-    let posts = [];
-    if (category === "highrecommend") {
-      const categories = ["free", "guide", "lolmuncheol"];
-      let allPosts = [];
-      for (const cat of categories) {
-        const data = await boardApi.getPosts(0, 1000, cat);
-        allPosts = allPosts.concat(data.content);
+    try {
+      console.log('커뮤니티 탭 로드 시작, category:', category)
+      let posts = [];
+      if (category === "highrecommend") {
+        const categories = ["free", "guide", "lolmuncheol"];
+        let allPosts = [];
+        for (const cat of categories) {
+          try {
+            const data = await boardApi.getPosts(0, 1000, cat);
+            const content = (data && data.content) ? data.content : (Array.isArray(data) ? data : [])
+            if (Array.isArray(content)) {
+              allPosts = allPosts.concat(content);
+            } else {
+              console.warn('content가 배열이 아닙니다:', cat, content)
+            }
+          } catch (error) {
+            console.error(`카테고리 ${cat} 로드 실패:`, error)
+          }
+        }
+        posts = allPosts
+          .filter(post => post.tags && post.tags.includes("highrecommend"))
+          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      } else {
+        const data = await boardApi.getPosts(0, 100, category);
+        console.log('API 응답:', data)
+        posts = (data && data.content) ? data.content : (Array.isArray(data) ? data : [])
+        console.log('파싱된 게시글 수:', posts.length)
       }
-      posts = allPosts
-        .filter(post => post.tags && post.tags.includes("highrecommend"))
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    } else {
-      const data = await boardApi.getPosts(0, 100, category);
-      posts = data.content;
+      
+      if (!Array.isArray(posts)) {
+        console.error('posts가 배열이 아닙니다:', typeof posts, posts)
+        posts = []
+      }
+
+      setPosts(posts);
+      setSearching(false);
+      setSearchKeyword("");
+      setSearchBy("all");
+
+      const counts = {};
+      await Promise.all(posts.map(async (post) => {
+        try {
+          counts[post.id] = await commentApi.getCommentCountByPostId(post.id);
+        } catch (error) {
+          console.error(`댓글 수 조회 실패 postId=${post.id}:`, error)
+          counts[post.id] = 0
+        }
+      }));
+      setCommentCounts(counts);
+      console.log('커뮤니티 탭 로드 완료, 게시글 수:', posts.length)
+    } catch (error) {
+      console.error('커뮤니티 탭 로드 실패:', error)
+      console.error('에러 상세:', error.message, error.stack)
+      setPosts([])
+      setCommentCounts({})
     }
-
-    setPosts(posts);
-    setSearching(false);
-    setSearchKeyword("");
-    setSearchBy("all");
-
-    const counts = {};
-    await Promise.all(posts.map(async (post) => {
-      counts[post.id] = await commentApi.getCommentCountByPostId(post.id);
-    }));
-    setCommentCounts(counts);
   };
 
   const handleSearch = async () => {
@@ -138,36 +168,46 @@ function BoardPage({ category }) {
             </div>
             <div style={{ marginTop: 8 }}>
               추천: {post.like || 0} / 반대: {post.dislike || 0}
-              {post.vote && post.vote.results && post.vote.options && (
-                <div style={{ marginTop: 4, fontSize: '12px', color: '#666' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {post.vote.options.map((option, index) => {
-                      const votes = post.vote.results[index] || 0;
-                      const totalVotes = Object.values(post.vote.results).reduce((sum, count) => sum + count, 0);
-                      const percentage = totalVotes > 0 ? Math.round((votes / totalVotes) * 100) : 0;
-                      
-                      return (
-                        <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                          <div 
-                            style={{
-                              width: '8px',
-                              height: '8px',
-                              borderRadius: '50%',
-                              backgroundColor: index === 0 ? '#007bff' : '#dc3545'
-                            }}
-                          />
-                          <span style={{ color: '#666' }}>
-                            {percentage}%
-                          </span>
-                        </div>
-                      );
-                    })}
-                    <span style={{ color: '#28a745', fontWeight: 'bold' }}>
-                      총 투표: {Object.values(post.vote.results).reduce((sum, count) => sum + count, 0)}표
-                    </span>
+              {post.vote && post.vote.results && post.vote.options && (() => {
+                // Map이 JSON으로 변환되면 키가 문자열일 수 있으므로 안전하게 처리
+                const results = post.vote.results || {}
+                const getVoteCount = (idx) => {
+                  return results[idx] || results[String(idx)] || results[`${idx}`] || 0
+                }
+                const votes0 = getVoteCount(0)
+                const votes1 = getVoteCount(1)
+                const totalVotes = votes0 + votes1
+                
+                return (
+                  <div style={{ marginTop: 4, fontSize: '12px', color: '#666' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {post.vote.options.map((option, index) => {
+                        const votes = getVoteCount(index)
+                        const percentage = totalVotes > 0 ? Math.round((votes / totalVotes) * 100) : 0;
+                        
+                        return (
+                          <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                            <div 
+                              style={{
+                                width: '8px',
+                                height: '8px',
+                                borderRadius: '50%',
+                                backgroundColor: index === 0 ? '#007bff' : '#dc3545'
+                              }}
+                            />
+                            <span style={{ color: '#666' }}>
+                              {percentage}%
+                            </span>
+                          </div>
+                        );
+                      })}
+                      <span style={{ color: '#28a745', fontWeight: 'bold' }}>
+                        총 투표: {totalVotes}표
+                      </span>
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
             </div>
           </div>
           <div style={{

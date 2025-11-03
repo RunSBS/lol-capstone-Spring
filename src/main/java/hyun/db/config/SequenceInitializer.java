@@ -19,7 +19,7 @@ public class SequenceInitializer {
             "USERS_SEQ", "POSTS_SEQ", "COMMENTS_SEQ", "BETS_SEQ", 
             "BET_VOTES_SEQ", "BET_SETTLEMENTS_SEQ", "POST_REACTION_SEQ",
             "SHOP_ITEMS_SEQ", "USER_ITEMS_SEQ", "BANNER_STICKERS_SEQ",
-            "PURCHASE_HISTORY_SEQ", "TOKEN_TRANSACTIONS_SEQ"
+            "PURCHASE_HISTORY_SEQ", "TOKEN_TRANSACTIONS_SEQ", "POST_MEDIA_SEQ"
         };
         
         for (String seqName : sequences) {

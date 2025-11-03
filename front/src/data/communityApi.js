@@ -54,16 +54,28 @@ const boardApi = {
   getPosts: (page = 0, size = 10, category) =>
     new Promise(async (resolve, reject) => {
       try {
+        console.log('communityApi.getPosts 호출:', { page, size, category })
+        
         // 백엔드에서 게시글 목록 가져오기
         const posts = await backendApi.getPosts(category);
+        console.log('backendApi.getPosts 응답:', posts, '타입:', typeof posts, '배열 여부:', Array.isArray(posts))
+        
+        // posts가 배열이 아닌 경우 처리
+        if (!Array.isArray(posts)) {
+          console.error('posts가 배열이 아닙니다:', typeof posts, posts)
+          resolve({ content: [], totalPages: 0 });
+          return
+        }
         
         // 페이지네이션
         const pagedPosts = posts.slice(page * size, (page + 1) * size);
         const totalPages = Math.ceil(posts.length / size);
         
+        console.log('페이지네이션 결과:', { total: posts.length, paged: pagedPosts.length, totalPages })
         resolve({ content: pagedPosts, totalPages });
       } catch (error) {
         console.error('게시글 목록 조회 실패:', error);
+        console.error('에러 상세:', error.message, error.stack);
         reject(error);
       }
     }),
@@ -73,6 +85,17 @@ const boardApi = {
       try {
         // 백엔드에서 게시글 가져오기
         const post = await backendApi.getPost(id);
+        
+        // matchData가 JSON 문자열이면 객체로 파싱
+        if (post.matchData && typeof post.matchData === 'string') {
+          try {
+            post.matchData = JSON.parse(post.matchData);
+          } catch (e) {
+            console.warn('matchData 파싱 실패:', e);
+            post.matchData = null;
+          }
+        }
+        
         resolve(post);
       } catch (error) {
         console.error('게시글 조회 실패:', error);
@@ -238,129 +261,42 @@ const boardApi = {
 
   // 투표 관련 API
   voteOnPost: (postId, optionIndex, userId) =>
-    new Promise((resolve, reject) => {
-      const categories = ["free", "guide", "lolmuncheol"];
-      let updated = false;
-      categories.forEach((cat) => {
-        const posts = loadPosts(cat);
-        const idx = posts.findIndex((p) => p.id === Number(postId));
-        if (idx !== -1 && posts[idx].vote) {
-          const vote = posts[idx].vote;
-          const isExpired = vote.hasEndTime && vote.endTime && new Date() > new Date(vote.endTime);
-          
-          if (isExpired) {
-            reject("투표가 종료되었습니다.");
-            return;
-          }
-
-          // 기존 투표 기록 확인
-          const voteKey = `vote-${postId}-${userId}`;
-          const existingVote = localStorage.getItem(voteKey);
-          
-          if (existingVote) {
-            reject("이미 투표하셨습니다.");
-            return;
-          }
-
-          // 투표 결과 업데이트
-          if (!vote.results) {
-            vote.results = {};
-          }
-          if (!vote.results[optionIndex]) {
-            vote.results[optionIndex] = 0;
-          }
-          vote.results[optionIndex]++;
-
-          // 투표 기록 저장
-          localStorage.setItem(voteKey, JSON.stringify({
-            optionIndex,
-            timestamp: new Date().toISOString()
-          }));
-
-          posts[idx].vote = vote;
-          savePosts(cat, posts);
-          updated = true;
-        }
-      });
-      if (updated) resolve(true);
-      else reject("투표 실패");
+    new Promise(async (resolve, reject) => {
+      try {
+        await backendApi.voteOnPost(postId, optionIndex);
+        resolve(true);
+      } catch (error) {
+        console.error('투표 실패:', error);
+        reject(error.message || "투표 실패");
+      }
     }),
 
   getVoteResults: (postId, userId) =>
-    new Promise((resolve) => {
-      const categories = ["free", "guide", "lolmuncheol"];
-      let voteData = null;
-      let userVote = null;
-
-      categories.forEach((cat) => {
-        const posts = loadPosts(cat);
-        const post = posts.find((p) => p.id === Number(postId));
-        if (post && post.vote) {
-          voteData = post.vote;
-        }
-      });
-
-      if (userId) {
-        const voteKey = `vote-${postId}-${userId}`;
-        const existingVote = localStorage.getItem(voteKey);
-        if (existingVote) {
-          const voteInfo = JSON.parse(existingVote);
-          userVote = voteInfo.optionIndex;
-        }
+    new Promise(async (resolve, reject) => {
+      try {
+        const result = await backendApi.getVoteResults(postId);
+        // 백엔드 응답 형식에 맞게 변환
+        resolve({
+          voteData: result.voteData,
+          userVote: result.userVote
+        });
+      } catch (error) {
+        console.error('투표 결과 조회 실패:', error);
+        // 에러 발생 시 기본값 반환
+        resolve({ voteData: null, userVote: null });
       }
-
-      resolve({ voteData, userVote });
     }),
 
   // 투표 취소 API
   removeVoteFromPost: (postId, userId) =>
-    new Promise((resolve, reject) => {
-      const categories = ["free", "guide", "lolmuncheol"];
-      let updated = false;
-      categories.forEach((cat) => {
-        const posts = loadPosts(cat);
-        const idx = posts.findIndex((p) => p.id === Number(postId));
-        if (idx !== -1 && posts[idx].vote) {
-          const vote = posts[idx].vote;
-          const isExpired = vote.hasEndTime && vote.endTime && new Date() > new Date(vote.endTime);
-          
-          if (isExpired) {
-            reject("투표가 종료되었습니다.");
-            return;
-          }
-
-          // 기존 투표 기록 확인
-          const voteKey = `vote-${postId}-${userId}`;
-          const existingVote = localStorage.getItem(voteKey);
-          
-          if (!existingVote) {
-            reject("투표한 기록이 없습니다.");
-            return;
-          }
-
-          try {
-            const voteData = JSON.parse(existingVote);
-            const optionIndex = voteData.optionIndex;
-
-            // 투표 결과에서 차감
-            if (vote.results && vote.results[optionIndex] && vote.results[optionIndex] > 0) {
-              vote.results[optionIndex]--;
-            }
-
-            // 투표 기록 삭제
-            localStorage.removeItem(voteKey);
-
-            posts[idx].vote = vote;
-            savePosts(cat, posts);
-            updated = true;
-          } catch (error) {
-            reject("투표 취소 중 오류가 발생했습니다.");
-            return;
-          }
-        }
-      });
-      if (updated) resolve(true);
-      else reject("투표 취소 실패");
+    new Promise(async (resolve, reject) => {
+      try {
+        await backendApi.removeVoteFromPost(postId);
+        resolve(true);
+      } catch (error) {
+        console.error('투표 취소 실패:', error);
+        reject(error.message || "투표 취소 실패");
+      }
     }),
 };
 

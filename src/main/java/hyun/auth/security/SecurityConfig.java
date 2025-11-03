@@ -44,8 +44,14 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/auth/login", "/auth/register").permitAll()
                         // 게시글 조회는 인증 없이 가능
                         .requestMatchers(HttpMethod.GET, "/api/posts/**").permitAll()
+                        // 투표 결과 조회는 인증 없이 가능
+                        .requestMatchers(HttpMethod.GET, "/api/posts/*/vote").permitAll()
                         // 댓글 조회는 인증 없이 가능
                         .requestMatchers(HttpMethod.GET, "/api/comments/**").permitAll()
+                        // 파일 조회는 인증 없이 가능
+                        .requestMatchers(HttpMethod.GET, "/api/files/**").permitAll()
+                        // 파일 업로드는 인증 필요
+                        .requestMatchers(HttpMethod.POST, "/api/upload/**").authenticated()
                         // 토큰 순위 조회는 인증 없이 가능 (구체적인 경로를 먼저 배치)
                         .requestMatchers("/api/user/ranking").permitAll()
                         // 그 외는 인증 필요

@@ -148,9 +148,9 @@ function WritePost({ currentUser }) {
     }
   }, [isEditMode, postToEdit]);
 
-  // 롤문철 글 작성 시 투표 강제 생성
+  // 롤문철 글 작성 시 투표 강제 생성 (처음 작성 모드일 때만)
   useEffect(() => {
-    if (formData.category === "lolmuncheol" && !isEditMode) {
+    if (formData.category === "lolmuncheol" && !isEditMode && !voteData) {
       // 기본 투표 데이터 생성
       const defaultVoteData = {
         question: "누가 이길까요?",
@@ -161,6 +161,12 @@ function WritePost({ currentUser }) {
       };
       setVoteData(defaultVoteData);
       setShowVoteSection(true);
+    } else if (formData.category !== "lolmuncheol") {
+      // 일반 카테고리로 변경 시 투표 데이터 초기화 (handleInputChange에서 이미 처리되지만 중복 방지)
+      if (voteData) {
+        setVoteData(null);
+        setShowVoteSection(false);
+      }
     }
   }, [formData.category, isEditMode]);
 
@@ -203,20 +209,65 @@ function WritePost({ currentUser }) {
         alert("롤문철 카테고리에서는 상대 사용자 닉네임이 필요합니다.");
         return;
       }
+      
+      // 롤문철에서는 투표 필수
+      if (!voteData || !voteData.question || !voteData.question.trim()) {
+        alert("롤문철 글에서는 투표 질문이 필수입니다.");
+        return;
+      }
+      
+      // 롤문철에서는 투표 옵션은 정확히 2개여야 함
+      if (!voteData.options || !Array.isArray(voteData.options) || voteData.options.length !== 2) {
+        alert("롤문철 투표는 옵션 2개로 고정됩니다.");
+        return;
+      }
+      
+      // 투표 옵션 내용 검증 (빈 값이 있으면 안됨)
+      const emptyOptions = voteData.options.filter(opt => !opt || !opt.trim());
+      if (emptyOptions.length > 0) {
+        alert("투표 옵션 내용을 모두 입력해주세요.");
+        return;
+      }
     }
 
     try {
-      const payload = { ...formData, writer: currentUser };
+      // contentEditable의 innerHTML을 가져와서 HTML 포함 저장
+      const contentHTML = contentEditableRef.current ? contentEditableRef.current.innerHTML : formData.content;
       
-      // 투표 데이터가 있으면 포함
-      if (voteData && voteData.question.trim()) {
-        payload.vote = voteData;
-      }
+      const payload = { 
+        ...formData, 
+        writer: currentUser,
+        content: contentHTML // HTML 포함된 content 저장
+      };
       
-      // 매치 데이터가 있으면 포함
-      if (formData.matchData) {
-        payload.matchData = formData.matchData;
+      // 투표 데이터는 롤문철 카테고리에서만 포함
+      if (formData.category === "lolmuncheol") {
+        if (!voteData || !voteData.question || !voteData.question.trim()) {
+          alert("롤문철 글에서는 투표 질문이 필수입니다.");
+          return;
+        }
+        
+        if (voteData.options && Array.isArray(voteData.options) && voteData.options.length === 2) {
+          const validOptions = voteData.options.filter(opt => opt && opt.trim());
+          if (validOptions.length === 2) {
+            payload.vote = {
+              ...voteData,
+              options: validOptions // 정확히 2개만 전달
+            };
+          } else {
+            alert("롤문철 투표는 옵션 2개가 모두 입력되어야 합니다.");
+            return;
+          }
+        } else {
+          alert("롤문철 투표는 옵션 2개로 고정됩니다.");
+          return;
+        }
       }
+      // 일반 카테고리에서는 투표 데이터를 포함하지 않음
+      
+      // 매치 데이터 포함 (null이어도 전달하여 서버에서 처리)
+      payload.matchData = formData.matchData || null;
+      console.log('전송되는 matchData:', payload.matchData);
       
       if (isEditMode) {
         const isLol = formData.category === "lolmuncheol";
@@ -233,22 +284,51 @@ function WritePost({ currentUser }) {
         await boardApi.updatePost(postToEdit.id, payload);
         alert("글이 수정되었습니다.");
       } else {
-        await boardApi.createPost(payload);
+        console.log('글 작성 시작, payload:', payload)
+        const result = await boardApi.createPost(payload);
+        console.log('글 작성 결과:', result)
         alert("글이 작성되었습니다.");
       }
       
       navigate(`/community/${formData.category}`);
     } catch (error) {
-      alert("작성 중 오류가 발생했습니다: " + error);
+      console.error('글 작성 에러:', error)
+      console.error('에러 상세:', error.message, error.stack)
+      const errorMessage = error.message || error.toString() || '알 수 없는 오류'
+      alert("작성 중 오류가 발생했습니다: " + errorMessage);
     }
   };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setFormData(prev => {
+      const updated = {
+        ...prev,
+        [name]: value
+      };
+      
+      // 카테고리가 변경되면 투표 관련 상태 초기화
+      if (name === "category") {
+        if (value !== "lolmuncheol") {
+          // 일반 카테고리로 변경 시 투표 데이터 초기화
+          setVoteData(null);
+          setShowVoteSection(false);
+        } else {
+          // 롤문철로 변경 시 기본 투표 데이터 생성
+          const defaultVoteData = {
+            question: "누가 이길까요?",
+            options: ["사용자A", "사용자B"],
+            description: "",
+            hasEndTime: true,
+            endTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16) // 7일 후
+          };
+          setVoteData(defaultVoteData);
+          setShowVoteSection(true);
+        }
+      }
+      
+      return updated;
+    });
   };
 
   const handleVoteChange = (newVoteData) => {
@@ -259,6 +339,12 @@ function WritePost({ currentUser }) {
     // 롤문철 글에서는 투표 섹션을 숨길 수 없음
     if (formData.category === "lolmuncheol") {
       alert("롤문철 글에서는 투표가 필수입니다.");
+      return;
+    }
+    
+    // 일반 카테고리에서는 투표 기능을 사용할 수 없음
+    if (formData.category !== "lolmuncheol") {
+      alert("투표 기능은 롤문철 카테고리에서만 사용할 수 있습니다.");
       return;
     }
     
@@ -275,21 +361,30 @@ function WritePost({ currentUser }) {
     if (contentEditableRef.current) {
       let mediaHtml = '';
       
+      // 서버 URL 우선 사용, 없으면 로컬 URL 사용
+      const mediaUrl = mediaData.serverUrl || mediaData.url;
+      
       if (mediaData.type === 'image') {
         // 이미지는 그대로 삽입
-        mediaHtml = `<img src="${mediaData.url}" alt="${mediaData.name}" data-media-id="${mediaData.id}" data-media-type="image" style="max-width: 200px; max-height: 150px; margin: 2px; vertical-align: middle; display: inline-block; border-radius: 4px; object-fit: cover;" contenteditable="false" draggable="false" />`;
+        mediaHtml = `<img src="${mediaUrl}" alt="${mediaData.name}" data-media-id="${mediaData.id}" data-media-type="image" style="max-width: 200px; max-height: 150px; margin: 2px; vertical-align: middle; display: inline-block; border-radius: 4px; object-fit: cover;" contenteditable="false" draggable="false" />`;
       } else if (mediaData.type === 'video') {
-        // 비디오는 썸네일 이미지로 삽입
-        try {
-          const thumbnailUrl = await generateVideoThumbnail(mediaData.url);
-          mediaHtml = `<span data-media-id="${mediaData.id}" data-media-type="video" data-video-url="${mediaData.url}" style="position: relative; display: inline-block; max-width: 200px; max-height: 150px; margin: 2px; vertical-align: middle; border-radius: 4px; overflow: hidden;" contenteditable="false" draggable="false">
+        // 비디오는 서버 URL이 있으면 직접 재생 가능하게 삽입, 없으면 썸네일 시도
+        if (mediaData.serverUrl) {
+          // 서버에 업로드된 비디오는 직접 재생 가능하게 삽입
+          mediaHtml = `<video src="${mediaUrl}" controls style="max-width: 200px; max-height: 150px; margin: 2px; vertical-align: middle; display: inline-block; border-radius: 4px; object-fit: cover;" contenteditable="false" draggable="false" data-media-id="${mediaData.id}" data-media-type="video"></video>`;
+        } else {
+          // 로컬 비디오는 썸네일 이미지로 삽입
+          try {
+            const thumbnailUrl = await generateVideoThumbnail(mediaData.url);
+            mediaHtml = `<span data-media-id="${mediaData.id}" data-media-type="video" data-video-url="${mediaUrl}" style="position: relative; display: inline-block; max-width: 200px; max-height: 150px; margin: 2px; vertical-align: middle; border-radius: 4px; overflow: hidden;" contenteditable="false" draggable="false">
   <img src="${thumbnailUrl}" alt="${mediaData.name}" style="max-width: 200px; max-height: 150px; display: block; border-radius: 4px; object-fit: cover; pointer-events: none;" draggable="false" />
   <span style="position: absolute; top: 2px; right: 2px; background: rgba(0,0,0,0.7); color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; pointer-events: none;">🎥</span>
 </span>`;
-        } catch (error) {
-          console.error('썸네일 생성 실패:', error);
-          // 썸네일 생성 실패 시 비디오 아이콘만 있는 div로 대체
-          mediaHtml = `<span data-media-id="${mediaData.id}" data-media-type="video" data-video-url="${mediaData.url}" style="max-width: 200px; max-height: 150px; margin: 2px; vertical-align: middle; display: inline-block; border-radius: 4px; background: #f0f0f0; width: 200px; height: 150px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #ddd;" contenteditable="false"><span style="font-size: 40px;">🎥</span></span>`;
+          } catch (error) {
+            console.error('썸네일 생성 실패:', error);
+            // 썸네일 생성 실패 시 비디오 아이콘만 있는 div로 대체
+            mediaHtml = `<span data-media-id="${mediaData.id}" data-media-type="video" data-video-url="${mediaUrl}" style="max-width: 200px; max-height: 150px; margin: 2px; vertical-align: middle; display: inline-block; border-radius: 4px; background: #f0f0f0; width: 200px; height: 150px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #ddd;" contenteditable="false"><span style="font-size: 40px;">🎥</span></span>`;
+          }
         }
       }
       
@@ -838,6 +933,7 @@ function WritePost({ currentUser }) {
             voteData={voteData}
             onVoteChange={handleVoteChange}
             isEditMode={true}
+            isLolmuncheol={true}
           />
         )}
 

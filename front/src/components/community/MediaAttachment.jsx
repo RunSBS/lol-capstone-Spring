@@ -1,7 +1,9 @@
 import React, { useState, useRef } from "react";
+import backendApi from "../../data/backendApi";
 
 function MediaAttachment({ onMediaInsert, content, setContent }) {
   const [previewFiles, setPreviewFiles] = useState([]);
+  const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
 
   const handleFileSelect = (e) => {
@@ -40,144 +42,53 @@ function MediaAttachment({ onMediaInsert, content, setContent }) {
     e.target.value = '';
   };
 
-  const handleInsertMedia = (mediaData) => {
-    console.log('이미지 삽입 시작:', mediaData);
+  const handleInsertMedia = async (mediaData) => {
+    console.log('미디어 삽입 시작:', mediaData);
+    
+    if (!mediaData.file) {
+      alert('파일 정보가 없습니다.');
+      return;
+    }
+
+    setUploading(true);
     
     try {
-      // 미디어 데이터를 로컬 스토리지에 저장
-      localStorage.setItem(`media_${mediaData.id}`, JSON.stringify(mediaData));
-      console.log('로컬 스토리지에 저장됨:', `media_${mediaData.id}`);
+      // 서버에 파일 업로드
+      const uploadResult = await backendApi.uploadMedia(mediaData.file);
+      console.log('파일 업로드 성공:', uploadResult);
       
-      // 본문에 미디어 삽입
-      const mediaTag = `[MEDIA:${mediaData.id}]`;
-      const newContent = content + '\n' + mediaTag + '\n';
-      setContent(newContent);
+      // 업로드된 파일 URL로 미디어 데이터 업데이트
+      const uploadedMediaData = {
+        ...mediaData,
+        id: mediaData.id,
+        url: uploadResult.url, // 서버 URL 사용
+        serverUrl: uploadResult.url,
+        filename: uploadResult.filename
+      };
       
+      // 로컬 스토리지에도 저장 (백업용)
+      try {
+        localStorage.setItem(`media_${mediaData.id}`, JSON.stringify(uploadedMediaData));
+      } catch (storageError) {
+        console.warn('로컬 스토리지 저장 실패 (계속 진행):', storageError);
+      }
       
       // 부모 컴포넌트에 미디어 삽입 알림
       if (onMediaInsert) {
-        onMediaInsert(mediaData);
+        onMediaInsert(uploadedMediaData);
       }
       
       // 미리보기 상태 완전히 초기화
       setPreviewFiles([]);
       
-      // 커서를 미디어 태그 뒤로 이동
-      setTimeout(() => {
-        const textarea = document.querySelector('textarea[name="content"]');
-        if (textarea) {
-          const cursorPos = newContent.length;
-          textarea.setSelectionRange(cursorPos, cursorPos);
-          textarea.focus();
-        }
-      }, 100);
+      alert('파일이 업로드되었습니다.');
       
     } catch (error) {
-      if (error.name === 'QuotaExceededError') {
-        console.warn('로컬 스토리지 용량 초과, 이미지 압축 시도');
-        
-        // 이미지 압축 시도
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        const img = new Image();
-        
-        img.onload = () => {
-          // 이미지 크기를 800px로 제한
-          const maxWidth = 800;
-          const maxHeight = 600;
-          let { width, height } = img;
-          
-          if (width > maxWidth || height > maxHeight) {
-            const ratio = Math.min(maxWidth / width, maxHeight / height);
-            width *= ratio;
-            height *= ratio;
-          }
-          
-          canvas.width = width;
-          canvas.height = height;
-          
-          // 압축된 이미지 그리기
-          ctx.drawImage(img, 0, 0, width, height);
-          
-          // 압축된 이미지를 base64로 변환 (품질 0.8)
-          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.8);
-          
-          // 압축된 데이터로 미디어 객체 업데이트
-          const compressedMediaData = {
-            ...mediaData,
-            url: compressedDataUrl
-          };
-          
-          try {
-            localStorage.setItem(`media_${mediaData.id}`, JSON.stringify(compressedMediaData));
-            console.log('압축된 이미지 저장 성공');
-            
-            // 본문에 미디어 삽입
-            const mediaTag = `[MEDIA:${mediaData.id}]`;
-            const newContent = content + '\n' + mediaTag + '\n';
-            setContent(newContent);
-            
-            
-            // 부모 컴포넌트에 미디어 삽입 알림
-            if (onMediaInsert) {
-              onMediaInsert(compressedMediaData);
-            }
-            
-            // 미리보기 상태 완전히 초기화
-            setPreviewFiles([]);
-            
-            // 커서를 미디어 태그 뒤로 이동
-            setTimeout(() => {
-              const textarea = document.querySelector('textarea[name="content"]');
-              if (textarea) {
-                const cursorPos = newContent.length;
-                textarea.setSelectionRange(cursorPos, cursorPos);
-                textarea.focus();
-              }
-            }, 100);
-            
-          } catch (retryError) {
-            console.error('압축 후에도 저장 실패:', retryError);
-            alert('파일이 너무 큽니다. 더 작은 이미지를 선택해주세요.');
-          }
-        };
-        
-        img.src = mediaData.url;
-        return;
-      } else {
-        console.error('로컬 스토리지 저장 실패:', error);
-        alert('파일 저장에 실패했습니다.');
-        return;
-      }
+      console.error('파일 업로드 실패:', error);
+      alert('파일 업로드에 실패했습니다: ' + (error.message || '알 수 없는 오류'));
+    } finally {
+      setUploading(false);
     }
-    
-    // 정상적인 경우 (용량 문제 없음)
-    // 본문에 미디어 삽입
-    const mediaTag = `[MEDIA:${mediaData.id}]`;
-    const newContent = content + '\n' + mediaTag + '\n';
-    console.log('새로운 콘텐츠:', newContent);
-    setContent(newContent);
-    
-    // 첨부된 파일 목록에 추가
-    setAttachedFiles(prev => [...prev, mediaData]);
-    
-    // 부모 컴포넌트에 미디어 삽입 알림
-    if (onMediaInsert) {
-      onMediaInsert(mediaData);
-    }
-    
-    // 미리보기 상태 완전히 초기화
-    setPreviewFiles([]);
-    
-    // 커서를 미디어 태그 뒤로 이동
-    setTimeout(() => {
-      const textarea = document.querySelector('textarea[name="content"]');
-      if (textarea) {
-        const cursorPos = newContent.length;
-        textarea.setSelectionRange(cursorPos, cursorPos);
-        textarea.focus();
-      }
-    }, 100);
   };
 
   const handleCancelPreview = (mediaId) => {
@@ -208,17 +119,18 @@ function MediaAttachment({ onMediaInsert, content, setContent }) {
                   <button 
                     type="button"
                     onClick={() => handleInsertMedia(mediaData)}
+                    disabled={uploading}
                     style={{
                       padding: '4px 12px',
-                      backgroundColor: '#28a745',
+                      backgroundColor: uploading ? '#6c757d' : '#28a745',
                       color: 'white',
                       border: 'none',
                       borderRadius: 4,
-                      cursor: 'pointer',
+                      cursor: uploading ? 'not-allowed' : 'pointer',
                       fontSize: '12px'
                     }}
                   >
-                    {mediaData.type === 'image' ? '이미지삽입' : '영상삽입'}
+                    {uploading ? '업로드 중...' : (mediaData.type === 'image' ? '이미지 업로드' : '영상 업로드')}
                   </button>
                   <button 
                     type="button"

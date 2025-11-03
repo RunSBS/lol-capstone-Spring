@@ -13,24 +13,72 @@ function PopularPosts() {
   const loadLolmuncheolPosts = async () => {
     try {
       setLoading(true)
+      console.log('인기글 로드 시작: lolmuncheol 카테고리')
+      
       // API 호출 방식 수정
       const response = await boardApi.getPosts(0, 50, 'lolmuncheol')
-      const posts = response.content || []
+      console.log('인기글 API 응답:', response)
+      
+      const posts = (response && response.content) ? response.content : (Array.isArray(response) ? response : [])
+      console.log('파싱된 게시글 수:', posts.length)
+      
+      if (!Array.isArray(posts)) {
+        console.error('posts가 배열이 아닙니다:', typeof posts, posts)
+        setLolmuncheolPosts([])
+        return
+      }
+      
+      // 각 게시글의 vote 정보 확인
+      posts.forEach(post => {
+        console.log(`게시글 ${post.id} (${post.title}):`, {
+          category: post.category,
+          hasVote: !!post.vote,
+          voteType: typeof post.vote,
+          vote: post.vote,
+          hasResults: !!(post.vote && post.vote.results),
+          hasOptions: !!(post.vote && post.vote.options)
+        })
+      })
       
       // 투표 데이터를 포함한 글들만 필터링하고 투표 점수로 정렬
-      const postsWithVotes = posts.filter(post => post.vote && post.vote.results)
+      // 롤문철 카테고리이고 vote 정보가 있는 경우만 포함
+      const postsWithVotes = posts.filter(post => {
+        // category가 lolmuncheol이고 vote가 있고 results와 options가 있는 경우만
+        if (post.category === 'lolmuncheol') {
+          const hasVote = post && post.vote && post.vote.results && post.vote.options
+          if (!hasVote) {
+            console.log('투표 없는 롤문철 글 필터링됨:', post.id, post.title, 'vote:', post.vote)
+          }
+          return hasVote
+        }
+        return false
+      })
+      console.log('투표 있는 글 수:', postsWithVotes.length)
       const sortedPosts = postsWithVotes
         .map(post => {
-          const totalVotes = Object.values(post.vote.results).reduce((sum, count) => sum + count, 0)
-          const voteResults = post.vote.results
+          // Map이 JSON으로 변환되면 키가 문자열일 수 있으므로 안전하게 처리
+          const results = post.vote.results || {}
+          const voteResults = typeof results === 'object' && !Array.isArray(results) ? results : {}
+          
+          // 숫자 키로 접근 (문자열 키도 허용)
+          const getVoteCount = (index) => {
+            return voteResults[index] || voteResults[String(index)] || voteResults[`${index}`] || 0
+          }
+          
+          const votes0 = getVoteCount(0)
+          const votes1 = getVoteCount(1)
+          const totalVotes = votes0 + votes1
           const voteOptions = post.vote.options || []
           
           // 각 옵션별 득표수와 비율 계산
-          const voteStats = voteOptions.map((option, index) => ({
-            option: option,
-            votes: voteResults[index] || 0,
-            percentage: totalVotes > 0 ? Math.round(((voteResults[index] || 0) / totalVotes) * 100) : 0
-          }))
+          const voteStats = voteOptions.map((option, index) => {
+            const votes = getVoteCount(index)
+            return {
+              option: option,
+              votes: votes,
+              percentage: totalVotes > 0 ? Math.round((votes / totalVotes) * 100) : 0
+            }
+          })
           
           return {
             ...post,
@@ -41,9 +89,11 @@ function PopularPosts() {
         .sort((a, b) => b.totalVotes - a.totalVotes) // 총 투표수로 정렬
         .slice(0, 5)
       
+      console.log('정렬된 인기글 수:', sortedPosts.length)
       setLolmuncheolPosts(sortedPosts)
     } catch (error) {
       console.error('롤문철 글 로드 실패:', error)
+      console.error('에러 상세:', error.message, error.stack)
       setLolmuncheolPosts([])
     } finally {
       setLoading(false)

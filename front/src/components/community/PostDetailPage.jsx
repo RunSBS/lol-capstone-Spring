@@ -19,11 +19,30 @@ function PostDetailPage({ currentUser, adminId, postId }) {
 
   useEffect(() => {
     boardApi.getPost(id).then((data) => {
+      if (!data) {
+        console.error('게시글 데이터가 없습니다.');
+        return;
+      }
       setPost(data);
       // 백엔드에서 받은 좋아요/싫어요 개수 사용
       setLike(data.like || 0);
       setDislike(data.dislike || 0);
-      setVoteData(data.vote || null);
+      
+      // 롤문철 카테고리이고 vote 정보가 있으면 기본 voteData 설정
+      if (data.category === "lolmuncheol" && data.vote) {
+        setVoteData({
+          question: data.vote.question || "",
+          options: data.vote.options || [],
+          results: data.vote.results || { 0: 0, 1: 0 },
+          endTime: data.vote.endTime || null,
+          hasEndTime: data.vote.endTime ? true : false
+        });
+      } else {
+        setVoteData(data.vote || null);
+      }
+    }).catch((error) => {
+      console.error('게시글 로드 실패:', error);
+      alert('게시글을 불러오는 데 실패했습니다: ' + error);
     });
 
     const voteInfo = JSON.parse(localStorage.getItem(getVoteKey()));
@@ -35,12 +54,44 @@ function PostDetailPage({ currentUser, adminId, postId }) {
     }
 
     // 투표 결과 및 사용자 투표 정보 로드
-    if (currentUser) {
-      boardApi.getVoteResults(id, currentUser).then(({ voteData, userVote }) => {
-        setVoteData(voteData);
-        setUserVoteOption(userVote);
-      });
-    }
+    // 롤문철 카테고리이면 항상 투표 결과 조회 (로그인 여부와 관계없이)
+    boardApi.getPost(id).then((postData) => {
+      if (!postData) {
+        console.warn('게시글 데이터가 없어 투표 결과를 조회할 수 없습니다.');
+        return;
+      }
+      if (postData && postData.category === "lolmuncheol" && postData.vote) {
+        boardApi.getVoteResults(id, currentUser).then(({ voteData, userVote }) => {
+          // voteData가 있으면 사용, 없으면 post.vote 기반으로 생성
+          if (voteData) {
+            setVoteData(voteData);
+          } else if (postData.vote) {
+            setVoteData({
+              question: postData.vote.question || "",
+              options: postData.vote.options || [],
+              results: postData.vote.results || { 0: 0, 1: 0 },
+              endTime: postData.vote.endTime || null,
+              hasEndTime: postData.vote.endTime ? true : false
+            });
+          }
+          setUserVoteOption(userVote);
+        }).catch(error => {
+          console.error('투표 결과 조회 실패:', error);
+          // 에러 발생 시에도 post.vote를 기반으로 표시
+          if (postData && postData.vote) {
+            setVoteData({
+              question: postData.vote.question || "",
+              options: postData.vote.options || [],
+              results: postData.vote.results || { 0: 0, 1: 0 },
+              endTime: postData.vote.endTime || null,
+              hasEndTime: postData.vote.endTime ? true : false
+            });
+          }
+        });
+      }
+    }).catch(error => {
+      console.error('게시글 재조회 실패:', error);
+    });
 
     // no state here for cheer; handled inline
   }, [id, currentUser]);
@@ -368,7 +419,16 @@ function PostDetailPage({ currentUser, adminId, postId }) {
         </div>
 
         {/* 투표 섹션 - 본문과 댓글 사이 */}
-        <VoteDisplayStatic />
+        {/* 롤문철 카테고리이고 vote 정보가 있으면 항상 표시 */}
+        {post && post.category === "lolmuncheol" && post.vote && (
+          <VoteDisplay 
+            voteData={voteData || post.vote} 
+            userVoteOption={userVoteOption}
+            onVoteSubmit={handleVoteSubmit}
+            onVoteCancel={handleVoteCancel}
+            currentUser={currentUser}
+          />
+        )}
 
         <CommentSection postId={post.id} currentUser={currentUser} />
       </div>
@@ -404,9 +464,10 @@ function PostDetailPage({ currentUser, adminId, postId }) {
       }} dangerouslySetInnerHTML={{ __html: renderContentWithMedia(post.content) }} />
       
       {/* 투표 섹션 */}
-      {voteData && (
+      {/* 롤문철 카테고리이고 vote 정보가 있으면 항상 표시 */}
+      {post && post.category === "lolmuncheol" && post.vote && (
         <VoteDisplay 
-          voteData={voteData} 
+          voteData={voteData || post.vote} 
           userVoteOption={userVoteOption}
           onVoteSubmit={handleVoteSubmit}
           onVoteCancel={handleVoteCancel}
@@ -429,10 +490,15 @@ function PostDetailPage({ currentUser, adminId, postId }) {
   );
 }
 
-// 투표 표시 컴포넌트
+  // 투표 표시 컴포넌트
 function VoteDisplay({ voteData, userVoteOption, onVoteSubmit, onVoteCancel, currentUser }) {
   const [selectedOption, setSelectedOption] = useState(userVoteOption);
   const [hasVoted, setHasVoted] = useState(userVoteOption !== null);
+
+  // voteData가 없으면 기본값 설정
+  if (!voteData || !voteData.question || !voteData.options) {
+    return null; // 필수 데이터가 없으면 렌더링하지 않음
+  }
 
   const isExpired = voteData.hasEndTime && voteData.endTime && new Date() > new Date(voteData.endTime);
   const endTimeText = voteData.hasEndTime && voteData.endTime 
@@ -457,14 +523,23 @@ function VoteDisplay({ voteData, userVoteOption, onVoteSubmit, onVoteCancel, cur
 
   const getTotalVotes = () => {
     if (!voteData.results) return 0;
-    return Object.values(voteData.results).reduce((sum, count) => sum + count, 0);
+    // results가 객체인지 확인하고 안전하게 처리
+    const results = voteData.results || {};
+    return Object.values(results).reduce((sum, count) => {
+      const num = typeof count === 'number' ? count : parseInt(count) || 0;
+      return sum + num;
+    }, 0);
   };
 
   const getVotePercentage = (optionIndex) => {
-    if (!voteData.results || !voteData.results[optionIndex]) return 0;
+    if (!voteData.results) return 0;
+    const results = voteData.results || {};
+    // 숫자 키와 문자열 키 모두 처리
+    const voteCount = results[optionIndex] || results[String(optionIndex)] || 0;
     const total = getTotalVotes();
     if (total === 0) return 0;
-    return Math.round((voteData.results[optionIndex] / total) * 100);
+    const count = typeof voteCount === 'number' ? voteCount : parseInt(voteCount) || 0;
+    return Math.round((count / total) * 100);
   };
 
   return (
@@ -521,7 +596,10 @@ function VoteDisplay({ voteData, userVoteOption, onVoteSubmit, onVoteCancel, cur
       ) : (
         <div style={{ marginBottom: 15 }}>
           {voteData.options.map((option, index) => {
-            const voteCount = voteData.results?.[index] || 0;
+            // results가 없어도 0으로 표시
+            const results = voteData.results || {};
+            const voteCount = results[index] || results[String(index)] || 0;
+            const count = typeof voteCount === 'number' ? voteCount : parseInt(voteCount) || 0;
             const percentage = getVotePercentage(index);
             const isUserVote = userVoteOption === index;
             
@@ -545,7 +623,7 @@ function VoteDisplay({ voteData, userVoteOption, onVoteSubmit, onVoteCancel, cur
                   <span style={{ 
                     flexShrink: 0,
                     marginLeft: 10
-                  }}>{voteCount}표 ({percentage}%)</span>
+                  }}>{count}표 ({percentage}%)</span>
                 </div>
                 <div style={{ 
                   width: "100%", 

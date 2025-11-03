@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 
-function VoteSection({ voteData, onVoteChange, isEditMode = false }) {
+function VoteSection({ voteData, onVoteChange, isEditMode = false, isLolmuncheol = false }) {
   const [vote, setVote] = useState(voteData || {
     question: "",
     options: ["", ""],
@@ -24,6 +24,16 @@ function VoteSection({ voteData, onVoteChange, isEditMode = false }) {
   };
 
   const addOption = () => {
+    // 롤문철에서는 옵션 추가 불가 (항상 2개 고정)
+    if (isLolmuncheol) {
+      alert("롤문철 투표는 옵션 2개로 고정됩니다.");
+      return;
+    }
+    // 최대 옵션 개수 제한 (10개)
+    if (vote.options.length >= 10) {
+      alert("투표 옵션은 최대 10개까지 추가할 수 있습니다.");
+      return;
+    }
     const newOptions = [...vote.options, ""];
     const newVote = { ...vote, options: newOptions };
     setVote(newVote);
@@ -31,7 +41,8 @@ function VoteSection({ voteData, onVoteChange, isEditMode = false }) {
   };
 
   const removeOption = (index) => {
-    if (vote.options.length <= 2) return;
+    // 롤문철에서는 옵션 삭제 불가 (항상 2개 고정)
+    if (isLolmuncheol || vote.options.length <= 2) return;
     const newOptions = vote.options.filter((_, i) => i !== index);
     const newVote = { ...vote, options: newOptions };
     setVote(newVote);
@@ -110,7 +121,7 @@ function VoteSection({ voteData, onVoteChange, isEditMode = false }) {
                   maxWidth: "100%"
                 }}
               />
-              {vote.options.length > 2 && (
+              {!isLolmuncheol && vote.options.length > 2 && (
                 <button
                   type="button"
                   onClick={() => removeOption(index)}

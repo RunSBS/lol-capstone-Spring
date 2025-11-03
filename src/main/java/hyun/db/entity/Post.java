@@ -34,6 +34,10 @@ public class Post {
     @Column(nullable = false)
     private String content;      // 내용
 
+    @Lob
+    @Column(name = "MATCH_DATA")
+    private String matchData;     // 전적 데이터 (JSON 형식, 롤문철 카테고리용)
+
     @Column(length = 50)
     private String category;     // 카테고리 (free, guide, lolmuncheol)
 

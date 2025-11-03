@@ -18,16 +18,29 @@ const backendApi = {
       ? `${API_BASE_URL}/posts?category=${category}`
       : `${API_BASE_URL}/posts`;
     
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: getAuthHeaders()
-    });
+    console.log('backendApi.getPosts 호출:', url)
+    
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: getAuthHeaders()
+      });
 
-    if (!response.ok) {
-      throw new Error('게시글 목록 조회 실패');
+      console.log('응답 상태:', response.status, response.statusText)
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('응답 에러:', response.status, errorText);
+        throw new Error(`게시글 목록 조회 실패: ${response.status} ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('응답 데이터:', data, '타입:', typeof data, '배열 여부:', Array.isArray(data));
+      return data;
+    } catch (error) {
+      console.error('fetch 에러:', error);
+      throw error;
     }
-
-    return await response.json();
   },
 
   // 게시글 작성
@@ -59,11 +72,15 @@ const backendApi = {
       requestBody.matchData = postData.matchData;
     }
     
+    console.log('글 작성 요청:', requestBody)
+    
     const response = await fetch(`${API_BASE_URL}/posts`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(requestBody)
     });
+    
+    console.log('글 작성 응답 상태:', response.status, response.statusText)
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -81,7 +98,18 @@ const backendApi = {
     });
 
     if (!response.ok) {
-      throw new Error('게시글 조회 실패');
+      let errorMessage = '게시글 조회 실패';
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.message || errorData.error || errorMessage;
+      } catch (e) {
+        const errorText = await response.text();
+        if (errorText) {
+          errorMessage = errorText;
+        }
+      }
+      console.error('게시글 조회 에러:', response.status, errorMessage);
+      throw new Error(errorMessage);
     }
 
     return await response.json();
@@ -475,6 +503,73 @@ const backendApi = {
       console.error('토큰 순위 조회 에러:', error);
       return []; // 에러 발생 시 빈 배열 반환 (fallback to localStorage)
     }
+  },
+
+  // 파일 업로드
+  uploadMedia: async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const token = localStorage.getItem('token');
+    const headers = {
+      ...(token && { 'Authorization': `Bearer ${token}` })
+    };
+    
+    const response = await fetch(`${API_BASE_URL}/upload/media`, {
+      method: 'POST',
+      headers: headers,
+      body: formData
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || '파일 업로드 실패');
+    }
+
+    return await response.json();
+  },
+
+  // 투표 관련 API
+  voteOnPost: async (postId, optionIndex) => {
+    const response = await fetch(`${API_BASE_URL}/posts/${postId}/vote?optionIndex=${optionIndex}`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: '투표 실패' }));
+      throw new Error(errorData.error || '투표 실패');
+    }
+
+    return await response.json();
+  },
+
+  getVoteResults: async (postId) => {
+    const response = await fetch(`${API_BASE_URL}/posts/${postId}/vote`, {
+      method: 'GET',
+      headers: getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: '투표 결과 조회 실패' }));
+      throw new Error(errorData.error || '투표 결과 조회 실패');
+    }
+
+    return await response.json();
+  },
+
+  removeVoteFromPost: async (postId) => {
+    const response = await fetch(`${API_BASE_URL}/posts/${postId}/vote`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: '투표 취소 실패' }));
+      throw new Error(errorData.error || '투표 취소 실패');
+    }
+
+    return await response.json();
   }
 };
 
