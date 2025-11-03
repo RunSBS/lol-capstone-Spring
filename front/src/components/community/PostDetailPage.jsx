@@ -580,12 +580,40 @@ function VoteDisplay({ voteData, userVoteOption, onVoteSubmit, onVoteCancel, cur
   const [selectedOption, setSelectedOption] = useState(userVoteOption);
   const [hasVoted, setHasVoted] = useState(userVoteOption !== null);
   const [isExpired, setIsExpired] = useState(false);
+  const [endTimeText, setEndTimeText] = useState(null);
 
   // userVoteOption이 변경될 때 상태 업데이트
   useEffect(() => {
     setSelectedOption(userVoteOption);
     setHasVoted(userVoteOption !== null);
   }, [userVoteOption]);
+
+  // voteData의 endTime이 변경될 때 종료 시간 텍스트 업데이트
+  useEffect(() => {
+    if (!voteData) {
+      setEndTimeText(null);
+      return;
+    }
+
+    const hasEndTime = voteData.hasEndTime || (voteData.endTime != null && voteData.endTime !== '');
+    if (hasEndTime && voteData.endTime) {
+      try {
+        const date = new Date(voteData.endTime);
+        if (isNaN(date.getTime())) {
+          console.warn('유효하지 않은 종료 시간:', voteData.endTime);
+          setEndTimeText(null);
+          return;
+        }
+        const formatted = date.toLocaleString();
+        setEndTimeText(formatted);
+      } catch (error) {
+        console.error('종료 시간 파싱 오류:', error);
+        setEndTimeText(null);
+      }
+    } else {
+      setEndTimeText(null);
+    }
+  }, [voteData]);
 
   // 투표 종료 시간 체크 및 업데이트
   useEffect(() => {
@@ -643,10 +671,6 @@ function VoteDisplay({ voteData, userVoteOption, onVoteSubmit, onVoteCancel, cur
     return null; // 필수 데이터가 없으면 렌더링하지 않음
   }
 
-  const endTimeText = voteData.hasEndTime && voteData.endTime 
-    ? new Date(voteData.endTime).toLocaleString() 
-    : null;
-
   const handleVote = async () => {
     if (selectedOption === null) {
       alert("투표 옵션을 선택해주세요.");
@@ -695,13 +719,25 @@ function VoteDisplay({ voteData, userVoteOption, onVoteSubmit, onVoteCancel, cur
       <h3 style={{ marginBottom: 15, color: "#333" }}>📊 투표</h3>
       
       <div style={{ marginBottom: 15 }}>
-        <h4 style={{ marginBottom: 10 }}>{voteData.question}</h4>
-        
-        {endTimeText && (
-          <p style={{ color: "#666", fontSize: "0.9em", marginBottom: 15 }}>
-            종료 시간: {endTimeText}
-          </p>
-        )}
+        <h4 style={{ 
+          marginBottom: 10,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center"
+        }}>
+          <span>{voteData.question}</span>
+          {endTimeText && (
+            <span style={{ 
+              color: isExpired ? "#dc3545" : "#333", 
+              fontSize: "0.9em", 
+              fontWeight: isExpired ? "bold" : "normal",
+              marginLeft: "20px",
+              whiteSpace: "nowrap"
+            }}>
+              종료: {endTimeText}
+            </span>
+          )}
+        </h4>
         
         {isExpired && (
           <p style={{ color: "#dc3545", fontWeight: "bold", marginBottom: 15 }}>
