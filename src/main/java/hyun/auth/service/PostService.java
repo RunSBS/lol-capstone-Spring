@@ -283,7 +283,6 @@ public class PostService {
         posts.delete(p);
     }
 
-    @Transactional(readOnly = true)
     public PostDto findById(Long id) {
         log.info("findById called with id: {}", id);
         
@@ -299,8 +298,6 @@ public class PostService {
                 if (p.getUser() != null) {
                     writer = p.getUser().getUsername();
                 }
-            } catch (org.hibernate.LazyInitializationException e) {
-                log.warn("LazyInitializationException for user in post {}: {}", id, e.getMessage());
             } catch (Exception e) {
                 log.warn("Error getting writer for post {}: {}", id, e.getMessage());
             }
@@ -335,8 +332,6 @@ public class PostService {
                                 writerB = bet.getBettorB().getUsername();
                                 log.info("writerB: {}", writerB);
                             }
-                        } catch (org.hibernate.LazyInitializationException e) {
-                            log.warn("LazyInitializationException for bettorB in post {}: {}", id, e.getMessage());
                         } catch (Exception e) {
                             log.warn("Error getting bettorB username for post {}: {}", id, e.getMessage());
                         }

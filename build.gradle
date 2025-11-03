@@ -54,6 +54,10 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    // OCI Object Storage SDK
+    implementation 'com.oracle.oci.sdk:oci-java-sdk-objectstorage:3.44.3'
+    implementation 'com.oracle.oci.sdk:oci-java-sdk-common-httpclient-jersey3:3.44.3'
 }
 
 tasks.named('test') {

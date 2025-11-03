@@ -127,7 +127,8 @@ public class PostController {
             throw e;
         } catch (Exception e) {
             log.error("게시글 조회 중 예상치 못한 오류: postId={}, error={}", id, e.getMessage(), e);
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "게시글 조회 중 오류가 발생했습니다.");
+            e.printStackTrace();
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "게시글 조회 중 오류가 발생했습니다: " + e.getClass().getSimpleName() + " - " + e.getMessage());
         }
     }
 
