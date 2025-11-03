@@ -1,0 +1,603 @@
+import { useEffect, useMemo, useState } from 'react'
+import { useParams } from 'react-router-dom'
+import '../styles/summoner.css'
+import Header from '../components/common/Header.jsx'
+import Footer from '../components/common/Footer.jsx'
+import SummonerProfile from '../components/summoner/SummonerProfile.jsx'
+import GameModeNavigation from '../components/summoner/GameModeNavigation.jsx'
+import RankedGameCard from '../components/summoner/RankedGameCard.jsx'
+import FlexRankCard from '../components/summoner/FlexRankCard.jsx'
+import RecentChampionsCard from '../components/summoner/RecentChampionsCard.jsx'
+import MasteryCard from '../components/summoner/MasteryCard.jsx'
+import PlayedWithCard from '../components/summoner/PlayedWithCard.jsx'
+import MainContent from '../components/summoner/MainContent.jsx'
+// 백엔드 API 호출 유틸
+import { fetchSummonerView, fetchRecentMatches, fetchDDragonVersion, fetchChampionMastery, fetchPlayedWith } from '../data/api.js'
+// Data Dragon 아이콘 URL 유틸
+import { buildChampionSquareUrl, buildItemIconUrl, tryBuildSummonerSpellIconUrl, tryBuildRuneIconUrl, buildRuneStyleIcon, loadSpellMap, loadRuneMap, inferStyleIdFromPerkId, getStyleStaticIcon, loadChampions } from '../data/ddragon.js'
+function SummonerPage() {
+  // URL 파라미터에서 gameName#tagLine 분리
+  const { nickname } = useParams()
+  const [view, setView] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [ddVer, setDdVer] = useState('15.18.1')
+  const [recent, setRecent] = useState([])
+  const [refreshing, setRefreshing] = useState(false)
+  const [masteryData, setMasteryData] = useState([])
+  const [playedWithData, setPlayedWithData] = useState([])
+  const [champNameMap, setChampNameMap] = useState({})
+  const [lastUpdatedAt, setLastUpdatedAt] = useState(null)
+  const [loadingMore, setLoadingMore] = useState(false)
+
+  const { gameName, tagLine } = useMemo(() => {
+    const decoded = decodeURIComponent(nickname || '')
+    const [name, tag] = decoded.split('#')
+    const result = { 
+      gameName: name || '', 
+      tagLine: (tag || 'KR1').toLowerCase() // 태그가 없으면 기본값 KR1 사용
+    }
+    return result
+  }, [nickname])
+
+  useEffect(() => {
+    // 최신 버전/소환사 뷰 로드 후 최근 전적까지 이어서 호출
+    let mounted = true
+    if (!gameName) return // gameName만 확인, tagLine은 기본값이 있으므로 제거
+    
+    // 새로운 검색 시작 시 이전 데이터 초기화
+    setLoading(true)
+    setError(null)
+    setRecent([]) // 매치 데이터 초기화
+    setMasteryData([]) // 숙련도 데이터 초기화
+    setPlayedWithData([]) // 함께 플레이한 소환사 데이터 초기화
+    setView(null) // 소환사 뷰 데이터 초기화
+    
+    Promise.all([
+      fetchDDragonVersion().catch(() => '15.18.1'),
+      fetchSummonerView(gameName, tagLine)
+    ])
+      .then(async ([ver, v]) => {
+        if (!mounted) return
+        setDdVer(ver || '15.18.1')
+        setView(v)
+        setLastUpdatedAt(v?.revisionDate || Date.now())
+        // 스펠/룬 매핑 사전 로딩 (아이콘 URL 매핑)
+        try { await Promise.all([loadSpellMap(ver), loadRuneMap(ver)]) } catch {}
+        
+        // 최근 전적, 숙련도, 함께 플레이한 소환사 데이터를 병렬로 호출
+        try {
+          const [matches, mastery, playedWith] = await Promise.all([
+            fetchRecentMatches(gameName, tagLine, 10),
+            fetchChampionMastery(gameName, tagLine),
+            fetchPlayedWith(gameName, tagLine)
+          ])
+          if (!mounted) return
+          setRecent(Array.isArray(matches) ? matches : [])
+          setMasteryData(Array.isArray(mastery) ? mastery : [])
+          setPlayedWithData(Array.isArray(playedWith) ? playedWith : [])
+        } catch (e) {
+          if (mounted) {
+            setRecent([])
+            setMasteryData([])
+            setPlayedWithData([])
+          }
+        }
+      })
+      .catch((e) => { if (mounted) setError(String(e)) })
+      .finally(() => { if (mounted) setLoading(false) })
+    return () => { mounted = false }
+  }, [gameName, tagLine])
+
+  // 챔피언 한글명 매핑 로드 (ko_KR)
+  useEffect(() => {
+    let mounted = true
+    const ver = ddVer || '15.18.1'
+    loadChampions(ver, 'ko_KR')
+      .then((list) => {
+        if (!mounted) return
+        const map = {}
+        ;(list || []).forEach((ch) => {
+          // ch.id는 영문 키, ch.name은 현지화된 이름(ko_KR)
+          map[ch.id] = ch.name || ch.id
+        })
+        setChampNameMap(map)
+      })
+      .catch(() => {})
+    return () => { mounted = false }
+  }, [ddVer])
+  const handleRefresh = async () => {
+    // 전적 갱신 버튼 대응: 다시 view/최근전적 로드
+    if (!gameName) return // gameName만 확인, tagLine은 기본값이 있으므로 제거
+    setRefreshing(true)
+    try {
+      const v = await fetchSummonerView(gameName, tagLine)
+      setView(v)
+      setLastUpdatedAt(Date.now())
+      try {
+        const [m, mastery, playedWith] = await Promise.all([
+          fetchRecentMatches(gameName, tagLine, 10),
+          fetchChampionMastery(gameName, tagLine),
+          fetchPlayedWith(gameName, tagLine)
+        ])
+        setRecent(Array.isArray(m) ? m : [])
+        setMasteryData(Array.isArray(mastery) ? mastery : [])
+        setPlayedWithData(Array.isArray(playedWith) ? playedWith : [])
+      } catch {}
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
+  // 현재 선택된 탭과 queueId 상태 관리
+  const [currentTab, setCurrentTab] = useState('all')
+  const [currentQueueId, setCurrentQueueId] = useState(null)
+
+  // 탭 변경 핸들러
+  const handleTabChange = async (tab, queueId) => {
+    if (!gameName) return
+    setCurrentTab(tab)
+    setCurrentQueueId(queueId)
+    // 탭 변경 시 즉시 매치 목록을 비워서 이전 데이터가 보이지 않도록 함
+    setRecent([])
+    setLoading(true)
+    try {
+      // 해당 큐 타입의 매치만 가져오기
+      const matches = await fetchRecentMatches(gameName, tagLine, 10, queueId)
+      setRecent(Array.isArray(matches) ? matches : [])
+    } catch (e) {
+      console.error('Failed to load matches for tab:', e)
+      setRecent([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // 더보기 버튼 클릭 시 추가 매치 데이터 로드 (현재 탭의 queueId 유지)
+  const handleLoadMoreMatches = async () => {
+    if (!gameName || loadingMore) return
+    setLoadingMore(true)
+    try {
+      const currentCount = recent.length
+      const newCount = currentCount + 10
+      const newMatches = await fetchRecentMatches(gameName, tagLine, newCount, currentQueueId)
+      
+      if (Array.isArray(newMatches) && newMatches.length > currentCount) {
+        // 중복 제거: matchId 기준으로 기존에 없는 것만 추가
+        const existingIds = new Set(recent.map(m => m?.metadata?.matchId || m?.matchId))
+        const uniqueNewMatches = newMatches.filter(m => {
+          const id = m?.metadata?.matchId || m?.matchId
+          return id && !existingIds.has(id)
+        })
+        
+        if (uniqueNewMatches.length > 0) {
+          setRecent(prev => [...prev, ...uniqueNewMatches])
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load more matches:', e)
+    } finally {
+      setLoadingMore(false)
+    }
+  }
+
+  // Recent 매치를 기존 UI shape으로 변환 (아이템/스펠/룬 아이콘 포함)
+  const transformedMatches = useMemo(() => {
+    const ver = ddVer || '15.18.1'
+    const toChampionImg = (champ) => buildChampionSquareUrl(ver, champ)
+    const fmtDuration = (seconds = 0) => {
+      const s = Math.max(0, Math.floor(Number(seconds) || 0))
+      const m = Math.floor(s / 60)
+      const sec = s % 60
+      const p2 = (n) => n.toString().padStart(2, '0')
+      return `${m}:${p2(sec)}`
+    }
+    const timeAgo = (ms) => {
+      const diff = Date.now() - Number(ms || 0)
+      if (!isFinite(diff) || diff < 0) return '-'
+      const sec = Math.floor(diff / 1000)
+      if (sec < 60) return `${sec}초 전`
+      const min = Math.floor(sec / 60)
+      if (min < 60) return `${min}분 전`
+      const hr = Math.floor(min / 60)
+      if (hr < 24) return `${hr}시간 전`
+      const day = Math.floor(hr / 24)
+      return `${day}일 전`
+    }
+    // 큐 타입 한글 변환 맵
+    const queueTypeMap = {
+      420: '개인 랭크 게임',
+      440: '자유 랭크 게임',
+      400: '일반 게임',
+      430: '일반 게임',
+      450: '무작위 총력전',
+    }
+    
+    // gameMode 한글 변환 맵 (queueId가 없을 때 사용)
+    const gameModeMap = {
+      'CLASSIC': '개인/2인 랭크 게임',
+      'ARAM': '무작위 총력전',
+      'URF': '우르프',
+      'TUTORIAL': '튜토리얼',
+    }
+
+    try {
+      return (recent || []).map((m) => {
+        const id = m?.metadata?.matchId || m?.matchId
+        const info = m?.info || m // fallback for legacy mock
+        const list = Array.isArray(info?.participants) ? info.participants : []
+        const me = view ? list.find((p) => p?.puuid === view.puuid) : list[0]
+        const isWin = !!me?.win
+        const k = me?.kills ?? 0
+        const d = me?.deaths ?? 0
+        const a = me?.assists ?? 0
+        const cs = (me?.csTotal != null ? me.csTotal : (me?.cs != null ? me.cs : ((me?.totalMinionsKilled ?? 0) + (me?.neutralMinionsKilled ?? 0))))
+        const champ = me?.championName || null
+        const team1 = list.filter((p) => p?.teamId === 100).map((p) => ({ 
+          team: 1, 
+          champion: p.championName ? toChampionImg(p.championName) : null, 
+          name: p.summonerName || p.riotIdGameName || '-',
+          gameName: p.riotIdGameName || p.summonerName || '-',
+          tagLine: p.riotIdTagline || 'KR1'
+        }))
+        const team2 = list.filter((p) => p?.teamId === 200).map((p) => ({ 
+          team: 2, 
+          champion: p.championName ? toChampionImg(p.championName) : null, 
+          name: p.summonerName || p.riotIdGameName || '-',
+          gameName: p.riotIdGameName || p.summonerName || '-',
+          tagLine: p.riotIdTagline || 'KR1'
+        }))
+        // 아이템 URL 생성: item0~item5 + trinket(item6)
+        const itemIds = [me?.item0, me?.item1, me?.item2, me?.item3, me?.item4, me?.item5]
+        const items = itemIds.map((id) => (id || id === 0) ? buildItemIconUrl(ver, id) : null)
+        const trinket = (me?.item6 || me?.item6 === 0) ? buildItemIconUrl(ver, me.item6) : ''
+
+        // 스펠 아이콘
+        const spells = [
+            tryBuildSummonerSpellIconUrl(ver, me?.summoner1Id),
+            tryBuildSummonerSpellIconUrl(ver, me?.summoner2Id),
+          ]
+        // 룬 아이콘 (styles 배열 순서 보장 X → description으로 구분)
+        // 룬 정보: 표준 perks.styles 우선, 없으면 백엔드가 주는 대체 필드(primaryStyleId/subStyleId/keystoneId/perkIds[0]) 사용
+        const styles = Array.isArray(me?.perks?.styles) ? me.perks.styles : []
+        const primary = styles.find(s => s?.description === 'primaryStyle')
+        const sub     = styles.find(s => s?.description === 'subStyle')
+
+        const primaryStyleIdRaw = (primary?.style ?? me?.primaryStyleId ?? me?.primaryStyle ?? null)
+        const subStyleIdRaw     = (sub?.style     ?? me?.subStyleId     ?? me?.perkSubStyle ?? null)
+        const keystoneId        = (primary?.selections?.[0]?.perk ?? me?.keystoneId ?? (Array.isArray(me?.perkIds) ? me.perkIds[0] : null))
+
+        // 부족한 값 보정: keystone/perkIds 기반으로 스타일 유추
+        let primaryStyleId = primaryStyleIdRaw
+        if (!primaryStyleId && keystoneId) {
+          const inf = inferStyleIdFromPerkId(keystoneId)
+          if (inf) primaryStyleId = inf
+        }
+        let subStyleId = subStyleIdRaw
+        if (!subStyleId) {
+          const pids = Array.isArray(me?.perkIds) ? me.perkIds : []
+          for (const pid of pids) {
+            const st = inferStyleIdFromPerkId(pid)
+            if (st && st !== primaryStyleId) { subStyleId = st; break; }
+          }
+        }
+
+        // 아이콘 URL 생성 (빈 값은 제거)
+        const runes = []
+        if (keystoneId) runes.push(tryBuildRuneIconUrl(keystoneId))
+        if (subStyleId || primaryStyleId) runes.push(getStyleStaticIcon(subStyleId || primaryStyleId))
+        return {
+          id,
+          queueId: info?.queueId,
+          queueType: queueTypeMap[info?.queueId] || gameModeMap[info?.gameMode] || info?.gameMode || '게임',
+          gameType: queueTypeMap[info?.queueId] || gameModeMap[info?.gameMode] || info?.gameMode || '게임',
+          gameCreation: info?.gameCreation || 0, // 정렬을 위한 타임스탬프 추가
+          timeAgo: timeAgo(info?.gameCreation),
+          result: isWin ? '승리' : '패배',
+          duration: fmtDuration(info?.gameDuration),
+          champion: {
+            name: champ,
+            level: me?.champLevel ?? 0,
+            imageUrl: champ ? toChampionImg(champ) : null,
+            spells,
+            runes,
+          },
+          kda: { kills: k, deaths: d, assists: a },
+          items,
+          trinket,
+          teams: [...team1, ...team2],
+          stats: {
+            killParticipation: me?.killParticipation != null 
+              ? Math.round(me.killParticipation * 100)  // 백엔드에서 0.0~1.0 형태로 받아서 100 곱함
+              : (me?.challenges?.killParticipation ? Math.round((me.challenges.killParticipation) * 100) : 0),
+            cs,
+            csPerMinute: ((cs / Math.max(1, m.gameDuration / 60)).toFixed(1)),
+            rank: '-',
+          },
+          // MatchDetails용 원본 데이터 참조
+          rawParticipants: list,
+          ddVer: ver,
+          gameDurationSec: info?.gameDuration,
+          // MatchDetails에서 사용할 수 있도록 detailedPlayers 추가
+          detailedPlayers: m?.detailedPlayers || [],
+        }
+      })
+      .sort((a, b) => {
+        // gameCreation 기준 내림차순 정렬 (가장 최신 게임이 위로)
+        const timeA = a.gameCreation || 0
+        const timeB = b.gameCreation || 0
+        return timeB - timeA
+      })
+    } catch (e) {
+      return []
+    }
+  }, [recent, ddVer, view])
+  // SummonerPage 내부에 추가 (transformedMatches 아래쯤)
+  const summaryData = useMemo(() => {
+    const games = transformedMatches || []
+    if (!games.length) {
+      return {
+        total: 0, wins: 0, losses: 0, winrate: 0,
+        avg: { kills: 0, deaths: 0, assists: 0, ratio: 0, kp: 0 },
+        playedChamps: [],
+        positions: []
+      }
+    }
+
+    const total = games.length
+    const wins = games.filter(g => g.result === '승리').length
+    const losses = total - wins
+    const winrate = Math.round((wins / total) * 100)
+
+    const sum = games.reduce((a, g) => {
+      a.k += g.kda.kills
+      a.d += g.kda.deaths
+      a.a += g.kda.assists
+      a.kp += Number(g.stats.killParticipation || 0)
+      return a
+    }, { k:0, d:0, a:0, kp:0 })
+
+    const avg = {
+      kills: (sum.k / total).toFixed(1),
+      deaths: (sum.d / total).toFixed(1),
+      assists: (sum.a / total).toFixed(1),
+      ratio: ((sum.k + sum.a) / Math.max(1, sum.d)).toFixed(2),
+      kp: Math.round(sum.kp / total)
+    }
+
+    // 챔피언별 집계 (상위 5개)
+    const byChamp = new Map()
+    for (const g of games) {
+      const key = g.champion.name
+      const rec = byChamp.get(key) || { name: key, games: 0, wins: 0, k:0, d:0, a:0, imageUrl: g.champion.imageUrl }
+      rec.games += 1
+      if (g.result === '승리') rec.wins += 1
+      rec.k += g.kda.kills
+      rec.d += g.kda.deaths
+      rec.a += g.kda.assists
+      byChamp.set(key, rec)
+    }
+    const playedChamps = Array.from(byChamp.values())
+        .sort((a,b) => b.games - a.games)
+        .slice(0, 5)
+        .map(c => ({
+          name: c.name,
+          imageUrl: c.imageUrl,
+          winrate: Math.round((c.wins / c.games) * 100) + '%',
+          games: `${c.games}게임`,
+          kda: (((c.k + c.a) / Math.max(1, c.d)).toFixed(2)) + ':1 평점'
+        }))
+
+    // 선호 포지션 계산 (전체 게임 데이터 기반, 랭크 게임만 필터링)
+    const rankGames = games.filter(g => g.queueId === 420 || g.queueId === 440 || g.queueType === 'RANKED_SOLO_5x5' || g.queueType === 'RANKED_FLEX_SR')
+    const rankTotal = rankGames.length
+    
+    const roleCount = { TOP:0, JUNGLE:0, MIDDLE:0, BOTTOM:0, UTILITY:0, UNKNOWN:0 }
+    for (const g of rankGames) {
+      const me = g.rawParticipants?.find(p => p?.puuid === (view?.puuid || ''))
+      const role = (me?.teamPosition || me?.individualPosition || 'UNKNOWN').toUpperCase()
+      roleCount[role] = (roleCount[role] || 0) + 1
+    }
+    
+    // Riot API 포지션을 UI 표시용으로 변환
+    const positionMapping = {
+      'TOP': 'TOP',
+      'JUNGLE': 'JNG', 
+      'MIDDLE': 'MID',
+      'BOTTOM': 'ADC',
+      'UTILITY': 'SUP'
+    }
+    
+    // 전체 게임 수에 맞춰서 포지션 비율 계산 (랭크 게임만 사용)
+    const positions = ['TOP','JNG','MID','ADC','SUP'].map(displayRole => {
+      // displayRole을 Riot API 포지션으로 변환
+      const riotRole = Object.keys(positionMapping).find(key => positionMapping[key] === displayRole)
+      const count = roleCount[riotRole] || 0
+      const pct = rankTotal > 0 ? Math.round((count * 100) / rankTotal) : 0
+      const iconMap = {
+        TOP: 'https://s-lol-web.op.gg/images/icon/icon-position-top.svg',
+        JNG: 'https://s-lol-web.op.gg/images/icon/icon-position-jungle.svg',
+        MID: 'https://s-lol-web.op.gg/images/icon/icon-position-mid.svg',
+        ADC: 'https://s-lol-web.op.gg/images/icon/icon-position-adc.svg',
+        SUP: 'https://s-lol-web.op.gg/images/icon/icon-position-support.svg',
+      }
+      return { role: displayRole, percentage: pct, icon: iconMap[displayRole] }
+    })
+
+    return { total, wins, losses, winrate, avg, playedChamps, positions }
+  }, [transformedMatches, view])
+
+  // 챔피언 데이터 생성 (탭별 필터링용)
+  const championData = useMemo(() => {
+    const games = transformedMatches || []
+    if (!games.length) {
+      return {
+        season: [],
+        solo: [],
+        flex: []
+      }
+    }
+
+    // 챔피언별 집계
+    const byChamp = new Map()
+    const soloByChamp = new Map()
+    const flexByChamp = new Map()
+
+    for (const g of games) {
+      const me = g.rawParticipants?.find(p => p?.puuid === (view?.puuid || ''))
+      if (!me) continue
+
+      const champName = me.championName || null
+      const champImageUrl = g.champion.imageUrl
+      const isWin = !!me.win
+      const k = me.kills ?? 0
+      const d = me.deaths ?? 0
+      const a = me.assists ?? 0
+      const cs = me.csTotal ?? 0
+      const gameDuration = g.gameDurationSec || 1800
+      const cspm = (cs / Math.max(1, gameDuration / 60)).toFixed(1)
+
+      // 전체 시즌 데이터
+      const seasonRec = byChamp.get(champName) || { 
+        name: champName, 
+        imageUrl: champImageUrl,
+        games: 0, wins: 0, k:0, d:0, a:0, cs:0, totalDuration: 0
+      }
+      seasonRec.games += 1
+      if (isWin) seasonRec.wins += 1
+      seasonRec.k += k
+      seasonRec.d += d
+      seasonRec.a += a
+      seasonRec.cs += cs
+      seasonRec.totalDuration += gameDuration
+      byChamp.set(champName, seasonRec)
+
+      // 개인랭크 데이터 (queueId 420)
+      if (g.queueId === 420) {
+        const soloRec = soloByChamp.get(champName) || { 
+          name: champName, 
+          imageUrl: champImageUrl,
+          games: 0, wins: 0, k:0, d:0, a:0, cs:0, totalDuration: 0
+        }
+        soloRec.games += 1
+        if (isWin) soloRec.wins += 1
+        soloRec.k += k
+        soloRec.d += d
+        soloRec.a += a
+        soloRec.cs += cs
+        soloRec.totalDuration += gameDuration
+        soloByChamp.set(champName, soloRec)
+      }
+
+      // 자유랭크 데이터 (queueId 440)
+      if (g.queueId === 440) {
+        const flexRec = flexByChamp.get(champName) || { 
+          name: champName, 
+          imageUrl: champImageUrl,
+          games: 0, wins: 0, k:0, d:0, a:0, cs:0, totalDuration: 0
+        }
+        flexRec.games += 1
+        if (isWin) flexRec.wins += 1
+        flexRec.k += k
+        flexRec.d += d
+        flexRec.a += a
+        flexRec.cs += cs
+        flexRec.totalDuration += gameDuration
+        flexByChamp.set(champName, flexRec)
+      }
+    }
+
+    // 데이터 변환 함수 (시즌 데이터는 평균치로, 개인/자유랭크는 기존 방식)
+    const transformChampData = (champMap, isSeason = false) => {
+      return Array.from(champMap.values())
+        .sort((a,b) => b.games - a.games)
+        .slice(0, 7)
+        .map(c => {
+          const displayName = champNameMap[c.name] || c.name
+          if (isSeason) {
+            // S2025 탭: CS, KDA는 평균치, 게임수와 승률은 합산
+            const avgCs = Math.round(c.cs / c.games)
+            const avgCspm = (c.cs / Math.max(1, c.totalDuration / 60)).toFixed(1)
+            const avgK = (c.k / c.games).toFixed(1)
+            const avgD = (c.d / c.games).toFixed(1)
+            const avgA = (c.a / c.games).toFixed(1)
+            
+            return {
+              name: displayName,
+              imageUrl: c.imageUrl,
+              cs: avgCs, // 평균 CS
+              kdaRatio: `${((c.k + c.a) / Math.max(1, c.d)).toFixed(2)}:1 평점`, // 전체 KDA 비율
+              kdaNumbers: `${avgK} / ${avgD} / ${avgA}`, // 평균 K/D/A
+              winrate: Math.round((c.wins / c.games) * 100) + '%', // 승률 (합산)
+              games: `${c.games} 게임` // 게임 수 (합산)
+            }
+          } else {
+            // 개인/자유랭크 탭: CS도 평균값으로 표시
+            const avgCs = Math.round(c.cs / Math.max(1, c.games))
+            return {
+              name: displayName,
+              imageUrl: c.imageUrl,
+              cs: avgCs, // 평균 CS
+              kdaRatio: `${((c.k + c.a) / Math.max(1, c.d)).toFixed(2)}:1 평점`,
+              kdaNumbers: `${(c.k / c.games).toFixed(1)} / ${(c.d / c.games).toFixed(1)} / ${(c.a / c.games).toFixed(1)}`,
+              winrate: Math.round((c.wins / c.games) * 100) + '%',
+              games: `${c.games} 게임`
+            }
+          }
+        })
+    }
+
+    return {
+      season: transformChampData(byChamp, true),
+      solo: transformChampData(soloByChamp, false),
+      flex: transformChampData(flexByChamp, false)
+    }
+  }, [transformedMatches, view, champNameMap])
+
+  return (
+    <>
+      <Header />
+      <div id="opgg-container">
+        <SummonerProfile
+          nickname={nickname}
+          profileIconId={view?.profileIconId}
+          summonerLevel={view?.summonerLevel}
+          gameName={view?.gameName}
+          tagLine={view?.tagLine}
+          puuid={view?.puuid}
+          revisionDate={view?.revisionDate}
+          lastUpdated={lastUpdatedAt}
+          ddVer={ddVer}
+          onRefresh={handleRefresh}
+          isRefreshing={refreshing}
+        />
+        <GameModeNavigation />
+        <div className="main-layout">
+          <MainContent
+            summaryData={summaryData}
+            matches={transformedMatches}
+            view={view}
+            gameName={gameName}
+            tagLine={tagLine}
+            onLoadMore={handleLoadMoreMatches}
+            loadingMore={loadingMore}
+            onTabChange={handleTabChange}
+            loading={loading}
+          />
+          <div className="right-column">
+            <RankedGameCard entry={view?.soloRanked} loading={loading} error={error} />
+            <FlexRankCard entry={view?.flexRanked} loading={loading} error={error} />
+            <RecentChampionsCard data={championData} />
+            <MasteryCard data={masteryData} />
+            <PlayedWithCard data={playedWithData} />
+          </div>
+        </div>
+      </div>
+      <Footer />
+    </>
+  )
+}
+
+export default SummonerPage
+
+

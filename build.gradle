@@ -1,0 +1,61 @@
+plugins {
+    id 'java'
+//    id 'war'
+    id 'org.springframework.boot' version '3.5.5'
+    id 'io.spring.dependency-management' version '1.1.7'
+}
+bootJar { enabled = true }
+group = 'jen'
+version = '0.0.1-SNAPSHOT'
+description = 'LoL'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // oracle cloud ADB 연동, 25-10-25
+    implementation 'com.oracle.database.jdbc:ojdbc11:23.3.0.23.09'     // 존재함
+    runtimeOnly   'com.oracle.database.security:oraclepki:23.3.0.23.09' // 존재함
+    runtimeOnly   'com.oracle.database.security:osdt_core:21.19.0.0'    // 21.x만 존재
+    runtimeOnly   'com.oracle.database.security:osdt_cert:21.19.0.0'    // 21.x만 존재
+    // Security, jwt 25-10-11
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
+    runtimeOnly    'io.jsonwebtoken:jjwt-impl:0.12.6'
+    runtimeOnly    'io.jsonwebtoken:jjwt-jackson:0.12.6'
+
+    implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    // Riot API 요청시 비동기 구현을 위한 WebFlux 기능
+    implementation 'org.springframework.boot:spring-boot-starter-webflux'
+    // 로깅용 (Spring Boot 기본 포함이지만 혹시 누락 시 명시)
+    implementation 'org.springframework.boot:spring-boot-starter-logging'
+    // jpa 25-10-11
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+//    runtimeOnly 'com.oracle.database.jdbc:ojdbc11:23.9.0.25.07' // h2 쓰는 동안만 주석처리
+    runtimeOnly 'com.h2database:h2'
+    compileOnly 'org.projectlombok:lombok'
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
+    annotationProcessor 'org.projectlombok:lombok'
+//    providedRuntime 'org.springframework.boot:spring-boot-starter-tomcat'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.security:spring-security-test'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}

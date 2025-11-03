@@ -1,0 +1,43 @@
+# Git
+.git
+.gitignore
+
+# Gradle
+.gradle
+
+# Build outputs
+build/
+out/
+*.class
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node / Frontend
+node_modules/
+npm-debug.log
+yarn-error.log
+front/
+
+# Misc
+*.log
+*.swp
+*.swo
+
+# Oracle Wallet - 이미지에 포함
+# Wallet_*/
+
+# 테스트 파일
+test_backend_api.ps1
+*.md
+fix_*.sql
+check_*.sql
+*.sql
