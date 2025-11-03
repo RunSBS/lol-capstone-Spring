@@ -41,10 +41,10 @@ public class FileUploadController {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "이미지 또는 비디오 파일만 업로드할 수 있습니다.");
             }
 
-            // 파일 크기 제한 (10MB)
-            long maxSize = 10 * 1024 * 1024; // 10MB
+            // 파일 크기 제한 상향 (이미지/영상 50MB)
+            long maxSize = 50L * 1024 * 1024; // 50MB
             if (file.getSize() > maxSize) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "파일 크기는 10MB를 초과할 수 없습니다.");
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "파일 크기는 50MB를 초과할 수 없습니다.");
             }
 
             // 업로드 디렉토리 생성

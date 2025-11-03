@@ -510,10 +510,9 @@ const backendApi = {
     const formData = new FormData();
     formData.append('file', file);
     
-    const token = localStorage.getItem('token');
-    const headers = {
-      ...(token && { 'Authorization': `Bearer ${token}` })
-    };
+    // Multipart 업로드에서는 Content-Type을 설정하지 말고, 인증 토큰만 추가
+    const accessToken = localStorage.getItem('accessToken');
+    const headers = accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {};
     
     const response = await fetch(`${API_BASE_URL}/upload/media`, {
       method: 'POST',

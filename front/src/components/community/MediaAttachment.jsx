@@ -1,15 +1,22 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, forwardRef, useImperativeHandle } from "react";
 import backendApi from "../../data/backendApi";
 
-function MediaAttachment({ onMediaInsert, content, setContent }) {
+function MediaAttachmentImpl({ onMediaInsert, content, setContent }, ref) {
   const [previewFiles, setPreviewFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
 
+  // Expose method to parent to open file picker deterministically
+  useImperativeHandle(ref, () => ({
+    openFileDialog: () => {
+      if (fileInputRef.current) fileInputRef.current.click();
+    }
+  }), []);
+
   const handleFileSelect = (e) => {
     const files = Array.from(e.target.files);
     const mediaFiles = files.filter(file => 
-      file.type.startsWith('image/') || file.type.startsWith('video/mp4')
+      file.type.startsWith('image/') || file.type.startsWith('video/')
     );
 
     if (mediaFiles.length === 0) {
@@ -183,7 +190,7 @@ function MediaAttachment({ onMediaInsert, content, setContent }) {
         type="file"
         ref={fileInputRef}
         onChange={handleFileSelect}
-        accept="image/*,video/mp4"
+        accept="image/*,video/*"
         multiple
         style={{ display: 'none' }}
       />
@@ -191,4 +198,5 @@ function MediaAttachment({ onMediaInsert, content, setContent }) {
   );
 }
 
+const MediaAttachment = forwardRef(MediaAttachmentImpl);
 export default MediaAttachment;

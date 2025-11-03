@@ -22,6 +22,7 @@ function WritePost({ currentUser }) {
   const [voteData, setVoteData] = useState(null);
   const [attachedMedia, setAttachedMedia] = useState([]);
   const contentEditableRef = useRef(null);
+  const mediaAttachmentRef = useRef(null);
   const [isComposing, setIsComposing] = useState(false);
   const [selectedSummoner, setSelectedSummoner] = useState(null);
   const [matchList, setMatchList] = useState([]);
@@ -172,13 +173,13 @@ function WritePost({ currentUser }) {
 
   // contentEditable 초기 내용 설정
   useEffect(() => {
-    if (contentEditableRef.current && formData.content !== contentEditableRef.current.innerText) {
+    if (contentEditableRef.current && formData.content !== contentEditableRef.current.innerHTML) {
       const selection = window.getSelection();
       const range = selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
       const isAtEnd = range && range.endContainer === contentEditableRef.current && 
                      range.endOffset === contentEditableRef.current.childNodes.length;
       
-      contentEditableRef.current.innerText = formData.content;
+      contentEditableRef.current.innerHTML = formData.content;
       
       // 커서가 끝에 있었으면 끝으로 이동
       if (isAtEnd) {
@@ -359,6 +360,8 @@ function WritePost({ currentUser }) {
     
     // contentEditable에 미디어 삽입
     if (contentEditableRef.current) {
+      // Ensure editor is focused before computing selection
+      contentEditableRef.current.focus();
       let mediaHtml = '';
       
       // 서버 URL 우선 사용, 없으면 로컬 URL 사용
@@ -390,8 +393,21 @@ function WritePost({ currentUser }) {
       
       // 현재 커서 위치에 미디어 삽입
       const selection = window.getSelection();
-      if (selection.rangeCount > 0) {
-        const range = selection.getRangeAt(0);
+      let range = null;
+
+      // Helper: check if a node is inside editor
+      const isInsideEditor = (node) => {
+        if (!node) return false;
+        let cur = node.nodeType === Node.ELEMENT_NODE ? node : node.parentNode;
+        while (cur) {
+          if (cur === contentEditableRef.current) return true;
+          cur = cur.parentNode;
+        }
+        return false;
+      };
+
+      if (selection && selection.rangeCount > 0 && isInsideEditor(selection.anchorNode)) {
+        range = selection.getRangeAt(0);
         range.deleteContents();
         
         // 미디어 요소 생성
@@ -443,7 +459,7 @@ function WritePost({ currentUser }) {
       const content = contentEditableRef.current.innerHTML;
       setFormData(prev => ({
         ...prev,
-        content: contentEditableRef.current.innerText // 텍스트만 저장
+        content: content
       }));
     }
   };
@@ -749,6 +765,7 @@ function WritePost({ currentUser }) {
           
           {/* 미디어 첨부 섹션 */}
           <MediaAttachment 
+            ref={mediaAttachmentRef}
             onMediaInsert={handleMediaInsert}
             content={formData.content}
             setContent={(newContent) => setFormData(prev => ({ ...prev, content: newContent }))}
@@ -777,7 +794,7 @@ function WritePost({ currentUser }) {
             onInput={(e) => {
               if (!isComposing) {
                 // innerHTML을 사용하여 미디어 요소도 포함하여 저장
-                const content = e.target.innerText;
+                const content = e.target.innerHTML;
                 setFormData(prev => ({
                   ...prev,
                   content: content
@@ -792,7 +809,7 @@ function WritePost({ currentUser }) {
             onCompositionStart={() => setIsComposing(true)}
             onCompositionEnd={(e) => {
               setIsComposing(false);
-              const content = e.target.innerText;
+              const content = e.target.innerHTML;
               setFormData(prev => ({
                 ...prev,
                 content: content
@@ -897,7 +914,7 @@ function WritePost({ currentUser }) {
         <div style={{ marginBottom: 20, display: "flex", gap: 10 }}>
           <button
             type="button"
-            onClick={() => document.querySelector('input[type="file"]')?.click()}
+            onClick={() => mediaAttachmentRef.current?.openFileDialog()}
             style={{
               padding: "10px 20px",
               backgroundColor: "#17a2b8",
