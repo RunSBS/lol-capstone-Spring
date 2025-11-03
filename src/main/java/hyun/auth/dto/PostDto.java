@@ -26,6 +26,7 @@ public class PostDto {
     private int like;              // 추천 수
     private int dislike;           // 반대 수
     private String writerB;        // 작성자B (롤문철 카테고리용, null 가능)
+    private String contentB;       // 작성자B 본문 (롤문철 카테고리용, null 가능)
     private String matchData;       // 전적 데이터 (JSON 형식, null 가능)
     private VoteInfo vote;         // 투표 정보 (롤문철 카테고리용, null 가능)
     

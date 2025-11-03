@@ -67,6 +67,12 @@ public class PostService {
         p.setContent(content);
         p.setCategory(category != null ? category : "free"); // 기본값 free
         
+        // 롤문철 카테고리일 때 writerB 저장
+        if ("lolmuncheol".equals(category) && writerB != null && !writerB.isEmpty()) {
+            p.setWriterB(writerB);
+            log.info("writerB 저장: {}", writerB);
+        }
+        
         // matchData가 있으면 JSON 문자열로 변환하여 저장
         if (matchData != null && !matchData.isEmpty()) {
             try {
@@ -248,18 +254,55 @@ public class PostService {
     }
 
     @Transactional
-    public Post update(Long postId, String title, String content) {
+    public Post update(Long postId, String title, String content, String contentB) {
         User u = me();
         Post p = posts.findById(postId).orElseThrow();
-        if (!p.getUser().getId().equals(u.getId())) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "작성자만 수정 가능");
-        p.setTitle(title);
-        p.setContent(content);
+        
+        // 롤문철 카테고리인 경우 작성자 B도 수정 가능
+        boolean canEdit = false;
+        if ("lolmuncheol".equals(p.getCategory())) {
+            // 작성자 A 또는 작성자 B일 때 수정 가능
+            boolean isWriterA = p.getUser().getId().equals(u.getId());
+            boolean isWriterB = p.getWriterB() != null && p.getWriterB().equals(u.getUsername());
+            canEdit = isWriterA || isWriterB;
+            
+            if (canEdit) {
+                if (isWriterA) {
+                    // 작성자 A는 제목과 왼쪽 본문(content)만 수정
+                    p.setTitle(title);
+                    p.setContent(content);
+                } else if (isWriterB) {
+                    // 작성자 B는 오른쪽 본문(contentB)만 수정
+                    if (contentB != null) {
+                        p.setContentB(contentB);
+                    }
+                }
+            }
+        } else {
+            // 일반 카테고리는 작성자만 수정 가능
+            canEdit = p.getUser().getId().equals(u.getId());
+            if (canEdit) {
+                p.setTitle(title);
+                p.setContent(content);
+            }
+        }
+        
+        if (!canEdit) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "수정 권한이 없습니다");
+        }
+        
         p.setUpdatedAt(Instant.now());
         
         // 기존 미디어 파일 삭제 후 새로운 미디어 파일 저장
         try {
             postMediaRepository.deleteByPostId(postId);
-            savePostMedia(p, content);
+            // 작성자 A가 수정하는 경우 content의 미디어 파일 저장
+            if (p.getUser().getId().equals(u.getId())) {
+                savePostMedia(p, content);
+            } else if (contentB != null) {
+                // 작성자 B가 수정하는 경우 contentB의 미디어 파일 저장
+                savePostMedia(p, contentB);
+            }
         } catch (Exception e) {
             log.warn("미디어 파일 정보 업데이트 중 오류 (무시): {}", e.getMessage());
         }
@@ -316,25 +359,19 @@ public class PostService {
                 log.warn("Error getting reaction for post {}: {}", id, e.getMessage());
             }
             
-            // Bet 정보에서 writerB와 vote 정보 가져오기 (롤문철 카테고리인 경우)
-            String writerB = null;
+            // Post 엔티티에서 직접 writerB와 contentB 가져오기
+            String writerB = p.getWriterB();  // Post 엔티티에서 직접 가져오기
+            String contentB = p.getContentB(); // Post 엔티티에서 직접 가져오기
+            
+            // Bet 정보에서 vote 정보 가져오기 (롤문철 카테고리인 경우)
             PostDto.VoteInfo voteInfo = null;
             if ("lolmuncheol".equals(p.getCategory())) {
-                log.info("롤문철 게시글 처리 시작: postId={}, title={}", id, p.getTitle());
+                log.info("롤문철 게시글 처리 시작: postId={}, title={}, writerB={}", id, p.getTitle(), writerB);
                 try {
                     var betOpt = betRepository.findByPost_Id(id);
                     log.info("Bet 조회 결과: postId={}, isPresent={}", id, betOpt.isPresent());
                     if (betOpt.isPresent()) {
                         Bet bet = betOpt.get();
-                        
-                        try {
-                            if (bet.getBettorB() != null) {
-                                writerB = bet.getBettorB().getUsername();
-                                log.info("writerB: {}", writerB);
-                            }
-                        } catch (Exception e) {
-                            log.warn("Error getting bettorB username for post {}: {}", id, e.getMessage());
-                        }
                         
                         // Vote 정보 구성
                         Map<Integer, Integer> results = new HashMap<>();
@@ -431,6 +468,7 @@ public class PostService {
                         likeCount,
                         dislikeCount,
                         writerB,
+                        contentB,
                         matchDataStr,
                         voteInfo
                 );
@@ -448,6 +486,7 @@ public class PostService {
                         Instant.now(),
                         0,
                         0,
+                        null,
                         null,
                         null,
                         null
@@ -538,11 +577,14 @@ public class PostService {
                         log.warn("Error getting reaction for post {}: {}", p.getId(), e.getMessage());
                     }
                     
-                    // Bet 정보에서 writerB와 vote 정보 가져오기 (롤문철 카테고리인 경우)
-                    String writerB = null;
+                    // Post 엔티티에서 직접 writerB와 contentB 가져오기
+                    String writerB = p.getWriterB();  // Post 엔티티에서 직접 가져오기
+                    String contentB = p.getContentB(); // Post 엔티티에서 직접 가져오기
+                    
+                    // Bet 정보에서 vote 정보 가져오기 (롤문철 카테고리인 경우)
                     PostDto.VoteInfo voteInfo = null;
                     if ("lolmuncheol".equals(p.getCategory())) {
-                        log.info("롤문철 게시글 처리 시작: postId={}, title={}", p.getId(), p.getTitle());
+                        log.info("롤문철 게시글 처리 시작: postId={}, title={}, writerB={}", p.getId(), p.getTitle(), writerB);
                         try {
                             var betOpt = betRepository.findByPost_Id(p.getId());
                             log.info("Bet 조회 결과: postId={}, isPresent={}", p.getId(), betOpt.isPresent());
@@ -551,19 +593,6 @@ public class PostService {
                                 log.info("Bet 정보: postId={}, betTitle={}, optionA={}, optionB={}, votesForA={}, votesForB={}", 
                                     p.getId(), bet.getBetTitle(), bet.getOptionA(), bet.getOptionB(), 
                                     bet.getVotesForA(), bet.getVotesForB());
-                                
-                                // Lazy loading을 트랜잭션 내에서 강제로 로드
-                                try {
-                                    if (bet.getBettorB() != null) {
-                                        // Lazy 객체 접근을 강제
-                                        writerB = bet.getBettorB().getUsername();
-                                        log.info("writerB: {}", writerB);
-                                    }
-                                } catch (org.hibernate.LazyInitializationException e) {
-                                    log.warn("LazyInitializationException for bettorB in post {}: {}", p.getId(), e.getMessage());
-                                } catch (Exception e) {
-                                    log.warn("Error getting bettorB username for post {}: {}", p.getId(), e.getMessage());
-                                }
                                 
                                 // Vote 정보 구성
                                 Map<Integer, Integer> results = new HashMap<>();
@@ -641,6 +670,7 @@ public class PostService {
                             likeCount,
                             dislikeCount,
                             writerB,
+                            contentB,
                             p.getMatchData() != null ? p.getMatchData() : null,
                             voteInfo
                     );
@@ -665,6 +695,7 @@ public class PostService {
                                 p.getUpdatedAt() != null ? p.getUpdatedAt() : Instant.now(),
                                 0,
                                 0,
+                                null,
                                 null,
                                 null,
                                 null
