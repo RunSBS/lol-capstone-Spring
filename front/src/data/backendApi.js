@@ -400,17 +400,23 @@ const backendApi = {
   },
 
   // 배너에 스티커 부착
-  addStickerToBanner: async (itemCode, positionX, positionY, width, height) => {
+  addStickerToBanner: async (itemCode, positionX, positionY, width, height, rotation) => {
+    const requestBody = {
+      itemCode: itemCode,
+      positionX: positionX,
+      positionY: positionY,
+      width: width,
+      height: height
+    };
+    
+    if (rotation !== undefined && rotation !== null) {
+      requestBody.rotation = rotation;
+    }
+    
     const response = await fetch(`${API_BASE_URL}/shop/banner/sticker`, {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify({
-        itemCode: itemCode,
-        positionX: positionX,
-        positionY: positionY,
-        width: width,
-        height: height
-      })
+      body: JSON.stringify(requestBody)
     });
 
     if (!response.ok) {
@@ -450,16 +456,22 @@ const backendApi = {
   },
 
   // 배너 스티커 위치 업데이트
-  updateBannerSticker: async (bannerStickerId, positionX, positionY, width, height) => {
+  updateBannerSticker: async (bannerStickerId, positionX, positionY, width, height, rotation) => {
+    const requestBody = {
+      positionX: positionX,
+      positionY: positionY,
+      width: width,
+      height: height
+    };
+    
+    if (rotation !== undefined && rotation !== null) {
+      requestBody.rotation = rotation;
+    }
+    
     const response = await fetch(`${API_BASE_URL}/shop/banner/sticker/${bannerStickerId}`, {
       method: 'PUT',
       headers: getAuthHeaders(),
-      body: JSON.stringify({
-        positionX: positionX,
-        positionY: positionY,
-        width: width,
-        height: height
-      })
+      body: JSON.stringify(requestBody)
     });
 
     if (!response.ok) {
@@ -495,6 +507,30 @@ const backendApi = {
       }
       const errorText = await response.text();
       throw new Error(`사용자 정보 조회 실패: ${response.status} ${errorText}`);
+    }
+
+    return await response.json();
+  },
+
+  // 프로필 업데이트 (소개글, 프로필 이미지)
+  updateProfile: async (bio, avatarUrl) => {
+    const requestBody = {};
+    if (bio !== undefined) {
+      requestBody.bio = bio;
+    }
+    if (avatarUrl !== undefined) {
+      requestBody.avatarUrl = avatarUrl;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/user/profile`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(requestBody)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || '프로필 업데이트 실패');
     }
 
     return await response.json();

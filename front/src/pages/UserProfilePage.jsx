@@ -52,7 +52,9 @@ export default function UserProfilePage() {
   const [user, setUser] = useState(() => loadUser(username));
   const [editing, setEditing] = useState(false);
   const [showBorderShop, setShowBorderShop] = useState(false);
+  const [borderFilter, setBorderFilter] = useState('all'); // all | owned | unowned
   const [showBannerShop, setShowBannerShop] = useState(false);
+  const [bannerFilter, setBannerFilter] = useState('all'); // all | owned | unowned
   const [showStickerShop, setShowStickerShop] = useState(false);
   const [showStickerInventory, setShowStickerInventory] = useState(false);
   const [selectedStickerId, setSelectedStickerId] = useState(null);
@@ -153,7 +155,10 @@ export default function UserProfilePage() {
     if (currentLoggedInUser === username) {
       try {
         const userInfo = await backendApi.getCurrentUser();
-        const myItems = await backendApi.getMyItems();
+        const [myItems, bannerStickerList] = await Promise.all([
+          backendApi.getMyItems(),
+          backendApi.getBannerStickers().catch(() => [])
+        ]);
         
         
         if (userInfo && userInfo.username === username) {
@@ -181,6 +186,28 @@ export default function UserProfilePage() {
               stickers[stickerId] = (stickers[stickerId] || 0) + item.quantity;
             }
           });
+
+          // 배너 스티커를 프론트 포맷으로 변환
+          // 백엔드: positionX/Y (0~1), width/height (px), rotation (0~360)
+          // 프론트: x/y (0~100), scale (0.5~2), rotation (0~360)
+          const bannerStickers = Array.isArray(bannerStickerList) ? bannerStickerList.map(bs => {
+            const itemCode = bs.shopItem?.itemCode;
+            const stickerId = itemCode ? getFrontendIdFromItemCode(itemCode) : (bs.stickerId || undefined);
+            const image = bs.shopItem?.imageUrl || null;
+            const baseSize = 32; // 기본 스티커 크기 (px)
+            // width 또는 height를 scale로 변환 (둘 중 큰 값 사용)
+            const scale = bs.width && bs.height ? Math.max(bs.width, bs.height) / baseSize : 1;
+            return {
+              id: bs.id,
+              stickerId,
+              image,
+              x: (bs.positionX || 0) * 100, // 0~1 → 0~100
+              y: (bs.positionY || 0) * 100, // 0~1 → 0~100
+              scale: Math.max(0.5, Math.min(2, scale)), // 사이즈 제한
+              rotation: bs.rotation || 0,
+              zIndex: 1
+            };
+          }) : [];
           
           // 토큰 잔액 처리: 0도 유효한 값이므로 != null 체크
           const tokenBalance = (userInfo.tokenBalance != null && userInfo.tokenBalance !== undefined) 
@@ -192,7 +219,10 @@ export default function UserProfilePage() {
             tokens: tokenBalance,
             borders: borders.length > 0 ? borders : prev.borders,
             banners: banners.length > 0 ? banners : prev.banners,
-            stickers: Object.keys(stickers).length > 0 ? { ...prev.stickers, ...stickers } : prev.stickers
+            stickers: Object.keys(stickers).length > 0 ? { ...prev.stickers, ...stickers } : prev.stickers,
+            bannerStickers: bannerStickers.length > 0 ? bannerStickers : (prev.bannerStickers || []),
+            bio: userInfo.bio || prev.bio || "",
+            avatar: userInfo.avatarUrl || prev.avatar || ""
           }));
         }
       } catch (error) {
@@ -201,21 +231,91 @@ export default function UserProfilePage() {
     }
   };
 
-  const handleAvatarChange = (e) => {
+  const handleAvatarChange = async (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const next = { ...user, avatar: reader.result };
-      setUser(next);
-      saveUser(next);
-    };
-    reader.readAsDataURL(file);
+    
+    // 파일 크기 확인 (5MB 제한)
+    if (file.size > 5 * 1024 * 1024) {
+      alert("프로필 이미지는 5MB 이하만 업로드 가능합니다.");
+      return;
+    }
+    
+    // 이미지 파일인지 확인
+    if (!file.type.startsWith('image/')) {
+      alert("이미지 파일만 업로드 가능합니다.");
+      return;
+    }
+    
+    try {
+      // 먼저 미리보기를 위해 로컬 이미지 표시
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const previewUrl = reader.result;
+        setUser(prev => ({ ...prev, avatar: previewUrl }));
+        
+        // 백엔드에 파일 업로드
+        try {
+          const uploadResult = await backendApi.uploadMedia(file);
+          const avatarUrl = uploadResult.url;
+          
+          // 백엔드에 프로필 업데이트
+          await backendApi.updateProfile(undefined, avatarUrl);
+          
+          // 로컬 상태 업데이트
+          setUser(prev => ({ ...prev, avatar: avatarUrl }));
+          saveUser({ ...user, avatar: avatarUrl });
+          
+          alert("프로필 이미지가 업데이트되었습니다.");
+        } catch (uploadError) {
+          console.error('프로필 이미지 업로드 실패:', uploadError);
+          alert("프로필 이미지 업로드에 실패했습니다. 다시 시도해주세요.");
+          // 업로드 실패 시 이전 상태로 복구
+          const currentLoggedInUser = localStorage.getItem("currentUser");
+          if (currentLoggedInUser === username) {
+            try {
+              const userInfo = await backendApi.getCurrentUser();
+              setUser(prev => ({ ...prev, avatar: userInfo.avatarUrl || prev.avatar || "" }));
+            } catch (error) {
+              // 복구 실패 시 로컬 스토리지에서 가져오기
+              const localUser = loadUser(username);
+              setUser(prev => ({ ...prev, avatar: localUser.avatar || "" }));
+            }
+          }
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('프로필 이미지 처리 실패:', error);
+      alert("프로필 이미지 업로드에 실패했습니다.");
+    }
   };
 
-  const handleSave = () => {
-    saveUser(user);
-    setEditing(false);
+  const handleSave = async () => {
+    const currentLoggedInUser = localStorage.getItem("currentUser");
+    
+    // 로그인된 사용자이면 백엔드에 저장
+    if (currentLoggedInUser === username) {
+      try {
+        await backendApi.updateProfile(user.bio, undefined);
+        // 백엔드에서 업데이트된 사용자 정보 가져오기
+        const userInfo = await backendApi.getCurrentUser();
+        setUser(prev => ({
+          ...prev,
+          bio: userInfo.bio || prev.bio || ""
+        }));
+        saveUser({ ...user, bio: userInfo.bio || user.bio || "" });
+        alert("소개글이 저장되었습니다.");
+        setEditing(false);
+      } catch (error) {
+        console.error('소개글 저장 실패:', error);
+        alert("소개글 저장에 실패했습니다: " + (error.message || "알 수 없는 오류"));
+      }
+    } else {
+      // 로컬 스토리지에만 저장 (비로그인 사용자)
+      saveUser(user);
+      setEditing(false);
+    }
   };
 
   // 테두리 구매 함수
@@ -454,26 +554,38 @@ export default function UserProfilePage() {
       
       const itemCode = getStickerItemCode(sticker.stickerId || sticker.id);
       
+      // 프론트엔드 형식(x, y, scale)을 백엔드 형식(positionX, positionY, width, height)으로 변환
+      const baseSize = 32; // 기본 스티커 크기 (px)
+      const positionX = (sticker.x || 50) / 100; // 0~100 → 0~1
+      const positionY = (sticker.y || 50) / 100; // 0~100 → 0~1
+      const stickerScale = sticker.scale || 1;
+      const width = baseSize * stickerScale;
+      const height = baseSize * stickerScale;
+      
       // 백엔드 API로 스티커 부착
       const bannerSticker = await backendApi.addStickerToBanner(
         itemCode,
-        sticker.positionX || 0.5,
-        sticker.positionY || 0.5,
-        sticker.width || 100,
-        sticker.height || 100
+        positionX,
+        positionY,
+        width,
+        height,
+        sticker.rotation || 0
       );
       
-      // 백엔드 연동 성공
+      // 백엔드 연동 성공 - 백엔드 응답을 프론트엔드 형식으로 변환
+      const responseScale = bannerSticker.width && bannerSticker.height ? 
+        Math.max(bannerSticker.width, bannerSticker.height) / baseSize : 1;
       const updatedUser = {
         ...user,
         bannerStickers: [...(user.bannerStickers || []), {
           id: bannerSticker.id,
           stickerId: sticker.stickerId || sticker.id,
           image: sticker.image,
-          positionX: bannerSticker.positionX,
-          positionY: bannerSticker.positionY,
-          width: bannerSticker.width,
-          height: bannerSticker.height
+          x: (bannerSticker.positionX || 0) * 100, // 0~1 → 0~100
+          y: (bannerSticker.positionY || 0) * 100, // 0~1 → 0~100
+          scale: Math.max(0.5, Math.min(2, responseScale)),
+          rotation: bannerSticker.rotation || 0,
+          zIndex: (user.bannerStickers?.length || 0) + 1
         }],
         stickers: {
           ...user.stickers,
@@ -513,12 +625,22 @@ export default function UserProfilePage() {
     try {
       // 백엔드 API로 스티커 위치 업데이트
       if (updatedSticker.id) {
+        // 프론트엔드 형식(x, y, scale, rotation)을 백엔드 형식(positionX, positionY, width, height, rotation)으로 변환
+        const baseSize = 32; // 기본 스티커 크기 (px)
+        const positionX = (updatedSticker.x || 0) / 100; // 0~100 → 0~1
+        const positionY = (updatedSticker.y || 0) / 100; // 0~100 → 0~1
+        const scale = updatedSticker.scale || 1;
+        const width = baseSize * scale;
+        const height = baseSize * scale;
+        const rotation = updatedSticker.rotation || 0;
+        
         await backendApi.updateBannerSticker(
           updatedSticker.id,
-          updatedSticker.positionX,
-          updatedSticker.positionY,
-          updatedSticker.width,
-          updatedSticker.height
+          positionX,
+          positionY,
+          width,
+          height,
+          rotation
         );
       }
       
@@ -743,80 +865,134 @@ export default function UserProfilePage() {
               <div style={{ marginBottom: 15, padding: 10, backgroundColor: "#f8f9fa", borderRadius: 4 }}>
                 <strong>보유 토큰: {user.tokens}개</strong>
               </div>
+              {/* 보유 필터 */}
+              <div style={{ display: "flex", gap: 8, marginBottom: 15 }}>
+                <span style={{ fontSize: 12, color: '#666', alignSelf: 'center' }}>필터:</span>
+                <button 
+                  onClick={() => setBorderFilter('all')} 
+                  style={{ 
+                    padding: '6px 10px', 
+                    border: '1px solid #dee2e6', 
+                    backgroundColor: (borderFilter === 'all') ? '#343a40' : '#f8f9fa', 
+                    color: (borderFilter === 'all') ? '#fff' : '#333', 
+                    borderRadius: 4, 
+                    cursor: 'pointer', 
+                    fontSize: 12 
+                  }}
+                >
+                  전체
+                </button>
+                <button 
+                  onClick={() => setBorderFilter('owned')} 
+                  style={{ 
+                    padding: '6px 10px', 
+                    border: '1px solid #dee2e6', 
+                    backgroundColor: (borderFilter === 'owned') ? '#198754' : '#f8f9fa', 
+                    color: (borderFilter === 'owned') ? '#fff' : '#333', 
+                    borderRadius: 4, 
+                    cursor: 'pointer', 
+                    fontSize: 12 
+                  }}
+                >
+                  보유
+                </button>
+                <button 
+                  onClick={() => setBorderFilter('unowned')} 
+                  style={{ 
+                    padding: '6px 10px', 
+                    border: '1px solid #dee2e6', 
+                    backgroundColor: (borderFilter === 'unowned') ? '#dc3545' : '#f8f9fa', 
+                    color: (borderFilter === 'unowned') ? '#fff' : '#333', 
+                    borderRadius: 4, 
+                    cursor: 'pointer', 
+                    fontSize: 12 
+                  }}
+                >
+                  미보유
+                </button>
+              </div>
               
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 15 }}>
-                {borderShop.map((border) => {
-                  const isOwned = user.borders && user.borders.includes(border.id);
-                  const isCurrent = user.currentBorder === border.id;
-                  
-                  return (
-                    <div 
-                      key={border.id} 
-                      style={{ 
-                        border: "1px solid #ddd", 
-                        borderRadius: 8, 
-                        padding: 15,
-                        backgroundColor: isCurrent ? "#e3f2fd" : "#fff"
-                      }}
-                    >
-                      <div style={{ textAlign: "center", marginBottom: 10 }}>
-                        <div 
-                          style={{ 
-                            width: 60, 
-                            height: 60, 
-                            borderRadius: "50%", 
-                            backgroundColor: "#f0f0f0", 
-                            margin: "0 auto",
-                            ...getBorderStyle(border.id)
-                          }}
-                        />
-                      </div>
-                      
-                      <h4 style={{ margin: "0 0 5px 0", fontSize: "16px" }}>{border.name}</h4>
-                      <p style={{ margin: "0 0 10px 0", fontSize: "12px", color: "#666" }}>{border.description}</p>
-                      <p style={{ margin: "0 0 10px 0", fontSize: "14px", fontWeight: "bold" }}>
-                        {border.price === 0 ? "무료" : `${border.price} 토큰`}
-                      </p>
-                      
-                      <div style={{ display: "flex", gap: 5 }}>
-                        {isOwned ? (
-                          <button
-                            onClick={() => applyBorder(border.id)}
-                            style={{
-                              flex: 1,
-                              padding: "6px 12px",
-                              backgroundColor: isCurrent ? "#28a745" : "#007bff",
-                              color: "white",
-                              border: "none",
-                              borderRadius: 4,
-                              cursor: "pointer",
-                              fontSize: "12px"
+                {borderShop
+                  .filter(border => {
+                    const isOwned = user.borders && user.borders.includes(border.id);
+                    if (borderFilter === 'owned') return isOwned;
+                    if (borderFilter === 'unowned') return !isOwned;
+                    return true;
+                  })
+                  .map((border) => {
+                    const isOwned = user.borders && user.borders.includes(border.id);
+                    const isCurrent = user.currentBorder === border.id;
+                    
+                    return (
+                      <div 
+                        key={border.id} 
+                        style={{ 
+                          border: "1px solid #ddd", 
+                          borderRadius: 8, 
+                          padding: 15,
+                          backgroundColor: isCurrent ? "#e3f2fd" : "#fff"
+                        }}
+                      >
+                        <div style={{ textAlign: "center", marginBottom: 10 }}>
+                          <div 
+                            style={{ 
+                              width: 60, 
+                              height: 60, 
+                              borderRadius: "50%", 
+                              backgroundColor: "#f0f0f0", 
+                              margin: "0 auto",
+                              ...getBorderStyle(border.id)
                             }}
-                          >
-                            {isCurrent ? "적용됨" : "적용하기"}
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => buyBorder(border.id)}
-                            disabled={user.tokens < border.price}
-                            style={{
-                              flex: 1,
-                              padding: "6px 12px",
-                              backgroundColor: user.tokens < border.price ? "#6c757d" : "#28a745",
-                              color: "white",
-                              border: "none",
-                              borderRadius: 4,
-                              cursor: user.tokens < border.price ? "not-allowed" : "pointer",
-                              fontSize: "12px"
-                            }}
-                          >
-                            구매하기
-                          </button>
-                        )}
+                          />
+                        </div>
+                        
+                        <h4 style={{ margin: "0 0 5px 0", fontSize: "16px" }}>{border.name}</h4>
+                        <p style={{ margin: "0 0 10px 0", fontSize: "12px", color: "#666" }}>{border.description}</p>
+                        <p style={{ margin: "0 0 10px 0", fontSize: "14px", fontWeight: "bold" }}>
+                          {border.price === 0 ? "무료" : `${border.price} 토큰`}
+                        </p>
+                        
+                        <div style={{ display: "flex", gap: 5 }}>
+                          {isOwned ? (
+                            <button
+                              onClick={() => applyBorder(border.id)}
+                              style={{
+                                flex: 1,
+                                padding: "6px 12px",
+                                backgroundColor: isCurrent ? "#28a745" : "#007bff",
+                                color: "white",
+                                border: "none",
+                                borderRadius: 4,
+                                cursor: "pointer",
+                                fontSize: "12px"
+                              }}
+                            >
+                              {isCurrent ? "적용됨" : "적용하기"}
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => buyBorder(border.id)}
+                              disabled={user.tokens < border.price}
+                              style={{
+                                flex: 1,
+                                padding: "6px 12px",
+                                backgroundColor: user.tokens < border.price ? "#6c757d" : "#28a745",
+                                color: "white",
+                                border: "none",
+                                borderRadius: 4,
+                                cursor: user.tokens < border.price ? "not-allowed" : "pointer",
+                                fontSize: "12px"
+                              }}
+                            >
+                              구매하기
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                }
               </div>
             </div>
           )}
@@ -848,90 +1024,144 @@ export default function UserProfilePage() {
               <div style={{ marginBottom: 15, padding: 10, backgroundColor: "#f8f9fa", borderRadius: 4 }}>
                 <strong>보유 토큰: {user.tokens}개</strong>
               </div>
+              {/* 보유 필터 */}
+              <div style={{ display: "flex", gap: 8, marginBottom: 15 }}>
+                <span style={{ fontSize: 12, color: '#666', alignSelf: 'center' }}>필터:</span>
+                <button 
+                  onClick={() => setBannerFilter('all')} 
+                  style={{ 
+                    padding: '6px 10px', 
+                    border: '1px solid #dee2e6', 
+                    backgroundColor: (bannerFilter === 'all') ? '#343a40' : '#f8f9fa', 
+                    color: (bannerFilter === 'all') ? '#fff' : '#333', 
+                    borderRadius: 4, 
+                    cursor: 'pointer', 
+                    fontSize: 12 
+                  }}
+                >
+                  전체
+                </button>
+                <button 
+                  onClick={() => setBannerFilter('owned')} 
+                  style={{ 
+                    padding: '6px 10px', 
+                    border: '1px solid #dee2e6', 
+                    backgroundColor: (bannerFilter === 'owned') ? '#198754' : '#f8f9fa', 
+                    color: (bannerFilter === 'owned') ? '#fff' : '#333', 
+                    borderRadius: 4, 
+                    cursor: 'pointer', 
+                    fontSize: 12 
+                  }}
+                >
+                  보유
+                </button>
+                <button 
+                  onClick={() => setBannerFilter('unowned')} 
+                  style={{ 
+                    padding: '6px 10px', 
+                    border: '1px solid #dee2e6', 
+                    backgroundColor: (bannerFilter === 'unowned') ? '#dc3545' : '#f8f9fa', 
+                    color: (bannerFilter === 'unowned') ? '#fff' : '#333', 
+                    borderRadius: 4, 
+                    cursor: 'pointer', 
+                    fontSize: 12 
+                  }}
+                >
+                  미보유
+                </button>
+              </div>
               
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 15 }}>
-                {bannerShop.map((banner) => {
-                  const isOwned = user.banners && user.banners.includes(banner.id);
-                  const isCurrent = user.currentBanner === banner.id;
-                  
-                  return (
-                    <div 
-                      key={banner.id} 
-                      style={{ 
-                        border: "1px solid #ddd", 
-                        borderRadius: 8, 
-                        padding: 15,
-                        backgroundColor: isCurrent ? "#e3f2fd" : "#fff",
-                        position: "relative",
-                        overflow: "hidden"
-                      }}
-                    >
-                      {/* 배너 미리보기 */}
-                      <div style={{
-                        height: "150px",
-                        backgroundImage: `url(${banner.image})`,
-                        backgroundSize: "cover",
-                        backgroundPosition: "center",
-                        borderRadius: "4px",
-                        marginBottom: "10px",
-                        position: "relative"
-                      }}>
+                {bannerShop
+                  .filter(banner => {
+                    const isOwned = user.banners && user.banners.includes(banner.id);
+                    if (bannerFilter === 'owned') return isOwned;
+                    if (bannerFilter === 'unowned') return !isOwned;
+                    return true;
+                  })
+                  .map((banner) => {
+                    const isOwned = user.banners && user.banners.includes(banner.id);
+                    const isCurrent = user.currentBanner === banner.id;
+                    
+                    return (
+                      <div 
+                        key={banner.id} 
+                        style={{ 
+                          border: "1px solid #ddd", 
+                          borderRadius: 8, 
+                          padding: 15,
+                          backgroundColor: isCurrent ? "#e3f2fd" : "#fff",
+                          position: "relative",
+                          overflow: "hidden"
+                        }}
+                      >
+                        {/* 배너 미리보기 */}
                         <div style={{
-                          position: "absolute",
-                          top: 0,
-                          left: 0,
-                          right: 0,
-                          bottom: 0,
-                          backgroundColor: "rgba(0, 0, 0, 0.3)",
-                          borderRadius: "4px"
-                        }} />
+                          height: "150px",
+                          backgroundImage: `url(${banner.image})`,
+                          backgroundSize: "cover",
+                          backgroundPosition: "center",
+                          borderRadius: "4px",
+                          marginBottom: "10px",
+                          position: "relative"
+                        }}>
+                          <div style={{
+                            position: "absolute",
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            backgroundColor: "rgba(0, 0, 0, 0.3)",
+                            borderRadius: "4px"
+                          }} />
+                        </div>
+                        
+                        <h4 style={{ margin: "0 0 5px 0", fontSize: "16px" }}>{banner.name}</h4>
+                        <p style={{ margin: "0 0 10px 0", fontSize: "12px", color: "#666" }}>{banner.description}</p>
+                        <p style={{ margin: "0 0 10px 0", fontSize: "14px", fontWeight: "bold" }}>
+                          {banner.price === 0 ? "무료" : `${banner.price} 토큰`}
+                        </p>
+                        
+                        <div style={{ display: "flex", gap: 5 }}>
+                          {isOwned ? (
+                            <button
+                              onClick={() => applyBanner(banner.id)}
+                              style={{
+                                flex: 1,
+                                padding: "6px 12px",
+                                backgroundColor: isCurrent ? "#28a745" : "#007bff",
+                                color: "white",
+                                border: "none",
+                                borderRadius: 4,
+                                cursor: "pointer",
+                                fontSize: "12px"
+                              }}
+                            >
+                              {isCurrent ? "적용됨" : "적용하기"}
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => buyBanner(banner.id)}
+                              disabled={user.tokens < banner.price}
+                              style={{
+                                flex: 1,
+                                padding: "6px 12px",
+                                backgroundColor: user.tokens < banner.price ? "#6c757d" : "#28a745",
+                                color: "white",
+                                border: "none",
+                                borderRadius: 4,
+                                cursor: user.tokens < banner.price ? "not-allowed" : "pointer",
+                                fontSize: "12px"
+                              }}
+                            >
+                              구매하기
+                            </button>
+                          )}
+                        </div>
                       </div>
-                      
-                      <h4 style={{ margin: "0 0 5px 0", fontSize: "16px" }}>{banner.name}</h4>
-                      <p style={{ margin: "0 0 10px 0", fontSize: "12px", color: "#666" }}>{banner.description}</p>
-                      <p style={{ margin: "0 0 10px 0", fontSize: "14px", fontWeight: "bold" }}>
-                        {banner.price === 0 ? "무료" : `${banner.price} 토큰`}
-                      </p>
-                      
-                      <div style={{ display: "flex", gap: 5 }}>
-                        {isOwned ? (
-                          <button
-                            onClick={() => applyBanner(banner.id)}
-                            style={{
-                              flex: 1,
-                              padding: "6px 12px",
-                              backgroundColor: isCurrent ? "#28a745" : "#007bff",
-                              color: "white",
-                              border: "none",
-                              borderRadius: 4,
-                              cursor: "pointer",
-                              fontSize: "12px"
-                            }}
-                          >
-                            {isCurrent ? "적용됨" : "적용하기"}
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => buyBanner(banner.id)}
-                            disabled={user.tokens < banner.price}
-                            style={{
-                              flex: 1,
-                              padding: "6px 12px",
-                              backgroundColor: user.tokens < banner.price ? "#6c757d" : "#28a745",
-                              color: "white",
-                              border: "none",
-                              borderRadius: 4,
-                              cursor: user.tokens < banner.price ? "not-allowed" : "pointer",
-                              fontSize: "12px"
-                            }}
-                          >
-                            구매하기
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                }
               </div>
             </div>
           )}

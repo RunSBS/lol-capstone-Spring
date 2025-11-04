@@ -9,6 +9,7 @@ export default function StickerShop({ user, onStickerPurchase, onStickerInventor
   const [runeStickers, setRuneStickers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
+  const [ownershipFilter, setOwnershipFilter] = useState('all'); // all | owned | unowned
 
   useEffect(() => {
     loadStickerData();
@@ -155,6 +156,13 @@ export default function StickerShop({ user, onStickerPurchase, onStickerInventor
           break;
     }
     console.log(`현재 탭: ${activeTab}, 표시할 스티커 수: ${result.length}`);
+    // 보유/미보유 필터 적용
+    if (ownershipFilter !== 'all') {
+      result = result.filter(sticker => {
+        const ownedCount = user.stickers ? (user.stickers[sticker.id] || 0) : 0;
+        return ownershipFilter === 'owned' ? ownedCount > 0 : ownedCount === 0;
+      });
+    }
     return result;
   };
 
@@ -182,11 +190,11 @@ export default function StickerShop({ user, onStickerPurchase, onStickerInventor
           <strong>보유 토큰: {user.tokens}개</strong>
         </div>
         
-        {/* 탭 네비게이션 */}
+        {/* 탭 네비게이션 및 보유 필터 */}
         <div style={{ 
           display: 'flex', 
           gap: '10px', 
-          marginBottom: '20px',
+          marginBottom: '10px',
           borderBottom: '1px solid #ddd'
         }}>
           <button
@@ -249,6 +257,47 @@ export default function StickerShop({ user, onStickerPurchase, onStickerInventor
           >
             룬
           </button>
+        </div>
+
+        {/* 보유/미보유 필터 */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+          <span style={{ fontSize: '12px', color: '#666', alignSelf: 'center' }}>필터:</span>
+          <button
+            onClick={() => setOwnershipFilter('all')}
+            style={{
+              padding: '6px 10px',
+              border: '1px solid #dee2e6',
+              backgroundColor: ownershipFilter === 'all' ? '#343a40' : '#f8f9fa',
+              color: ownershipFilter === 'all' ? '#fff' : '#333',
+              borderRadius: 4,
+              cursor: 'pointer',
+              fontSize: '12px'
+            }}
+          >전체</button>
+          <button
+            onClick={() => setOwnershipFilter('owned')}
+            style={{
+              padding: '6px 10px',
+              border: '1px solid #dee2e6',
+              backgroundColor: ownershipFilter === 'owned' ? '#198754' : '#f8f9fa',
+              color: ownershipFilter === 'owned' ? '#fff' : '#333',
+              borderRadius: 4,
+              cursor: 'pointer',
+              fontSize: '12px'
+            }}
+          >보유</button>
+          <button
+            onClick={() => setOwnershipFilter('unowned')}
+            style={{
+              padding: '6px 10px',
+              border: '1px solid #dee2e6',
+              backgroundColor: ownershipFilter === 'unowned' ? '#dc3545' : '#f8f9fa',
+              color: ownershipFilter === 'unowned' ? '#fff' : '#333',
+              borderRadius: 4,
+              cursor: 'pointer',
+              fontSize: '12px'
+            }}
+          >미보유</button>
         </div>
       </div>
 
