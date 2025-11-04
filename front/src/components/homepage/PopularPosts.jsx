@@ -4,10 +4,13 @@ import boardApi from '../../data/communityApi.js'
 
 function PopularPosts() {
   const [lolmuncheolPosts, setLolmuncheolPosts] = useState([])
+  const [communityPosts, setCommunityPosts] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loadingCommunity, setLoadingCommunity] = useState(true)
 
   useEffect(() => {
     loadLolmuncheolPosts()
+    loadCommunityPosts()
   }, [])
 
   const loadLolmuncheolPosts = async () => {
@@ -100,17 +103,69 @@ function PopularPosts() {
     }
   }
 
+  const loadCommunityPosts = async () => {
+    try {
+      setLoadingCommunity(true)
+      console.log('커뮤니티 인기글 로드 시작')
+      
+      // 자유게시판과 공략 게시판에서 가져오기
+      const categories = ['free', 'guide']
+      let allPosts = []
+      
+      for (const category of categories) {
+        try {
+          const response = await boardApi.getPosts(0, 50, category)
+          const posts = (response && response.content) ? response.content : (Array.isArray(response) ? response : [])
+          
+          if (Array.isArray(posts)) {
+            allPosts = allPosts.concat(posts)
+          }
+        } catch (error) {
+          console.error(`카테고리 ${category} 로드 실패:`, error)
+        }
+      }
+      
+      // 추천수(like) 기준으로 정렬
+      const sortedPosts = allPosts
+        .map(post => ({
+          ...post,
+          likeCount: typeof post.like === 'number' ? post.like : parseInt(post.like) || 0
+        }))
+        .sort((a, b) => b.likeCount - a.likeCount) // 추천수 내림차순
+        .slice(0, 5) // 상위 5개
+      
+      console.log('커뮤니티 인기글 수:', sortedPosts.length)
+      setCommunityPosts(sortedPosts)
+    } catch (error) {
+      console.error('커뮤니티 인기글 로드 실패:', error)
+      setCommunityPosts([])
+    } finally {
+      setLoadingCommunity(false)
+    }
+  }
+
   const formatTimeAgo = (dateString) => {
     if (!dateString) return '시간 정보 없음'
+    
     const now = new Date()
     const postDate = new Date(dateString)
-    const diffInHours = Math.floor((now - postDate) / (1000 * 60 * 60))
+    const diffInMs = now - postDate
     
-    if (diffInHours < 1) return '방금 전'
-    if (diffInHours < 24) return `${diffInHours}시간 전`
-    const diffInDays = Math.floor(diffInHours / 24)
-    if (diffInDays < 7) return `${diffInDays}일 전`
-    return postDate.toLocaleDateString()
+    if (diffInMs < 0) return '시간 정보 없음' // 미래 시간인 경우
+    
+    const diffInMinutes = Math.floor(diffInMs / (1000 * 60))
+    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60))
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24))
+    
+    if (diffInMinutes < 1) {
+      return '방금 전'
+    } else if (diffInMinutes < 60) {
+      return `${diffInMinutes}분 전`
+    } else if (diffInHours < 24) {
+      return `${diffInHours}시간 전`
+    } else {
+      return `${diffInDays}일 전`
+    }
   }
 
   const getDisplayTitle = (post) => {
@@ -119,8 +174,17 @@ function PopularPosts() {
     return title.length > maxLength ? title.substring(0, maxLength) + '...' : title
   }
 
-  // 5개 슬롯을 만들고 실제 데이터로 채우기
-  const renderPosts = () => {
+  const getCategoryName = (category) => {
+    switch (category) {
+      case 'free': return '자유'
+      case 'guide': return '공략'
+      case 'lolmuncheol': return '롤문철'
+      default: return category
+    }
+  }
+
+  // 5개 슬롯을 만들고 실제 데이터로 채우기 (롤문철)
+  const renderLolmuncheolPosts = () => {
     const slots = []
     
     // 실제 데이터로 채우기
@@ -190,16 +254,73 @@ function PopularPosts() {
     return slots
   }
 
-  return (
-    <div className="popular-posts" data-name="Left Column - Popular Posts" data-node-id="2:338">
-      <p className="popular-title" data-node-id="2:339">롤문철 인기글</p>
-      {loading ? (
-        <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
-          로딩 중...
+  // 커뮤니티 인기글 렌더링
+  const renderCommunityPosts = () => {
+    const slots = []
+    
+    // 실제 데이터로 채우기
+    communityPosts.forEach((post, index) => {
+      slots.push(
+        <Link 
+          key={post.id} 
+          to={`/community/post/${post.id}`}
+          style={{ textDecoration: 'none', color: 'inherit' }}
+        >
+          <div className="popular-item" data-name={`Community Post Item ${index + 1}`}>
+            <p className="popular-rank">{index + 1}</p>
+            <p className="popular-text">
+              {getDisplayTitle(post)}
+              <span style={{ color: '#ff6b6b', marginLeft: '5px' }}>
+                [{post.like || 0}]
+              </span>
+            </p>
+            <p className="popular-meta">
+              {formatTimeAgo(post.createdAt)} {getCategoryName(post.category)} | {post.writer || '작성자 없음'}
+            </p>
+          </div>
+        </Link>
+      )
+    })
+    
+    // 빈 슬롯 채우기 (5개까지)
+    for (let i = communityPosts.length; i < 5; i++) {
+      slots.push(
+        <div key={`empty-community-${i}`} className="popular-item" data-name={`Community Post Item ${i + 1}`}>
+          <p className="popular-rank">{i + 1}</p>
+          <p className="popular-text" style={{ color: '#999' }}>-</p>
+          <p className="popular-meta" style={{ color: '#999' }}>-</p>
         </div>
-      ) : (
-        renderPosts()
-      )}
+      )
+    }
+    
+    return slots
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '60px', marginTop: '-40px' }}>
+      {/* 롤문철 인기글 */}
+      <div className="popular-posts" data-name="Left Column - Popular Posts" data-node-id="2:338">
+        <p className="popular-title" data-node-id="2:339">롤문철 인기글</p>
+        {loading ? (
+          <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
+            로딩 중...
+          </div>
+        ) : (
+          renderLolmuncheolPosts()
+        )}
+      </div>
+
+      {/* 커뮤니티 인기글 */}
+      <div className="popular-posts" data-name="Left Column - Community Popular Posts">
+        <p className="popular-title">커뮤니티 인기글</p>
+        {loadingCommunity ? (
+          <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
+            로딩 중...
+          </div>
+        ) : (
+          renderCommunityPosts()
+        )}
+      </div>
     </div>
   )
 }

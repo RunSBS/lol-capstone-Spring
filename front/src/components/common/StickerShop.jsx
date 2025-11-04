@@ -171,13 +171,14 @@ export default function StickerShop({ user, onStickerPurchase, onStickerInventor
   return (
     <div style={{ padding: '20px' }}>
       <div style={{ marginBottom: '20px' }}>
-        <h3 style={{ margin: '0 0 15px 0' }}>스티커 상점</h3>
+        <h3 style={{ margin: '0 0 15px 0', color: '#cdd2e2' }}>스티커 상점</h3>
         {/* 토큰 정보 */}
         <div style={{ 
           padding: '10px', 
-          backgroundColor: '#f8f9fa', 
+          backgroundColor: '#323649', 
           borderRadius: '4px',
-          marginBottom: '15px'
+          marginBottom: '15px',
+          color: '#cdd2e2'
         }}>
           <strong>보유 토큰: {user.tokens}개</strong>
         </div>
@@ -187,15 +188,15 @@ export default function StickerShop({ user, onStickerPurchase, onStickerInventor
           display: 'flex', 
           gap: '10px', 
           marginBottom: '20px',
-          borderBottom: '1px solid #ddd'
+          borderBottom: '1px solid #31384c'
         }}>
           <button
             onClick={() => setActiveTab('all')}
             style={{
               padding: '10px 20px',
               border: 'none',
-              backgroundColor: activeTab === 'all' ? '#007bff' : 'transparent',
-              color: activeTab === 'all' ? 'white' : '#666',
+              backgroundColor: activeTab === 'all' ? '#5383e8' : 'transparent',
+              color: activeTab === 'all' ? 'white' : '#9e9eb1',
               cursor: 'pointer',
               borderRadius: '4px 4px 0 0',
               fontSize: '14px',
@@ -209,8 +210,8 @@ export default function StickerShop({ user, onStickerPurchase, onStickerInventor
             style={{
               padding: '10px 20px',
               border: 'none',
-              backgroundColor: activeTab === 'champion' ? '#007bff' : 'transparent',
-              color: activeTab === 'champion' ? 'white' : '#666',
+              backgroundColor: activeTab === 'champion' ? '#5383e8' : 'transparent',
+              color: activeTab === 'champion' ? 'white' : '#9e9eb1',
               cursor: 'pointer',
               borderRadius: '4px 4px 0 0',
               fontSize: '14px',
@@ -224,8 +225,8 @@ export default function StickerShop({ user, onStickerPurchase, onStickerInventor
             style={{
               padding: '10px 20px',
               border: 'none',
-              backgroundColor: activeTab === 'item' ? '#007bff' : 'transparent',
-              color: activeTab === 'item' ? 'white' : '#666',
+              backgroundColor: activeTab === 'item' ? '#5383e8' : 'transparent',
+              color: activeTab === 'item' ? 'white' : '#9e9eb1',
               cursor: 'pointer',
               borderRadius: '4px 4px 0 0',
               fontSize: '14px',
@@ -239,8 +240,8 @@ export default function StickerShop({ user, onStickerPurchase, onStickerInventor
             style={{
               padding: '10px 20px',
               border: 'none',
-              backgroundColor: activeTab === 'rune' ? '#007bff' : 'transparent',
-              color: activeTab === 'rune' ? 'white' : '#666',
+              backgroundColor: activeTab === 'rune' ? '#5383e8' : 'transparent',
+              color: activeTab === 'rune' ? 'white' : '#9e9eb1',
               cursor: 'pointer',
               borderRadius: '4px 4px 0 0',
               fontSize: '14px',
@@ -268,10 +269,10 @@ export default function StickerShop({ user, onStickerPurchase, onStickerInventor
             <div 
               key={sticker.id} 
               style={{ 
-                border: '1px solid #ddd', 
+                border: '1px solid #31384c', 
                 borderRadius: '8px', 
                 padding: '15px',
-                backgroundColor: '#fff',
+                backgroundColor: '#1c202d',
                 position: 'relative'
               }}
             >
@@ -290,25 +291,22 @@ export default function StickerShop({ user, onStickerPurchase, onStickerInventor
                     height: '64px', 
                     objectFit: 'contain',
                     borderRadius: '4px',
-                    backgroundColor: '#f0f0f0'
+                    backgroundColor: '#282e3e'
                   }}
                 />
               </div>
               
               {/* 스티커 정보 */}
-              <h4 style={{ margin: '0 0 5px 0', fontSize: '16px' }}>{sticker.name}</h4>
+              <h4 style={{ margin: '0 0 5px 0', fontSize: '16px', color: '#cdd2e2' }}>{sticker.name}</h4>
               {sticker.category !== 'rune' && (
-                <p style={{ margin: '0 0 5px 0', fontSize: '12px', color: '#666' }}>
+                <p style={{ margin: '0 0 10px 0', fontSize: '12px', color: '#9e9eb1' }}>
                   {sticker.description}
                 </p>
               )}
-              <p style={{ margin: '0 0 10px 0', fontSize: '10px', color: '#999' }}>
-                ID: {sticker.id} | 카테고리: {sticker.category || 'unknown'}
-              </p>
               
               {/* 가격 및 보유 수량 */}
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-                <span style={{ fontSize: '14px', fontWeight: 'bold' }}>
+                <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#cdd2e2' }}>
                   {sticker.price} 토큰
                 </span>
                 {isOwned && (
@@ -326,7 +324,7 @@ export default function StickerShop({ user, onStickerPurchase, onStickerInventor
                   style={{
                     flex: 1,
                     padding: '6px 12px',
-                    backgroundColor: user.tokens < sticker.price ? '#6c757d' : '#28a745',
+                    backgroundColor: user.tokens < sticker.price ? '#323649' : '#28a745',
                     color: 'white',
                     border: 'none',
                     borderRadius: '4px',
@@ -343,7 +341,7 @@ export default function StickerShop({ user, onStickerPurchase, onStickerInventor
                     style={{
                       flex: 1,
                       padding: '6px 12px',
-                      backgroundColor: '#007bff',
+                      backgroundColor: '#5383e8',
                       color: 'white',
                       border: 'none',
                       borderRadius: '4px',
@@ -361,9 +359,9 @@ export default function StickerShop({ user, onStickerPurchase, onStickerInventor
       </div>
 
       {displayStickers.length === 0 && !loading && (
-        <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+        <div style={{ textAlign: 'center', padding: '40px', color: '#9e9eb1' }}>
           <p>표시할 스티커가 없습니다.</p>
-          <p style={{ fontSize: '12px', marginTop: '10px' }}>
+          <p style={{ fontSize: '12px', marginTop: '10px', color: '#6b7280' }}>
             현재 탭: {activeTab} | 
             기존 스티커: {stickers.length}개 | 
             챔피언 스티커: {championStickers.length}개 | 

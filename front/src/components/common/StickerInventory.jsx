@@ -165,8 +165,8 @@ export default function StickerInventory({ user, onStickerSelect, onStickerRemov
   if (ownedStickers.length === 0) {
     return (
       <div style={{ padding: '20px', textAlign: 'center' }}>
-        <h3 style={{ margin: '0 0 15px 0' }}>스티커 보유탭</h3>
-        <div style={{ color: '#666', padding: '40px' }}>
+        <h3 style={{ margin: '0 0 15px 0', color: '#cdd2e2' }}>스티커 보유탭</h3>
+        <div style={{ color: '#9e9eb1', padding: '40px' }}>
           보유한 스티커가 없습니다.<br />
           스티커 상점에서 구매해보세요!
         </div>
@@ -176,7 +176,7 @@ export default function StickerInventory({ user, onStickerSelect, onStickerRemov
 
   return (
     <div style={{ padding: '20px' }}>
-      <h3 style={{ margin: '0 0 15px 0' }}>스티커 보유탭</h3>
+      <h3 style={{ margin: '0 0 15px 0', color: '#cdd2e2' }}>스티커 보유탭</h3>
       
       <div style={{ 
         display: 'grid', 
@@ -187,10 +187,10 @@ export default function StickerInventory({ user, onStickerSelect, onStickerRemov
           <div 
             key={sticker.id}
             style={{ 
-              border: selectedSticker === sticker.id ? '2px solid #007bff' : '1px solid #ddd',
+              border: selectedSticker === sticker.id ? '2px solid #5383e8' : '1px solid #31384c',
               borderRadius: '8px', 
               padding: '15px',
-              backgroundColor: selectedSticker === sticker.id ? '#e3f2fd' : '#fff',
+              backgroundColor: selectedSticker === sticker.id ? '#323649' : '#1c202d',
               cursor: 'pointer',
               transition: 'all 0.2s ease'
             }}
@@ -215,18 +215,18 @@ export default function StickerInventory({ user, onStickerSelect, onStickerRemov
                   height: '48px', 
                   objectFit: 'contain',
                   borderRadius: '4px',
-                  backgroundColor: '#f0f0f0'
+                  backgroundColor: '#282e3e'
                 }}
               />
             </div>
             
             {/* 스티커 정보 */}
             <div style={{ textAlign: 'center' }}>
-              <h4 style={{ margin: '0 0 5px 0', fontSize: '14px' }}>{sticker.name}</h4>
-              <p style={{ margin: '0 0 5px 0', fontSize: '10px', color: '#999' }}>
+              <h4 style={{ margin: '0 0 5px 0', fontSize: '14px', color: '#cdd2e2' }}>{sticker.name}</h4>
+              <p style={{ margin: '0 0 5px 0', fontSize: '10px', color: '#6b7280' }}>
                 {getStickerCategory(sticker.id)}
               </p>
-              <p style={{ margin: '0 0 10px 0', fontSize: '12px', color: '#666' }}>
+              <p style={{ margin: '0 0 10px 0', fontSize: '12px', color: '#9e9eb1' }}>
                 보유: {sticker.count}개
               </p>
               
@@ -234,7 +234,7 @@ export default function StickerInventory({ user, onStickerSelect, onStickerRemov
               {selectedSticker === sticker.id && (
                 <div style={{ 
                   fontSize: '12px', 
-                  color: '#007bff', 
+                  color: '#5383e8', 
                   fontWeight: 'bold',
                   marginBottom: '10px'
                 }}>
@@ -250,7 +250,7 @@ export default function StickerInventory({ user, onStickerSelect, onStickerRemov
                 }}
                 style={{
                   padding: '4px 8px',
-                  backgroundColor: '#dc3545',
+                  backgroundColor: '#e84057',
                   color: 'white',
                   border: 'none',
                   borderRadius: '4px',
@@ -269,21 +269,21 @@ export default function StickerInventory({ user, onStickerSelect, onStickerRemov
         <div style={{ 
           marginTop: '20px', 
           padding: '15px', 
-          backgroundColor: '#f8f9fa', 
+          backgroundColor: '#323649', 
           borderRadius: '8px',
-          border: '1px solid #dee2e6'
+          border: '1px solid #31384c'
         }}>
-          <h4 style={{ margin: '0 0 10px 0' }}>선택된 스티커</h4>
-          <p style={{ margin: '0 0 10px 0', fontSize: '14px' }}>
+          <h4 style={{ margin: '0 0 10px 0', color: '#cdd2e2' }}>선택된 스티커</h4>
+          <p style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#9e9eb1' }}>
             이제 배너에 스티커를 부착할 수 있습니다. 배너 영역을 클릭하여 스티커를 배치하세요.
           </p>
           <button
             onClick={() => setSelectedSticker(null)}
             style={{
               padding: '6px 12px',
-              backgroundColor: '#6c757d',
-              color: 'white',
-              border: 'none',
+              backgroundColor: '#323649',
+              color: '#cdd2e2',
+              border: '1px solid #31384c',
               borderRadius: '4px',
               cursor: 'pointer',
               fontSize: '12px'

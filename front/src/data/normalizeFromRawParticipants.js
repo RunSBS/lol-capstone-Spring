@@ -72,9 +72,9 @@ export function normalizeFromRawParticipants(matchData) {
                 tryBuildSummonerSpellIconUrl(ver, (p?.summoner2Id ?? p?.spell2Id), PLACEHOLDER_IMG),
             ],
             runes: [
-                tryBuildRuneIconUrl(keystone, PLACEHOLDER_IMG), // 🔹 키스톤(Perk)
-                getStyleStaticIcon(subStyle || primaryStyle, PLACEHOLDER_IMG), // 🔹 서브 스타일 없으면 기본 스타일 아이콘
-            ],
+                keystone ? tryBuildRuneIconUrl(keystone, PLACEHOLDER_IMG) : null, // 🔹 키스톤(Perk)
+                (subStyle || primaryStyle) ? getStyleStaticIcon(subStyle || primaryStyle, PLACEHOLDER_IMG) : null, // 🔹 서브 스타일 없으면 기본 스타일 아이콘
+            ].filter(url => url && url !== PLACEHOLDER_IMG && url.trim()), // 빈 값과 PLACEHOLDER_IMG 제거
 
             // 전투 지표
             kda: `${kills}/${deaths}/${assists}`,

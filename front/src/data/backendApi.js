@@ -5,6 +5,9 @@ const API_BASE_URL = '/api';
 // JWT 토큰 가져오기
 function getAuthHeaders() {
   const token = localStorage.getItem('accessToken');
+  if (!token) {
+    console.warn('JWT 토큰이 없습니다. 로그인이 필요합니다.');
+  }
   return {
     'Content-Type': 'application/json',
     ...(token && { 'Authorization': `Bearer ${token}` })
@@ -204,6 +207,24 @@ const backendApi = {
     return await response.json();
   },
 
+  // 댓글 수정
+  updateComment: async (id, content) => {
+    const response = await fetch(`${API_BASE_URL}/comments/${id}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        content: content
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || '댓글 수정 실패');
+    }
+
+    return await response.json();
+  },
+
   // 댓글 삭제
   deleteComment: async (id) => {
     const response = await fetch(`${API_BASE_URL}/comments/${id}`, {
@@ -220,13 +241,18 @@ const backendApi = {
 
   // 게시글 좋아요
   likePost: async (id) => {
+    const headers = getAuthHeaders();
+    console.log('좋아요 요청:', `${API_BASE_URL}/posts/${id}/like`, '토큰 존재:', !!headers['Authorization']);
+    
     const response = await fetch(`${API_BASE_URL}/posts/${id}/like`, {
       method: 'POST',
-      headers: getAuthHeaders()
+      headers: headers
     });
 
     if (!response.ok) {
-      throw new Error('좋아요 실패');
+      const errorText = await response.text();
+      console.error('좋아요 실패:', response.status, errorText);
+      throw new Error(`좋아요 실패: ${response.status} ${errorText}`);
     }
 
     return await response.json();
@@ -234,13 +260,18 @@ const backendApi = {
 
   // 게시글 싫어요
   dislikePost: async (id) => {
+    const headers = getAuthHeaders();
+    console.log('싫어요 요청:', `${API_BASE_URL}/posts/${id}/dislike`, '토큰 존재:', !!headers['Authorization']);
+    
     const response = await fetch(`${API_BASE_URL}/posts/${id}/dislike`, {
       method: 'POST',
-      headers: getAuthHeaders()
+      headers: headers
     });
 
     if (!response.ok) {
-      throw new Error('싫어요 실패');
+      const errorText = await response.text();
+      console.error('싫어요 실패:', response.status, errorText);
+      throw new Error(`싫어요 실패: ${response.status} ${errorText}`);
     }
 
     return await response.json();
@@ -248,13 +279,18 @@ const backendApi = {
 
   // 게시글 좋아요 취소
   removeLikePost: async (id) => {
+    const headers = getAuthHeaders();
+    console.log('좋아요 취소 요청:', `${API_BASE_URL}/posts/${id}/like`, '토큰 존재:', !!headers['Authorization']);
+    
     const response = await fetch(`${API_BASE_URL}/posts/${id}/like`, {
       method: 'DELETE',
-      headers: getAuthHeaders()
+      headers: headers
     });
 
     if (!response.ok) {
-      throw new Error('좋아요 취소 실패');
+      const errorText = await response.text();
+      console.error('좋아요 취소 실패:', response.status, errorText);
+      throw new Error(`좋아요 취소 실패: ${response.status} ${errorText}`);
     }
 
     return await response.json();
@@ -262,13 +298,18 @@ const backendApi = {
 
   // 게시글 싫어요 취소
   removeDislikePost: async (id) => {
+    const headers = getAuthHeaders();
+    console.log('싫어요 취소 요청:', `${API_BASE_URL}/posts/${id}/dislike`, '토큰 존재:', !!headers['Authorization']);
+    
     const response = await fetch(`${API_BASE_URL}/posts/${id}/dislike`, {
       method: 'DELETE',
-      headers: getAuthHeaders()
+      headers: headers
     });
 
     if (!response.ok) {
-      throw new Error('싫어요 취소 실패');
+      const errorText = await response.text();
+      console.error('싫어요 취소 실패:', response.status, errorText);
+      throw new Error(`싫어요 취소 실패: ${response.status} ${errorText}`);
     }
 
     return await response.json();
@@ -276,13 +317,18 @@ const backendApi = {
 
   // 댓글 좋아요
   likeComment: async (id) => {
+    const headers = getAuthHeaders();
+    console.log('댓글 좋아요 요청:', `${API_BASE_URL}/comments/${id}/like`, '토큰 존재:', !!headers['Authorization']);
+    
     const response = await fetch(`${API_BASE_URL}/comments/${id}/like`, {
       method: 'POST',
-      headers: getAuthHeaders()
+      headers: headers
     });
 
     if (!response.ok) {
-      throw new Error('좋아요 실패');
+      const errorText = await response.text();
+      console.error('댓글 좋아요 실패:', response.status, errorText);
+      throw new Error(`댓글 좋아요 실패: ${response.status} ${errorText}`);
     }
 
     return await response.json();
@@ -290,13 +336,18 @@ const backendApi = {
 
   // 댓글 싫어요
   dislikeComment: async (id) => {
+    const headers = getAuthHeaders();
+    console.log('댓글 싫어요 요청:', `${API_BASE_URL}/comments/${id}/dislike`, '토큰 존재:', !!headers['Authorization']);
+    
     const response = await fetch(`${API_BASE_URL}/comments/${id}/dislike`, {
       method: 'POST',
-      headers: getAuthHeaders()
+      headers: headers
     });
 
     if (!response.ok) {
-      throw new Error('싫어요 실패');
+      const errorText = await response.text();
+      console.error('댓글 싫어요 실패:', response.status, errorText);
+      throw new Error(`댓글 싫어요 실패: ${response.status} ${errorText}`);
     }
 
     return await response.json();
@@ -304,13 +355,18 @@ const backendApi = {
 
   // 댓글 좋아요 취소
   removeLikeComment: async (id) => {
+    const headers = getAuthHeaders();
+    console.log('댓글 좋아요 취소 요청:', `${API_BASE_URL}/comments/${id}/like`, '토큰 존재:', !!headers['Authorization']);
+    
     const response = await fetch(`${API_BASE_URL}/comments/${id}/like`, {
       method: 'DELETE',
-      headers: getAuthHeaders()
+      headers: headers
     });
 
     if (!response.ok) {
-      throw new Error('좋아요 취소 실패');
+      const errorText = await response.text();
+      console.error('댓글 좋아요 취소 실패:', response.status, errorText);
+      throw new Error(`댓글 좋아요 취소 실패: ${response.status} ${errorText}`);
     }
 
     return await response.json();
@@ -318,13 +374,18 @@ const backendApi = {
 
   // 댓글 싫어요 취소
   removeDislikeComment: async (id) => {
+    const headers = getAuthHeaders();
+    console.log('댓글 싫어요 취소 요청:', `${API_BASE_URL}/comments/${id}/dislike`, '토큰 존재:', !!headers['Authorization']);
+    
     const response = await fetch(`${API_BASE_URL}/comments/${id}/dislike`, {
       method: 'DELETE',
-      headers: getAuthHeaders()
+      headers: headers
     });
 
     if (!response.ok) {
-      throw new Error('싫어요 취소 실패');
+      const errorText = await response.text();
+      console.error('댓글 싫어요 취소 실패:', response.status, errorText);
+      throw new Error(`댓글 싫어요 취소 실패: ${response.status} ${errorText}`);
     }
 
     return await response.json();

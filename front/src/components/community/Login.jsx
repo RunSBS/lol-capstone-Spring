@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AttendanceModal from "../common/AttendanceModal.jsx";
 import { processAttendance } from "../../utils/attendanceUtils.js";
+import "../../styles/community.css";
 
 function Login({ onLogin, onShowRegister }) {
   const navigate = useNavigate();
@@ -75,12 +76,12 @@ function Login({ onLogin, onShowRegister }) {
     navigate(-1);
   };
   return (
-    <div style={{ maxWidth: 400, margin: "50px auto", padding: 20 }}>
-      <h2>로그인</h2>
+    <div className="auth-container">
+      <h2 className="auth-title">로그인</h2>
       
       <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: 15 }}>
-          <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
+        <div className="auth-form-group">
+          <label className="auth-label">
             아이디
           </label>
           <input
@@ -89,18 +90,13 @@ function Login({ onLogin, onShowRegister }) {
             value={formData.username}
             onChange={handleInputChange}
             placeholder="아이디를 입력하세요"
-            style={{ 
-              width: "100%", 
-              padding: 10, 
-              border: "1px solid #ddd",
-              borderRadius: 4 
-            }}
+            className="auth-input"
             required
           />
         </div>
 
-        <div style={{ marginBottom: 20 }}>
-          <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
+        <div className="auth-form-group">
+          <label className="auth-label">
             비밀번호
           </label>
           <input
@@ -109,45 +105,25 @@ function Login({ onLogin, onShowRegister }) {
             value={formData.password}
             onChange={handleInputChange}
             placeholder="비밀번호를 입력하세요"
-            style={{ 
-              width: "100%", 
-              padding: 10, 
-              border: "1px solid #ddd",
-              borderRadius: 4 
-            }}
+            className="auth-input"
             required
           />
         </div>
 
-        <div style={{ display: "flex", gap: 10, marginBottom: 15 }}>
+        <div className="auth-buttons">
           <button
             type="submit"
-            style={{
-              flex: 1,
-              padding: 12,
-              backgroundColor: "#007bff",
-              color: "white",
-              border: "none",
-              borderRadius: 4,
-              cursor: "pointer"
-            }}
+            className="auth-button auth-button-primary"
           >
             로그인
           </button>
         </div>
 
-        <div style={{ textAlign: "center" }}>
+        <div className="auth-link-container">
           <button
             type="button"
             onClick={onShowRegister}
-            style={{
-              padding: 8,
-              backgroundColor: "transparent",
-              color: "#007bff",
-              border: "1px solid #007bff",
-              borderRadius: 4,
-              cursor: "pointer"
-            }}
+            className="auth-button-outline"
           >
             회원가입
           </button>

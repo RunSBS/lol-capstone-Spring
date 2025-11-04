@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import commentApi from "../../data/commentApi";
 import { Link } from "react-router-dom";
+import "../../styles/community.css";
 
 const ADMIN_ID = "admin1"; // 관리자 아이디
 
@@ -10,6 +11,31 @@ function CommentSection({ postId, currentUser }) {
   const [editingCommentId, setEditingCommentId] = useState(null);
   const [editText, setEditText] = useState("");
   const [userVotes, setUserVotes] = useState({}); // 댓글별 사용자 투표 상태
+
+  // 상대 시간 포맷 함수
+  const formatTimeAgo = (dateString) => {
+    if (!dateString) return '시간 정보 없음';
+    
+    const now = new Date();
+    const postDate = new Date(dateString);
+    const diffInMs = now - postDate;
+    
+    if (diffInMs < 0) return '시간 정보 없음'; // 미래 시간인 경우
+    
+    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+    
+    if (diffInMinutes < 1) {
+      return '방금 전';
+    } else if (diffInMinutes < 60) {
+      return `${diffInMinutes}분 전`;
+    } else if (diffInHours < 24) {
+      return `${diffInHours}시간 전`;
+    } else {
+      return `${diffInDays}일 전`;
+    }
+  };
 
   const fetchComments = () => {
     commentApi.getCommentsByPostId(postId).then(setComments);
@@ -65,8 +91,12 @@ function CommentSection({ postId, currentUser }) {
       return;
     }
     if (window.confirm("정말 삭제하시겠습니까?")) {
-      await commentApi.deleteComment(id);
-      fetchComments();
+      try {
+        await commentApi.deleteComment(id);
+        fetchComments();
+      } catch (error) {
+        alert("댓글 삭제 중 오류가 발생했습니다: " + (error.message || error));
+      }
     }
   };
 
@@ -85,9 +115,13 @@ function CommentSection({ postId, currentUser }) {
       alert("댓글 내용을 입력하세요.");
       return;
     }
-    await commentApi.updateComment(id, { text: editText });
-    cancelEdit();
-    fetchComments();
+    try {
+      await commentApi.updateComment(id, { text: editText });
+      cancelEdit();
+      fetchComments();
+    } catch (error) {
+      alert("댓글 수정 중 오류가 발생했습니다: " + (error.message || error));
+    }
   };
 
   const handleVoteToggle = async (commentId, type) => {
@@ -137,23 +171,27 @@ function CommentSection({ postId, currentUser }) {
   };
 
   return (
-    <div style={{ border: "1px solid #ccc", padding: 8, backgroundColor: "#fafafa" }}>
+    <div className="comment-section">
       <h4>댓글</h4>
       {comments.map((c) => (
-        <div key={c.id} style={{ marginBottom: 6, borderBottom: "1px solid #eee", paddingBottom: 4 }}>
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <div style={{ color: "#333" }}>
-              <a href={`/user/${encodeURIComponent(c.writer)}`} target="_blank" rel="noopener noreferrer"><b>{c.writer}</b></a> | {new Date(c.createdAt).toLocaleString()}
+        <div key={c.id} className="comment-item">
+          <div className="comment-header">
+            <div className="comment-author">
+              <a href={`/user/${encodeURIComponent(c.writer)}`} target="_blank" rel="noopener noreferrer"><b>{c.writer}</b></a> | <span className="comment-meta">{formatTimeAgo(c.createdAt)}</span>
             </div>
-            <div style={{ marginTop: 8 }}>
-              <button onClick={() => handleVoteToggle(c.id, 'like')}>
-                {userVotes[c.id] === 'like' ? "👍 추천 취소" : "👍 추천"}
-              </button>
-              <span style={{ margin: "0 16px", color: "#333" }}>추천: {c.like || 0}</span>
-              <button onClick={() => handleVoteToggle(c.id, 'dislike')}>
-                {userVotes[c.id] === 'dislike' ? "👎 반대 취소" : "👎 반대"}
-              </button>
-              <span style={{ margin: "0 16px", color: "#333" }}>반대: {c.dislike || 0}</span>
+            <div className="comment-actions">
+              <span 
+                className="comment-vote-link" 
+                onClick={() => handleVoteToggle(c.id, 'like')}
+              >
+                {userVotes[c.id] === 'like' ? `👍 추천 취소 (${c.like || 0})` : `👍 추천 (${c.like || 0})`}
+              </span>
+              <span 
+                className="comment-vote-link" 
+                onClick={() => handleVoteToggle(c.id, 'dislike')}
+              >
+                {userVotes[c.id] === 'dislike' ? `👎 반대 취소 (${c.dislike || 0})` : `👎 반대 (${c.dislike || 0})`}
+              </span>
             </div>
           </div>
           {editingCommentId === c.id ? (
@@ -162,61 +200,55 @@ function CommentSection({ postId, currentUser }) {
                 value={editText}
                 onChange={(e) => setEditText(e.target.value)}
                 rows={3}
-                style={{ 
-                  width: "100%", 
-                  marginTop: 4,
-                  wordWrap: "break-word",
-                  wordBreak: "break-word",
-                  maxWidth: "100%"
-                }}
+                className="comment-edit-textarea"
               />
-              <button onClick={() => saveEdit(c.id)} style={{ marginRight: 5 }}>
-                저장
-              </button>
-              <button onClick={cancelEdit}>취소</button>
+              <div className="comment-edit-actions">
+                <span 
+                  className="comment-action-link" 
+                  onClick={() => saveEdit(c.id)}
+                >
+                  저장
+                </span>
+                <span 
+                  className="comment-action-link" 
+                  onClick={cancelEdit}
+                >
+                  취소
+                </span>
+              </div>
             </>
           ) : (
             <>
-              <div style={{ 
-                marginTop: 4, 
-                wordWrap: "break-word", 
-                wordBreak: "break-word", 
-                maxWidth: "100%",
-                whiteSpace: "pre-wrap",
-                color: "#333"
-              }}>{c.text}</div>
+              <div className="comment-content">{c.text}</div>
               {(c.writer === currentUser || currentUser === ADMIN_ID) && (
-                <>
-                  <button onClick={() => startEdit(c.id, c.text)} style={{ marginTop: 4, marginRight: 5 }}>
+                <div className="comment-action-links">
+                  <span 
+                    className="comment-action-link" 
+                    onClick={() => startEdit(c.id, c.text)}
+                  >
                     수정
-                  </button>
-                  <button
-                    style={{ marginTop: 4, color: "red", cursor: "pointer" }}
+                  </span>
+                  <span 
+                    className="comment-action-link comment-delete-link" 
                     onClick={() => handleDelete(c.id, c.writer)}
                   >
                     삭제
-                  </button>
-                </>
+                  </span>
+                </div>
               )}
             </>
           )}
         </div>
       ))}
-      <form onSubmit={handleSubmit} style={{ marginTop: 8 }}>
+      <form onSubmit={handleSubmit} className="comment-form">
         <textarea
           placeholder="댓글 입력"
           value={text}
           onChange={(e) => setText(e.target.value)}
           rows={3}
-          style={{ 
-            width: "100%", 
-            resize: "none",
-            wordWrap: "break-word",
-            wordBreak: "break-word",
-            maxWidth: "100%"
-          }}
+          className="comment-form-textarea"
         />
-        <button type="submit" style={{ marginTop: 5 }}>
+        <button type="submit" className="comment-form-button">
           등록
         </button>
       </form>

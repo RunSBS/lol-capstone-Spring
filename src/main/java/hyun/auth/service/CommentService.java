@@ -90,6 +90,27 @@ public class CommentService {
     }
 
     @Transactional
+    public CommentDto update(Long commentId, String content) {
+        User u = me();
+        Comment c = comments.findById(commentId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "댓글 없음"));
+        if (!c.getUser().getId().equals(u.getId())) 
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "작성자만 수정 가능");
+        c.setContent(content);
+        Comment saved = comments.save(c);
+        comments.flush();
+        return new CommentDto(
+                saved.getId(),
+                saved.getPost().getId(),
+                saved.getUser().getId(),
+                saved.getUser().getUsername(),
+                saved.getContent(),
+                saved.getLikes(),
+                saved.getDislikes(),
+                saved.getCreatedAt()
+        );
+    }
+
+    @Transactional
     public void delete(Long commentId) {
         User u = me();
         Comment c = comments.findById(commentId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "댓글 없음"));
@@ -117,6 +138,7 @@ public class CommentService {
 
     @Transactional
     public void likeComment(Long commentId) {
+        me(); // 인증 체크
         Comment c = comments.findById(commentId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "댓글 없음"));
         c.setLikes(c.getLikes() + 1);
@@ -125,6 +147,7 @@ public class CommentService {
 
     @Transactional
     public void dislikeComment(Long commentId) {
+        me(); // 인증 체크
         Comment c = comments.findById(commentId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "댓글 없음"));
         c.setDislikes(c.getDislikes() + 1);
@@ -133,6 +156,7 @@ public class CommentService {
 
     @Transactional
     public void removeLikeComment(Long commentId) {
+        me(); // 인증 체크
         Comment c = comments.findById(commentId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "댓글 없음"));
         c.setLikes(Math.max(c.getLikes() - 1, 0));
@@ -141,6 +165,7 @@ public class CommentService {
 
     @Transactional
     public void removeDislikeComment(Long commentId) {
+        me(); // 인증 체크
         Comment c = comments.findById(commentId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "댓글 없음"));
         c.setDislikes(Math.max(c.getDislikes() - 1, 0));

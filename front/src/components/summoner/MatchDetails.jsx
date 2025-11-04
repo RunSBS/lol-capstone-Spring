@@ -10,15 +10,48 @@ function MatchDetails({ matchData }) {
   
   // 룬 맵 선로딩: 키스톤 아이콘이 빈칸으로 나오는 현상 방지
   const [runesReady, setRunesReady] = useState(false)
+  const [basePlayers, setBasePlayers] = useState([])
+  
   useEffect(() => {
     let mounted = true
     const ver = matchData?.ddVer || '15.18.1'
     ;(async () => {
-      try { await loadRuneMap(ver) } catch {}
-      if (mounted) setRunesReady(v => !v) // 재렌더 트리거
+      try { 
+        // 룬 매핑을 먼저 로드
+        await loadRuneMap(ver)
+        if (!mounted) return
+        
+        // 룬 매핑 로드 후 플레이어 데이터 정규화
+        const normalizedMatchData = {
+          ...matchData,
+          gameDurationSec: matchData?.gameDurationSec ?? matchData?.gameDuration ?? 0
+        }
+        const players = Array.isArray(matchData?.detailedPlayers) && matchData.detailedPlayers.length
+            ? matchData.detailedPlayers
+            : normalizeFromRawParticipants(normalizedMatchData)
+        
+        if (mounted) {
+          setBasePlayers(players)
+          setRunesReady(v => !v) // 재렌더 트리거
+        }
+      } catch (e) {
+        console.warn('Failed to load rune map:', e)
+        // 룬 매핑 로드 실패 시에도 플레이어 데이터는 정규화
+        if (mounted) {
+          const normalizedMatchData = {
+            ...matchData,
+            gameDurationSec: matchData?.gameDurationSec ?? matchData?.gameDuration ?? 0
+          }
+          const players = Array.isArray(matchData?.detailedPlayers) && matchData.detailedPlayers.length
+              ? matchData.detailedPlayers
+              : normalizeFromRawParticipants(normalizedMatchData)
+          setBasePlayers(players)
+          setRunesReady(v => !v)
+        }
+      }
     })()
     return () => { mounted = false }
-  }, [matchData?.ddVer])
+  }, [matchData?.ddVer, matchData?.id, matchData?.matchId])
 
   // 상세 데이터(백엔드 detail) 로드 상태
   const [detailedPlayers, setDetailedPlayers] = useState(null)
@@ -30,17 +63,8 @@ function MatchDetails({ matchData }) {
     setDetailedPlayers(null)
     setLoadingDetail(false)
     setError(null)
+    setBasePlayers([]) // basePlayers도 초기화
   }, [matchData?.id, matchData?.matchId])
-
-  // 입력 데이터 정규화 (목데이터/실데이터 모두 지원)
-  // gameDurationSec가 없으면 gameDuration을 gameDurationSec로 전달
-  const normalizedMatchData = {
-    ...matchData,
-    gameDurationSec: matchData?.gameDurationSec ?? matchData?.gameDuration ?? 0
-  }
-  const basePlayers = Array.isArray(matchData?.detailedPlayers) && matchData.detailedPlayers.length
-      ? matchData.detailedPlayers
-      : normalizeFromRawParticipants(normalizedMatchData)
   
 
   // 필요 시 상세 호출: 현재 데이터에 피해량이 전부 0이면 detail API 조회 시도
@@ -48,13 +72,17 @@ function MatchDetails({ matchData }) {
     let mounted = true
     const allZero = (Array.isArray(basePlayers) ? basePlayers : []).every(p => !p?.damageDealt)
     const matchId = matchData?.id || matchData?.matchId
-    if (!matchId || !allZero || loadingDetail || detailedPlayers) return
+    if (!matchId || !allZero || loadingDetail || detailedPlayers || basePlayers.length === 0) return
     setLoadingDetail(true)
     setError(null)
     ;(async () => {
       try {
+        const ver = matchData?.ddVer || '15.18.1'
+        // 룬 매핑이 로드되지 않았다면 먼저 로드
+        await loadRuneMap(ver)
+        
         const detail = await fetchMatchDetail(matchId, false)
-        // detail.participants를 normalize에 맞게 주입
+        // detail.participants를 normalize에 맞게 주입 (룬 매핑 로드 후)
         const enriched = normalizeFromRawParticipants({
           ...matchData,
           // rawParticipants가 있으면 detail participants가 무시되는 문제 방지
@@ -75,7 +103,7 @@ function MatchDetails({ matchData }) {
       }
     })()
     return () => { mounted = false }
-  }, [basePlayers, matchData?.id, matchData?.matchId])
+  }, [basePlayers, matchData?.id, matchData?.matchId, matchData?.ddVer])
 
   const players = Array.isArray(detailedPlayers) && detailedPlayers.length ? detailedPlayers : basePlayers
 
@@ -125,9 +153,11 @@ function MatchDetails({ matchData }) {
               {player.spells?.[1] && <img src={player.spells[1]} alt="spell 2" />}
             </div>
             <div className="runes">
-              {(Array.isArray(player.runes) ? player.runes : []).filter(src => src && src.trim()).map((src, idx) => (
-                <img key={idx} src={src} alt={`rune ${idx + 1}`} />
-              ))}
+              {(Array.isArray(player.runes) ? player.runes : [])
+                .filter(src => src && src.trim() && src !== 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=')
+                .map((src, idx) => (
+                  <img key={idx} src={src} alt={`rune ${idx + 1}`} onError={(e) => { e.target.style.display = 'none'; }} />
+                ))}
             </div>
           </div>
           <div className="player-name-tier">
@@ -175,12 +205,6 @@ function MatchDetails({ matchData }) {
 
   return (
     <div className="match-details-container">
-      <div className="details-tabs">
-        <button className="active">종합</button>
-        <button>팀 분석</button>
-        <button>빌드</button>
-        <button>기타</button>
-      </div>
       {loadingDetail && (
         <div style={{ padding: '20px', textAlign: 'center' }}>상세 정보를 불러오는 중...</div>
       )}

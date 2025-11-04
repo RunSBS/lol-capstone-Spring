@@ -5,6 +5,7 @@ import CommentSection from "./CommentSection";
 import VoteSection from "./VoteSection";
 import MatchHistoryItem from "../summoner/MatchHistoryItem";
 import "../../styles/summoner.css";
+import "../../styles/community.css";
 
 function PostDetailPage({ currentUser, adminId, postId }) {
   const id = postId || useParams().id;
@@ -18,6 +19,31 @@ function PostDetailPage({ currentUser, adminId, postId }) {
 
   const getVoteKey = () => `post-vote-${id}-${currentUser || "guest"}`;
   const getCheerKey = () => `lolmuncheol-cheer-${id}-${currentUser || "guest"}`;
+
+  // 상대 시간 포맷 함수
+  const formatTimeAgo = (dateString) => {
+    if (!dateString) return '시간 정보 없음';
+    
+    const now = new Date();
+    const postDate = new Date(dateString);
+    const diffInMs = now - postDate;
+    
+    if (diffInMs < 0) return '시간 정보 없음'; // 미래 시간인 경우
+    
+    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+    
+    if (diffInMinutes < 1) {
+      return '방금 전';
+    } else if (diffInMinutes < 60) {
+      return `${diffInMinutes}분 전`;
+    } else if (diffInHours < 24) {
+      return `${diffInHours}시간 전`;
+    } else {
+      return `${diffInDays}일 전`;
+    }
+  };
 
   useEffect(() => {
     boardApi.getPost(id).then((data) => {
@@ -393,21 +419,21 @@ function PostDetailPage({ currentUser, adminId, postId }) {
     return (
       <div>
         <h2>{post.title}</h2>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div className="post-detail-writer-meta">
       <div>
-        <Link to={`/user/${encodeURIComponent(post.writer)}`}><b>{post.writer}</b></Link> vs <Link to={`/user/${encodeURIComponent(post.writerB || "작성자B")}`}><b>{post.writerB || "작성자B"}</b></Link> | {new Date(post.createdAt).toLocaleString()}
+        <Link to={`/user/${encodeURIComponent(post.writer)}`}><b>{post.writer}</b></Link> vs <Link to={`/user/${encodeURIComponent(post.writerB || "작성자B")}`}><b>{post.writerB || "작성자B"}</b></Link> | {formatTimeAgo(post.createdAt)}
       </div>
           {canEdit && (
-            <div>
-              <button onClick={handleDelete} style={{ margin: "10px 10px 10px 0", backgroundColor: "red", color: "white" }}>삭제</button>
-              <button onClick={handleEdit} style={{ marginBottom: 10 }}>수정</button>
+            <div className="post-detail-actions-wrapper">
+              <button onClick={handleDelete} className="post-detail-delete-button">삭제</button>
+              <button onClick={handleEdit} className="post-detail-edit-button">수정</button>
             </div>
           )}
         </div>
         <hr />
         {/* 롤문철 매치업 섹션 */}
-        <div style={{ marginBottom: 12 }}>
-          <div style={{ fontSize: "1.2em", fontWeight: "bold", marginBottom: 10, textAlign: "center" }}>롤문철 매치업</div>
+        <div className="lolmuncheol-matchup-section">
+          <div className="lolmuncheol-matchup-title">롤문철 매치업</div>
           {post.matchData && post.matchData.match && (() => {
             // MatchDetails를 위한 원본 데이터 병합
             const matchWithRawData = {
@@ -433,74 +459,42 @@ function PostDetailPage({ currentUser, adminId, postId }) {
               matchId: post.matchData.matchId
             };
             return (
-              <div style={{ 
-                border: "2px solid #5383e8",
-                borderRadius: 4,
-                overflow: "hidden"
-              }}>
+              <div className="lolmuncheol-matchup-container">
                 <MatchHistoryItem matchData={matchWithRawData} />
               </div>
             );
           })()}
         </div>
         {/* split content area */}
-        <div style={{ 
-          display: "flex", 
-          minHeight: "400px", // 최소 높이 설정으로 이등분 선 고정
-          border: "1px solid #ddd",
-          borderRadius: 6
-        }}>
-          <div style={{ 
-            flex: 1, 
-            borderRight: "1px solid #ddd", 
-            padding: 16,
-            display: "flex",
-            flexDirection: "column"
-          }}>
-            <div style={{ marginBottom: 12, fontSize: "1.1em", fontWeight: "bold" }}>
+        <div className="lolmuncheol-split-container">
+          <div className="lolmuncheol-split-left">
+            <div className="lolmuncheol-writer-name">
               <b>{post.writer}</b>
             </div>
-            <div style={{ 
-              flex: 1,
-              whiteSpace: "pre-wrap", 
-              overflow: "auto",
-              minHeight: "300px",
-              wordWrap: "break-word",
-              wordBreak: "break-word",
-              maxWidth: "100%"
-            }} dangerouslySetInnerHTML={{ __html: renderContentWithMedia(post.content) }} />
+            <div className="lolmuncheol-content-area" dangerouslySetInnerHTML={{ __html: renderContentWithMedia(post.content) }} />
           </div>
-          <div style={{ 
-            flex: 1, 
-            padding: 16,
-            display: "flex",
-            flexDirection: "column"
-          }}>
-            <div style={{ marginBottom: 12, fontSize: "1.1em", fontWeight: "bold" }}>
+          <div className="lolmuncheol-split-right">
+            <div className="lolmuncheol-writer-name">
               <b>{post.writerB || "작성자B"}</b>
             </div>
-            <div style={{ 
-              flex: 1,
-              whiteSpace: "pre-wrap", 
-              overflow: "auto",
-              minHeight: "300px",
-              wordWrap: "break-word",
-              wordBreak: "break-word",
-              maxWidth: "100%"
-            }} dangerouslySetInnerHTML={{ __html: renderContentWithMedia(post.contentB || "아직 작성되지 않았습니다.") }} />
+            <div className="lolmuncheol-content-area" dangerouslySetInnerHTML={{ __html: renderContentWithMedia(post.contentB || "아직 작성되지 않았습니다.") }} />
           </div>
         </div>
 
         {/* 추천/반대 버튼 */}
-        <div style={{ margin: "24px 0", textAlign: "center" }}>
-          <button onClick={() => handleVoteToggle("like")}>
-            {userVoted === "like" ? "👍 추천 취소" : "👍 추천"}
-          </button>
-          <span style={{ margin: "0 16px" }}>추천: {like}</span>
-          <button onClick={() => handleVoteToggle("dislike")}>
-            {userVoted === "dislike" ? "👎 반대 취소" : "👎 반대"}
-          </button>
-          <span style={{ margin: "0 16px" }}>반대: {dislike}</span>
+        <div className="post-detail-vote-buttons-container">
+          <span 
+            className="post-detail-vote-link" 
+            onClick={() => handleVoteToggle("like")}
+          >
+            {userVoted === "like" ? `👍 추천 취소 (${like})` : `👍 추천 (${like})`}
+          </span>
+          <span 
+            className="post-detail-vote-link" 
+            onClick={() => handleVoteToggle("dislike")}
+          >
+            {userVoted === "dislike" ? `👎 반대 취소 (${dislike})` : `👎 반대 (${dislike})`}
+          </span>
         </div>
 
         {/* 투표 섹션 - 본문과 댓글 사이 */}
@@ -523,30 +517,26 @@ function PostDetailPage({ currentUser, adminId, postId }) {
   return (
     <div>
       <h2>{post.title}</h2>
-      <div>
-        <Link to={`/user/${encodeURIComponent(post.writer)}`}><b>{post.writer}</b></Link> | {new Date(post.createdAt).toLocaleString()}
+      <div className="post-detail-writer-meta">
+        <div>
+          <Link to={`/user/${encodeURIComponent(post.writer)}`}><b>{post.writer}</b></Link> | {formatTimeAgo(post.createdAt)}
+        </div>
+        {canEdit && (
+          <div className="post-detail-actions-wrapper">
+            <button
+              onClick={handleDelete}
+              className="post-detail-delete-button"
+            >
+              삭제
+            </button>
+            <button onClick={handleEdit} className="post-detail-edit-button">
+              수정
+            </button>
+          </div>
+        )}
       </div>
-      {canEdit && (
-        <>
-          <button
-            onClick={handleDelete}
-            style={{ margin: "10px 10px 10px 0", backgroundColor: "red", color: "white" }}
-          >
-            삭제
-          </button>
-          <button onClick={handleEdit} style={{ marginBottom: 10 }}>
-            수정
-          </button>
-        </>
-      )}
       <hr />
-      <div style={{ 
-        whiteSpace: "pre-wrap",
-        wordWrap: "break-word",
-        wordBreak: "break-word",
-        maxWidth: "100%",
-        overflow: "hidden"
-      }} dangerouslySetInnerHTML={{ __html: renderContentWithMedia(post.content) }} />
+      <div className="post-detail-content-wrapper" dangerouslySetInnerHTML={{ __html: renderContentWithMedia(post.content) }} />
       
       {/* 투표 섹션 */}
       {/* 롤문철 카테고리이고 vote 정보가 있으면 항상 표시 */}
@@ -560,15 +550,19 @@ function PostDetailPage({ currentUser, adminId, postId }) {
         />
       )}
       
-      <div style={{ margin: "24px 0", textAlign: "center" }}>
-        <button onClick={() => handleVoteToggle("like")}>
-          {userVoted === "like" ? "👍 추천 취소" : "👍 추천"}
-        </button>
-        <span style={{ margin: "0 16px" }}>추천: {like}</span>
-        <button onClick={() => handleVoteToggle("dislike")}>
-          {userVoted === "dislike" ? "👎 반대 취소" : "👎 반대"}
-        </button>
-        <span style={{ margin: "0 16px" }}>반대: {dislike}</span>
+      <div className="post-detail-vote-buttons-container">
+        <span 
+          className="post-detail-vote-link" 
+          onClick={() => handleVoteToggle("like")}
+        >
+          {userVoted === "like" ? `👍 추천 취소 (${like})` : `👍 추천 (${like})`}
+        </span>
+        <span 
+          className="post-detail-vote-link" 
+          onClick={() => handleVoteToggle("dislike")}
+        >
+          {userVoted === "dislike" ? `👎 반대 취소 (${dislike})` : `👎 반대 (${dislike})`}
+        </span>
       </div>
       <CommentSection postId={post.id} currentUser={currentUser} />
     </div>
@@ -581,6 +575,7 @@ function VoteDisplay({ voteData, userVoteOption, onVoteSubmit, onVoteCancel, cur
   const [hasVoted, setHasVoted] = useState(userVoteOption !== null);
   const [isExpired, setIsExpired] = useState(false);
   const [endTimeText, setEndTimeText] = useState(null);
+  const [remainingTimeText, setRemainingTimeText] = useState(null);
 
   // userVoteOption이 변경될 때 상태 업데이트
   useEffect(() => {
@@ -604,7 +599,12 @@ function VoteDisplay({ voteData, userVoteOption, onVoteSubmit, onVoteCancel, cur
           setEndTimeText(null);
           return;
         }
-        const formatted = date.toLocaleString();
+        // 월, 일, 시간, 분 형식으로 포맷팅 (예: 12월 31일 23:59)
+        const month = date.getMonth() + 1;
+        const day = date.getDate();
+        const hours = date.getHours().toString().padStart(2, '0');
+        const minutes = date.getMinutes().toString().padStart(2, '0');
+        const formatted = `${month}월 ${day}일 ${hours}:${minutes}`;
         setEndTimeText(formatted);
       } catch (error) {
         console.error('종료 시간 파싱 오류:', error);
@@ -615,18 +615,19 @@ function VoteDisplay({ voteData, userVoteOption, onVoteSubmit, onVoteCancel, cur
     }
   }, [voteData]);
 
-  // 투표 종료 시간 체크 및 업데이트
+  // 투표 종료 시간 체크 및 남은 시간 계산
   useEffect(() => {
     // endTime이 있으면 hasEndTime도 true로 간주
     const hasEndTime = voteData?.hasEndTime || (voteData?.endTime != null && voteData?.endTime !== '');
     
     if (!voteData || !hasEndTime || !voteData.endTime) {
       setIsExpired(false);
+      setRemainingTimeText(null);
       return;
     }
 
-    // 초기 체크
-    const checkExpired = () => {
+    // 초기 체크 및 남은 시간 계산
+    const checkExpiredAndRemaining = () => {
       try {
         const now = new Date();
         let endTime = new Date(voteData.endTime);
@@ -635,6 +636,7 @@ function VoteDisplay({ voteData, userVoteOption, onVoteSubmit, onVoteCancel, cur
         if (isNaN(endTime.getTime())) {
           console.warn('유효하지 않은 종료 시간:', voteData.endTime);
           setIsExpired(false);
+          setRemainingTimeText(null);
           return;
         }
         
@@ -652,16 +654,51 @@ function VoteDisplay({ voteData, userVoteOption, onVoteSubmit, onVoteCancel, cur
           }
           return expired;
         });
+
+        // 남은 시간 계산 (아직 종료되지 않았을 때만)
+        if (!expired) {
+          const diffInMs = endTime.getTime() - now.getTime();
+          const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+          const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+          const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+          const remainingHours = diffInHours % 24;
+          const remainingMinutes = diffInMinutes % 60;
+
+          let remainingText = '';
+          if (diffInDays > 0) {
+            remainingText = `${diffInDays}일`;
+            if (remainingHours > 0) {
+              remainingText += ` ${remainingHours}시간`;
+            }
+            if (remainingMinutes > 0 && diffInDays === 0) {
+              remainingText += ` ${remainingMinutes}분`;
+            }
+          } else if (diffInHours > 0) {
+            remainingText = `${diffInHours}시간`;
+            if (remainingMinutes > 0) {
+              remainingText += ` ${remainingMinutes}분`;
+            }
+          } else if (diffInMinutes > 0) {
+            remainingText = `${diffInMinutes}분`;
+          } else {
+            remainingText = '곧 종료';
+          }
+          
+          setRemainingTimeText(remainingText);
+        } else {
+          setRemainingTimeText(null);
+        }
       } catch (error) {
         console.error('종료 시간 체크 중 오류:', error);
         setIsExpired(false);
+        setRemainingTimeText(null);
       }
     };
 
-    checkExpired();
+    checkExpiredAndRemaining();
 
     // 1초마다 체크 (종료 시간이 있을 때만)
-    const interval = setInterval(checkExpired, 1000);
+    const interval = setInterval(checkExpiredAndRemaining, 1000);
 
     return () => clearInterval(interval);
   }, [voteData]);
@@ -709,67 +746,61 @@ function VoteDisplay({ voteData, userVoteOption, onVoteSubmit, onVoteCancel, cur
   };
 
   return (
-    <div style={{ 
-      border: "1px solid #ddd", 
-      borderRadius: 8, 
-      padding: 20, 
-      marginBottom: 20,
-      backgroundColor: "#f9f9f9"
-    }}>
-      <h3 style={{ marginBottom: 15, color: "#333" }}>📊 투표</h3>
+    <div className="vote-display-container">
+      <h3 className="vote-display-title">📊 투표</h3>
       
-      <div style={{ marginBottom: 15 }}>
-        <h4 style={{ 
-          marginBottom: 10,
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center"
-        }}>
-          <span>{voteData.question}</span>
+      <div className="vote-display-question-section">
+        <div className="vote-display-question-header">
+          <span className="vote-display-question-text">{voteData.question}</span>
           {endTimeText && (
-            <span style={{ 
-              color: isExpired ? "#dc3545" : "#333", 
-              fontSize: "0.9em", 
-              fontWeight: isExpired ? "bold" : "normal",
-              marginLeft: "20px",
-              whiteSpace: "nowrap"
-            }}>
-              종료: {endTimeText}
-            </span>
+            <div className="vote-display-time-info">
+              <span className={`vote-display-end-time-text ${isExpired ? 'expired' : ''}`}>
+                종료: {endTimeText}
+              </span>
+              {remainingTimeText && !isExpired && (
+                <span className="vote-display-remaining-time-text">
+                  남은 시간: {remainingTimeText}
+                </span>
+              )}
+            </div>
           )}
-        </h4>
+        </div>
         
         {isExpired && (
-          <p style={{ color: "#dc3545", fontWeight: "bold", marginBottom: 15 }}>
+          <p className="vote-display-expired-message">
             ⏰ 투표가 종료되었습니다.
           </p>
         )}
       </div>
 
       {!hasVoted && !isExpired ? (
-        <div style={{ marginBottom: 15 }}>
-          {voteData.options.map((option, index) => (
-            <div key={index} style={{ marginBottom: 8 }}>
-              <label style={{ display: "flex", alignItems: "center", cursor: "pointer" }}>
-                <input
-                  type="radio"
-                  name="voteOption"
-                  value={index}
-                  checked={selectedOption === index}
-                  onChange={() => setSelectedOption(index)}
-                  style={{ marginRight: 10 }}
-                />
-                <span style={{ 
-                  wordWrap: "break-word", 
-                  wordBreak: "break-word", 
-                  maxWidth: "100%" 
-                }}>{option}</span>
-              </label>
-            </div>
-          ))}
+        <div className="vote-display-options-wrapper">
+          <div className="vote-display-options-list">
+            {voteData.options.map((option, index) => (
+              <div key={index} className="vote-display-option-item">
+                <label className="vote-display-option-label">
+                  <input
+                    type="radio"
+                    name="voteOption"
+                    value={index}
+                    checked={selectedOption === index}
+                    onChange={() => setSelectedOption(index)}
+                    className="vote-display-option-radio"
+                  />
+                  <span className="vote-display-option-text">{option}</span>
+                </label>
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={handleVote}
+            className="vote-display-submit-btn"
+          >
+            투표하기
+          </button>
         </div>
       ) : (
-        <div style={{ marginBottom: 15 }}>
+        <div className="vote-display-results-list">
           {voteData.options.map((option, index) => {
             // results가 없어도 0으로 표시
             const results = voteData.results || {};
@@ -779,82 +810,33 @@ function VoteDisplay({ voteData, userVoteOption, onVoteSubmit, onVoteCancel, cur
             const isUserVote = userVoteOption === index;
             
             return (
-              <div key={index} style={{ 
-                marginBottom: 10, 
-                padding: 10, 
-                border: isUserVote ? "2px solid #007bff" : "1px solid #ddd",
-                borderRadius: 4,
-                backgroundColor: isUserVote ? "#e3f2fd" : "#fff"
-              }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
-                  <span style={{ 
-                    fontWeight: isUserVote ? "bold" : "normal",
-                    wordWrap: "break-word",
-                    wordBreak: "break-word",
-                    maxWidth: "70%"
-                  }}>
+              <div key={index} className={`vote-display-result-item ${isUserVote ? 'user-vote' : ''}`}>
+                <div className="vote-display-result-header">
+                  <span className={`vote-display-result-option ${isUserVote ? 'user-vote' : ''}`}>
                     {option} {isUserVote && "✓"}
                   </span>
-                  <span style={{ 
-                    flexShrink: 0,
-                    marginLeft: 10
-                  }}>{count}표 ({percentage}%)</span>
+                  <span className="vote-display-result-count">{count}표 ({percentage}%)</span>
                 </div>
-                <div style={{ 
-                  width: "100%", 
-                  height: 8, 
-                  backgroundColor: "#e0e0e0", 
-                  borderRadius: 4,
-                  overflow: "hidden"
-                }}>
-                  <div style={{
-                    width: `${percentage}%`,
-                    height: "100%",
-                    backgroundColor: isUserVote ? "#007bff" : "#28a745",
-                    transition: "width 0.3s ease"
-                  }} />
+                <div className="vote-display-progress-bar">
+                  <div className={`vote-display-progress-fill ${isUserVote ? 'user-vote' : ''}`} style={{ width: `${percentage}%` }} />
                 </div>
               </div>
             );
           })}
-          <p style={{ color: "#666", fontSize: "0.9em", marginTop: 10 }}>
+          <p className="vote-display-total-text">
             총 {getTotalVotes()}표
           </p>
         </div>
       )}
 
-      {!hasVoted && !isExpired && (
-        <button
-          onClick={handleVote}
-          style={{
-            padding: "10px 20px",
-            backgroundColor: "#007bff",
-            color: "white",
-            border: "none",
-            borderRadius: 4,
-            cursor: "pointer"
-          }}
-        >
-          투표하기
-        </button>
-      )}
-
       {hasVoted && !isExpired && (
-        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-          <p style={{ color: "#28a745", fontWeight: "bold", margin: 0 }}>
+        <div className="vote-display-actions">
+          <p className="vote-display-complete-message">
             ✓ 투표가 완료되었습니다.
           </p>
           <button
             onClick={handleVoteCancel}
-            style={{
-              padding: "8px 16px",
-              backgroundColor: "#dc3545",
-              color: "white",
-              border: "none",
-              borderRadius: 4,
-              cursor: "pointer",
-              fontSize: "0.9em"
-            }}
+            className="vote-display-cancel-btn"
           >
             투표 취소
           </button>
@@ -862,16 +844,16 @@ function VoteDisplay({ voteData, userVoteOption, onVoteSubmit, onVoteCancel, cur
       )}
 
       {hasVoted && isExpired && (
-        <div style={{ marginTop: 10 }}>
-          <p style={{ color: "#28a745", fontWeight: "bold", margin: 0 }}>
+        <div className="vote-display-expired-container">
+          <p className="vote-display-complete-message">
             ✓ 투표가 완료되었습니다. (투표가 종료되어 결과를 확인할 수 있습니다)
           </p>
         </div>
       )}
 
       {!hasVoted && isExpired && (
-        <div style={{ marginTop: 10 }}>
-          <p style={{ color: "#666", fontSize: "0.9em", margin: 0 }}>
+        <div className="vote-display-expired-container">
+          <p className="vote-display-expired-info">
             투표가 종료되었습니다. 위의 결과를 확인하세요.
           </p>
         </div>

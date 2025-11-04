@@ -17,6 +17,7 @@ import {
   PLACEHOLDER_IMG
 } from "../../data/ddragon";
 import "../../styles/summoner.css";
+import "../../styles/community.css";
 
 function WritePost({ currentUser }) {
   const navigate = useNavigate();
@@ -704,19 +705,19 @@ function WritePost({ currentUser }) {
 
 
   return (
-    <div style={{ maxWidth: 800, margin: "0 auto", padding: 20 }}>
+    <div className="write-post-wrapper">
       <h2>{isEditMode ? "글 수정" : "글 작성"}</h2>
       
       <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: 15 }}>
-          <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
+        <div className="write-post-form-group-custom">
+          <label className="write-post-label-custom">
             카테고리
           </label>
           <select
             name="category"
             value={formData.category}
             onChange={handleInputChange}
-            style={{ padding: 8, width: 200 }}
+            className="write-post-select-custom"
           >
             <option value="free">자유게시판</option>
             <option value="guide">공략</option>
@@ -824,37 +825,18 @@ function WritePost({ currentUser }) {
                   matchId: formData.matchData.matchId
                 };
                 return (
-                  <div style={{ marginTop: 10 }}>
-                    <div style={{ 
-                      marginBottom: 10, 
-                      fontWeight: "bold", 
-                      color: "#cdd2e2",
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center"
-                    }}>
+                  <div className="write-post-match-selected">
+                    <div className="write-post-match-header">
                       <span>선택된 전적</span>
                       <button
                         type="button"
                         onClick={handleMatchRemove}
-                        style={{
-                          padding: "6px 12px",
-                          backgroundColor: "#e84057",
-                          color: "white",
-                          border: "none",
-                          borderRadius: 4,
-                          cursor: "pointer",
-                          fontSize: "12px"
-                        }}
+                        className="write-post-match-remove-button"
                       >
                         제거
                       </button>
                     </div>
-                    <div style={{ 
-                      border: "2px solid #5383e8",
-                      borderRadius: 4,
-                      overflow: "hidden"
-                    }}>
+                    <div className="write-post-match-container">
                       <MatchHistoryItem matchData={matchWithRawData} />
                     </div>
                   </div>
@@ -864,8 +846,8 @@ function WritePost({ currentUser }) {
           </>
         )}
 
-        <div style={{ marginBottom: 15 }}>
-          <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
+        <div className="write-post-form-group-custom">
+          <label className="write-post-label-custom">
             제목
           </label>
           <input
@@ -875,22 +857,13 @@ function WritePost({ currentUser }) {
             onChange={handleInputChange}
             placeholder="제목을 입력하세요"
             disabled={isEditMode && isLol && currentUser === postToEdit?.writerB}
-            style={{ 
-              width: "100%", 
-              padding: 10, 
-              border: "1px solid #ddd",
-              borderRadius: 4,
-              ...(isEditMode && isLol && currentUser === postToEdit?.writerB && {
-                backgroundColor: "#f5f5f5",
-                cursor: "not-allowed"
-              })
-            }}
+            className="write-post-input-custom"
             required
           />
         </div>
 
-        <div style={{ marginBottom: 20 }}>
-          <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
+        <div className="write-post-form-group-custom write-post-content-group">
+          <label className="write-post-label-custom">
             내용
           </label>
           
@@ -904,22 +877,7 @@ function WritePost({ currentUser }) {
           
           <div 
             ref={contentEditableRef}
-            style={{ 
-              width: "100%", 
-              minHeight: "300px",
-              padding: 10, 
-              border: "1px solid #ddd",
-              borderRadius: 4,
-              backgroundColor: "white",
-              position: "relative",
-              whiteSpace: "pre-wrap",
-              wordWrap: "break-word",
-              wordBreak: "break-word",
-              fontSize: "14px",
-              fontFamily: "Arial, sans-serif",
-              color: "#333",
-              lineHeight: "1.5"
-            }}
+            className="write-post-content-editable-custom"
             contentEditable
             suppressContentEditableWarning={true}
             onInput={(e) => {
@@ -1042,32 +1000,18 @@ function WritePost({ currentUser }) {
         </div>
 
         {/* 첨부 및 투표 버튼 */}
-        <div style={{ marginBottom: 20, display: "flex", gap: 10 }}>
+        <div className="write-post-actions-container">
           <button
             type="button"
             onClick={() => mediaAttachmentRef.current?.openFileDialog()}
-            style={{
-              padding: "10px 20px",
-              backgroundColor: "#17a2b8",
-              color: "white",
-              border: "none",
-              borderRadius: 4,
-              cursor: "pointer"
-            }}
+            className="write-post-media-button"
           >
             📎 미디어 첨부
           </button>
           {formData.category === "lolmuncheol" && (
             <button
               type="button"
-              style={{
-                padding: "10px 20px",
-                backgroundColor: "#6c757d",
-                color: "white",
-                border: "none",
-                borderRadius: 4,
-                cursor: "not-allowed"
-              }}
+              className="write-post-vote-required-button"
               disabled
             >
               📊 투표 필수
@@ -1077,8 +1021,8 @@ function WritePost({ currentUser }) {
 
         {/* 내기 토큰 입력 섹션 (롤문철 카테고리) */}
         {formData.category === "lolmuncheol" && !isEditMode && (
-          <div style={{ marginBottom: 15, padding: 15, border: "1px solid #ddd", borderRadius: 4, backgroundColor: "#f9f9f9" }}>
-            <label style={{ display: "block", marginBottom: 8, fontWeight: "bold" }}>
+          <div className="write-post-bet-section">
+            <label className="write-post-bet-label">
               내기 토큰 (각 내기자가 걸 토큰 수)
             </label>
             <input
@@ -1091,14 +1035,9 @@ function WritePost({ currentUser }) {
               }}
               min="0"
               placeholder="예: 100"
-              style={{
-                width: "200px",
-                padding: "8px",
-                border: "1px solid #ddd",
-                borderRadius: 4
-              }}
+              className="write-post-bet-input"
             />
-            <div style={{ marginTop: 5, fontSize: "0.9em", color: "#666" }}>
+            <div className="write-post-bet-info">
               {formData.betAmount > 0 ? (
                 <span>
                   내기자 A와 B가 각각 <strong>{formData.betAmount}</strong> 토큰씩 차감됩니다.<br />
@@ -1121,17 +1060,10 @@ function WritePost({ currentUser }) {
           />
         )}
 
-        <div style={{ display: "flex", gap: 10 }}>
+        <div className="write-post-submit-container">
           <button
             type="submit"
-            style={{
-              padding: "10px 20px",
-              backgroundColor: "#007bff",
-              color: "white",
-              border: "none",
-              borderRadius: 4,
-              cursor: "pointer"
-            }}
+            className="write-post-submit-button"
           >
             {isEditMode ? "수정하기" : "작성하기"}
           </button>
@@ -1139,14 +1071,7 @@ function WritePost({ currentUser }) {
           <button
             type="button"
             onClick={() => navigate(-1)}
-            style={{
-              padding: "10px 20px",
-              backgroundColor: "#6c757d",
-              color: "white",
-              border: "none",
-              borderRadius: 4,
-              cursor: "pointer"
-            }}
+            className="write-post-cancel-button"
           >
             취소
           </button>

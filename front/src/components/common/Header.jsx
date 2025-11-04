@@ -8,6 +8,7 @@ function Header() {
   const navigate = useNavigate()
   const [currentUser, setCurrentUser] = useState(null)
   const isSummonerPage = location.pathname.startsWith('/summoner')
+  const isCommunityPage = location.pathname.startsWith('/community')
 
   useEffect(() => {
     const user = localStorage.getItem('currentUser')
@@ -45,8 +46,6 @@ function Header() {
           <div className="top-bar-left">
             <Link to="/" className="logo">DJ.GG</Link>
             <nav className="top-bar-nav">
-              <a href="#">전적</a>
-              <a href="#">이스포츠</a>
             </nav>
           </div>
           {!currentUser ? (
@@ -58,7 +57,7 @@ function Header() {
             </button>
           ) : (
             <>
-              <span style={{ color: "#cdd2e2", fontSize: "14px", marginRight: "-600px" }}>
+              <span style={{ color: "#cdd2e2", fontSize: "14px", marginRight: "-800px" }}>
                 {currentUser}님
                 {currentUser === "admin1" && (
                   <span style={{ color: "#e8a53e", marginLeft: "8px" }}>(관리자)</span>
@@ -78,11 +77,68 @@ function Header() {
         <div className="main-nav-content">
           <div className="main-nav-links">
             <Link to="/">홈</Link>
-            <Link to="/community">커뮤니티</Link>
-            <Link to="/community/free">자유게시판</Link>
-            <Link to="/community/guide">공략</Link>
-            <Link to="/community/lolmuncheol">롤문철</Link>
-            <Link to="/community/highrecommend">추천글</Link>
+            <Link 
+              to="/community" 
+              onClick={() => {
+                // Header 탭 클릭 시 검색어 초기화 플래그 설정
+                sessionStorage.setItem('clearSearchOnNavigate', 'true');
+                // 검색어 초기화 이벤트 전달
+                const event = new CustomEvent('communitySearch', { 
+                  detail: { keyword: "", searchBy: "all", sortFilter: "latest" } 
+                });
+                window.dispatchEvent(event);
+              }}
+            >
+              커뮤니티
+            </Link>
+            <Link 
+              to="/community/free"
+              onClick={() => {
+                sessionStorage.setItem('clearSearchOnNavigate', 'true');
+                const event = new CustomEvent('communitySearch', { 
+                  detail: { keyword: "", searchBy: "all", sortFilter: "latest" } 
+                });
+                window.dispatchEvent(event);
+              }}
+            >
+              자유게시판
+            </Link>
+            <Link 
+              to="/community/guide"
+              onClick={() => {
+                sessionStorage.setItem('clearSearchOnNavigate', 'true');
+                const event = new CustomEvent('communitySearch', { 
+                  detail: { keyword: "", searchBy: "all", sortFilter: "latest" } 
+                });
+                window.dispatchEvent(event);
+              }}
+            >
+              공략
+            </Link>
+            <Link 
+              to="/community/lolmuncheol"
+              onClick={() => {
+                sessionStorage.setItem('clearSearchOnNavigate', 'true');
+                const event = new CustomEvent('communitySearch', { 
+                  detail: { keyword: "", searchBy: "all", sortFilter: "latest" } 
+                });
+                window.dispatchEvent(event);
+              }}
+            >
+              롤문철
+            </Link>
+            <Link 
+              to="/community/highrecommend"
+              onClick={() => {
+                sessionStorage.setItem('clearSearchOnNavigate', 'true');
+                const event = new CustomEvent('communitySearch', { 
+                  detail: { keyword: "", searchBy: "all", sortFilter: "latest" } 
+                });
+                window.dispatchEvent(event);
+              }}
+            >
+              추천글
+            </Link>
           </div>
           {currentUser ? (
             <a href={`/user/${currentUser}`} target="_blank" rel="noopener noreferrer">마이페이지</a>
@@ -91,7 +147,7 @@ function Header() {
           )}
         </div>
       </nav>
-      {isSummonerPage && (
+      {(isSummonerPage || isCommunityPage) && (
         <div className="header-container">
           <div className="search-section">
             <div className="country-selector">국가 Korea</div>

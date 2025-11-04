@@ -39,6 +39,20 @@ public class CommentController {
         }
     }
 
+    public record UpdateCommentReq(String content) {}
+
+    @PutMapping("/{id}")
+    public ResponseEntity<?> updateComment(@PathVariable Long id, @RequestBody UpdateCommentReq req) {
+        try {
+            log.info("Received comment update request for commentId: {}, content: {}", id, req.content());
+            CommentDto comment = commentService.update(id, req.content());
+            return ResponseEntity.ok(comment);
+        } catch (Exception e) {
+            log.error("Error updating comment", e);
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Map<String, String>> deleteComment(@PathVariable Long id) {
         commentService.delete(id);

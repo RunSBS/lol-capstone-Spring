@@ -95,9 +95,26 @@ const commentApi = {
     }),
 
   updateComment: (id, updatedData) =>
-    new Promise((resolve, reject) => {
-      // 백엔드에 수정 API가 없으므로 일단 reject
-      reject("댓글 수정은 아직 지원되지 않습니다.");
+    new Promise(async (resolve, reject) => {
+      try {
+        // updatedData는 { text: "..." } 형태일 수 있으므로 content 필드 추출
+        const content = updatedData.text || updatedData.content || updatedData;
+        const savedComment = await backendApi.updateComment(id, content);
+        // 백엔드에서 반환된 CommentDto를 프론트엔드 형태로 변환
+        const formattedComment = {
+          id: savedComment.id,
+          postId: savedComment.postId,
+          writer: savedComment.writer,
+          text: savedComment.content,
+          like: savedComment.likes,
+          dislike: savedComment.dislikes,
+          createdAt: savedComment.createdAt
+        };
+        resolve(formattedComment);
+      } catch (error) {
+        console.error('댓글 수정 실패:', error);
+        reject(error.message || '댓글 수정 실패');
+      }
     }),
 
   deleteComment: (id) =>

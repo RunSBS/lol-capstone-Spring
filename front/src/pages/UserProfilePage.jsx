@@ -610,10 +610,10 @@ export default function UserProfilePage() {
             textDecoration: "none",
             marginRight: 15,
             padding: "8px 12px",
-            backgroundColor: "#f8f9fa",
-            border: "1px solid #dee2e6",
+            backgroundColor: "#282e3e",
+            border: "1px solid #31384c",
             borderRadius: "4px",
-            color: "#495057",
+            color: "#cdd2e2",
             fontSize: "14px",
             display: "flex",
             alignItems: "center",
@@ -622,7 +622,7 @@ export default function UserProfilePage() {
         >
           ← 홈으로
         </Link>
-        <h2 style={{ margin: 0 }}>{username}님의 프로필</h2>
+        <h2 style={{ margin: 0, color: "#cdd2e2" }}>{username}님의 프로필</h2>
       </div>
       
       {/* 배너 배경 */}
@@ -647,9 +647,10 @@ export default function UserProfilePage() {
           alignItems: "center",
           marginTop: "20px",
           padding: "20px",
-          backgroundColor: "rgba(0, 0, 0, 0.7)",
+          backgroundColor: "#282e3e",
+          border: "1px solid #31384c",
           borderRadius: "12px",
-          color: "white"
+          color: "#cdd2e2"
         }}>
           <div>
             {user.avatar ? (
@@ -670,11 +671,11 @@ export default function UserProfilePage() {
                   width: 96, 
                   height: 96, 
                   borderRadius: "50%", 
-                  background: "#eee", 
+                  background: "#323649", 
                   display: "flex", 
                   alignItems: "center", 
                   justifyContent: "center", 
-                  color: "#888", 
+                  color: "#9e9eb1", 
                   ...getBorderStyle(user.currentBorder || "default")
                 }}
               >
@@ -683,18 +684,26 @@ export default function UserProfilePage() {
             )}
             {isOwner && (
               <div style={{ marginTop: 8 }}>
-                <input type="file" accept="image/*" onChange={handleAvatarChange} />
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={handleAvatarChange}
+                  style={{
+                    fontSize: "12px",
+                    color: "#cdd2e2"
+                  }}
+                />
               </div>
             )}
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ marginBottom: 8 }}>
+            <div style={{ marginBottom: 8, color: "#cdd2e2" }}>
               <b>닉네임:</b> {user.username}
             </div>
-            <div style={{ marginBottom: 8 }}>
+            <div style={{ marginBottom: 8, color: "#cdd2e2" }}>
               <b>토큰 보유수:</b> {user.tokens || 0}
             </div>
-            <div>
+            <div style={{ color: "#cdd2e2" }}>
               <b>소개글:</b>
               {editing ? (
                 <div>
@@ -702,17 +711,69 @@ export default function UserProfilePage() {
                     value={user.bio || ""}
                     onChange={(e) => setUser(prev => ({ ...prev, bio: e.target.value }))}
                     rows={4}
-                    style={{ width: "100%", marginTop: 6, color: "#333" }}
+                    style={{ 
+                      width: "100%", 
+                      marginTop: 6, 
+                      color: "#cdd2e2",
+                      backgroundColor: "#1c202d",
+                      border: "1px solid #31384c",
+                      borderRadius: "4px",
+                      padding: "8px",
+                      fontSize: "14px"
+                    }}
                   />
-                  <button onClick={handleSave} style={{ marginTop: 6 }}>저장</button>
-                  <button onClick={() => setEditing(false)} style={{ marginTop: 6, marginLeft: 6 }}>취소</button>
+                  <button 
+                    onClick={handleSave} 
+                    style={{ 
+                      marginTop: 6,
+                      padding: "6px 12px",
+                      backgroundColor: "#5383e8",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "4px",
+                      cursor: "pointer",
+                      fontSize: "14px"
+                    }}
+                  >
+                    저장
+                  </button>
+                  <button 
+                    onClick={() => setEditing(false)} 
+                    style={{ 
+                      marginTop: 6, 
+                      marginLeft: 6,
+                      padding: "6px 12px",
+                      backgroundColor: "#323649",
+                      color: "#cdd2e2",
+                      border: "1px solid #31384c",
+                      borderRadius: "4px",
+                      cursor: "pointer",
+                      fontSize: "14px"
+                    }}
+                  >
+                    취소
+                  </button>
                 </div>
               ) : (
-                <div style={{ marginTop: 6, whiteSpace: "pre-wrap" }}>{user.bio || "소개글이 없습니다."}</div>
+                <div style={{ marginTop: 6, whiteSpace: "pre-wrap", color: "#9e9eb1" }}>{user.bio || "소개글이 없습니다."}</div>
               )}
             </div>
             {isOwner && !editing && (
-              <button onClick={() => setEditing(true)} style={{ marginTop: 10 }}>소개글 수정</button>
+              <button 
+                onClick={() => setEditing(true)} 
+                style={{ 
+                  marginTop: 10,
+                  padding: "6px 12px",
+                  backgroundColor: "#5383e8",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  fontSize: "14px"
+                }}
+              >
+                소개글 수정
+              </button>
             )}
           </div>
         </div>
@@ -720,14 +781,14 @@ export default function UserProfilePage() {
 
       {/* 테두리 상점 */}
       {isOwner && (
-        <div style={{ marginTop: 30, border: "1px solid #ddd", borderRadius: 8, padding: 20 }}>
+        <div style={{ marginTop: 30, border: "1px solid #31384c", borderRadius: 8, padding: 20, backgroundColor: "#282e3e" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-            <h3>프로필 테두리 상점</h3>
+            <h3 style={{ color: "#cdd2e2", margin: 0 }}>프로필 테두리 상점</h3>
             <button 
               onClick={() => setShowBorderShop(!showBorderShop)}
               style={{ 
                 padding: "8px 16px", 
-                backgroundColor: showBorderShop ? "#dc3545" : "#007bff", 
+                backgroundColor: showBorderShop ? "#e84057" : "#5383e8", 
                 color: "white", 
                 border: "none", 
                 borderRadius: 4,
@@ -740,7 +801,7 @@ export default function UserProfilePage() {
 
           {showBorderShop && (
             <div>
-              <div style={{ marginBottom: 15, padding: 10, backgroundColor: "#f8f9fa", borderRadius: 4 }}>
+              <div style={{ marginBottom: 15, padding: 10, backgroundColor: "#323649", borderRadius: 4, color: "#cdd2e2" }}>
                 <strong>보유 토큰: {user.tokens}개</strong>
               </div>
               
@@ -753,10 +814,10 @@ export default function UserProfilePage() {
                     <div 
                       key={border.id} 
                       style={{ 
-                        border: "1px solid #ddd", 
+                        border: "1px solid #31384c", 
                         borderRadius: 8, 
                         padding: 15,
-                        backgroundColor: isCurrent ? "#e3f2fd" : "#fff"
+                        backgroundColor: isCurrent ? "#323649" : "#1c202d"
                       }}
                     >
                       <div style={{ textAlign: "center", marginBottom: 10 }}>
@@ -765,16 +826,16 @@ export default function UserProfilePage() {
                             width: 60, 
                             height: 60, 
                             borderRadius: "50%", 
-                            backgroundColor: "#f0f0f0", 
+                            backgroundColor: "#282e3e", 
                             margin: "0 auto",
                             ...getBorderStyle(border.id)
                           }}
                         />
                       </div>
                       
-                      <h4 style={{ margin: "0 0 5px 0", fontSize: "16px" }}>{border.name}</h4>
-                      <p style={{ margin: "0 0 10px 0", fontSize: "12px", color: "#666" }}>{border.description}</p>
-                      <p style={{ margin: "0 0 10px 0", fontSize: "14px", fontWeight: "bold" }}>
+                      <h4 style={{ margin: "0 0 5px 0", fontSize: "16px", color: "#cdd2e2" }}>{border.name}</h4>
+                      <p style={{ margin: "0 0 10px 0", fontSize: "12px", color: "#9e9eb1" }}>{border.description}</p>
+                      <p style={{ margin: "0 0 10px 0", fontSize: "14px", fontWeight: "bold", color: "#cdd2e2" }}>
                         {border.price === 0 ? "무료" : `${border.price} 토큰`}
                       </p>
                       
@@ -785,7 +846,7 @@ export default function UserProfilePage() {
                             style={{
                               flex: 1,
                               padding: "6px 12px",
-                              backgroundColor: isCurrent ? "#28a745" : "#007bff",
+                              backgroundColor: isCurrent ? "#28a745" : "#5383e8",
                               color: "white",
                               border: "none",
                               borderRadius: 4,
@@ -802,7 +863,7 @@ export default function UserProfilePage() {
                             style={{
                               flex: 1,
                               padding: "6px 12px",
-                              backgroundColor: user.tokens < border.price ? "#6c757d" : "#28a745",
+                              backgroundColor: user.tokens < border.price ? "#323649" : "#28a745",
                               color: "white",
                               border: "none",
                               borderRadius: 4,
@@ -825,14 +886,14 @@ export default function UserProfilePage() {
 
       {/* 배너 상점 */}
       {isOwner && (
-        <div style={{ marginTop: 30, border: "1px solid #ddd", borderRadius: 8, padding: 20 }}>
+        <div style={{ marginTop: 30, border: "1px solid #31384c", borderRadius: 8, padding: 20, backgroundColor: "#282e3e" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-            <h3>배너 상점</h3>
+            <h3 style={{ color: "#cdd2e2", margin: 0 }}>배너 상점</h3>
             <button 
               onClick={() => setShowBannerShop(!showBannerShop)}
               style={{ 
                 padding: "8px 16px", 
-                backgroundColor: showBannerShop ? "#dc3545" : "#6f42c1", 
+                backgroundColor: showBannerShop ? "#e84057" : "#6f42c1", 
                 color: "white", 
                 border: "none", 
                 borderRadius: 4,
@@ -845,7 +906,7 @@ export default function UserProfilePage() {
 
           {showBannerShop && (
             <div>
-              <div style={{ marginBottom: 15, padding: 10, backgroundColor: "#f8f9fa", borderRadius: 4 }}>
+              <div style={{ marginBottom: 15, padding: 10, backgroundColor: "#323649", borderRadius: 4, color: "#cdd2e2" }}>
                 <strong>보유 토큰: {user.tokens}개</strong>
               </div>
               
@@ -858,10 +919,10 @@ export default function UserProfilePage() {
                     <div 
                       key={banner.id} 
                       style={{ 
-                        border: "1px solid #ddd", 
+                        border: "1px solid #31384c", 
                         borderRadius: 8, 
                         padding: 15,
-                        backgroundColor: isCurrent ? "#e3f2fd" : "#fff",
+                        backgroundColor: isCurrent ? "#323649" : "#1c202d",
                         position: "relative",
                         overflow: "hidden"
                       }}
@@ -887,9 +948,9 @@ export default function UserProfilePage() {
                         }} />
                       </div>
                       
-                      <h4 style={{ margin: "0 0 5px 0", fontSize: "16px" }}>{banner.name}</h4>
-                      <p style={{ margin: "0 0 10px 0", fontSize: "12px", color: "#666" }}>{banner.description}</p>
-                      <p style={{ margin: "0 0 10px 0", fontSize: "14px", fontWeight: "bold" }}>
+                      <h4 style={{ margin: "0 0 5px 0", fontSize: "16px", color: "#cdd2e2" }}>{banner.name}</h4>
+                      <p style={{ margin: "0 0 10px 0", fontSize: "12px", color: "#9e9eb1" }}>{banner.description}</p>
+                      <p style={{ margin: "0 0 10px 0", fontSize: "14px", fontWeight: "bold", color: "#cdd2e2" }}>
                         {banner.price === 0 ? "무료" : `${banner.price} 토큰`}
                       </p>
                       
@@ -900,7 +961,7 @@ export default function UserProfilePage() {
                             style={{
                               flex: 1,
                               padding: "6px 12px",
-                              backgroundColor: isCurrent ? "#28a745" : "#007bff",
+                              backgroundColor: isCurrent ? "#28a745" : "#5383e8",
                               color: "white",
                               border: "none",
                               borderRadius: 4,
@@ -917,7 +978,7 @@ export default function UserProfilePage() {
                             style={{
                               flex: 1,
                               padding: "6px 12px",
-                              backgroundColor: user.tokens < banner.price ? "#6c757d" : "#28a745",
+                              backgroundColor: user.tokens < banner.price ? "#323649" : "#28a745",
                               color: "white",
                               border: "none",
                               borderRadius: 4,
@@ -940,14 +1001,14 @@ export default function UserProfilePage() {
 
       {/* 스티커 상점 */}
       {isOwner && (
-        <div style={{ marginTop: 30, border: "1px solid #ddd", borderRadius: 8, padding: 20 }}>
+        <div style={{ marginTop: 30, border: "1px solid #31384c", borderRadius: 8, padding: 20, backgroundColor: "#282e3e" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-            <h3>스티커 상점</h3>
+            <h3 style={{ color: "#cdd2e2", margin: 0 }}>스티커 상점</h3>
             <button 
               onClick={() => setShowStickerShop(!showStickerShop)}
               style={{ 
                 padding: "8px 16px", 
-                backgroundColor: showStickerShop ? "#dc3545" : "#28a745", 
+                backgroundColor: showStickerShop ? "#e84057" : "#28a745", 
                 color: "white", 
                 border: "none", 
                 borderRadius: 4,
@@ -970,14 +1031,14 @@ export default function UserProfilePage() {
 
       {/* 스티커 보유탭 */}
       {isOwner && (
-        <div style={{ marginTop: 30, border: "1px solid #ddd", borderRadius: 8, padding: 20 }}>
+        <div style={{ marginTop: 30, border: "1px solid #31384c", borderRadius: 8, padding: 20, backgroundColor: "#282e3e" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-            <h3>스티커 보유탭</h3>
+            <h3 style={{ color: "#cdd2e2", margin: 0 }}>스티커 보유탭</h3>
             <button 
               onClick={() => setShowStickerInventory(!showStickerInventory)}
               style={{ 
                 padding: "8px 16px", 
-                backgroundColor: showStickerInventory ? "#dc3545" : "#6f42c1", 
+                backgroundColor: showStickerInventory ? "#e84057" : "#6f42c1", 
                 color: "white", 
                 border: "none", 
                 borderRadius: 4,

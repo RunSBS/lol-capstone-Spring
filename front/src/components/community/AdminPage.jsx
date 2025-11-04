@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import "../../styles/community.css";
 
 function AdminPage({ currentUser, onForceLogout }) {
   const [users, setUsers] = useState([]);
@@ -31,11 +32,11 @@ function AdminPage({ currentUser, onForceLogout }) {
 
   if (currentUser !== "admin1") {
     return (
-      <div style={{ textAlign: "center", marginTop: "50px" }}>
+      <div className="admin-container admin-access-denied">
         <h2>접근 권한이 없습니다.</h2>
         <p>관리자만 접근할 수 있는 페이지입니다.</p>
         <Link to="/community/free">
-          <button style={{ marginTop: "20px", padding: "10px 20px", backgroundColor: "#5383e8", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>
+          <button className="admin-button">
             커뮤니티로 돌아가기
           </button>
         </Link>
@@ -44,68 +45,43 @@ function AdminPage({ currentUser, onForceLogout }) {
   }
 
   return (
-    <div style={{ maxWidth: 800, margin: "0 auto", padding: "20px" }}>
-      <h2 style={{ color: "#cdd2e2", marginBottom: "30px" }}>관리자 페이지</h2>
+    <div className="admin-container">
+      <h2 className="admin-title">관리자 페이지</h2>
       
-      <div style={{ backgroundColor: "#282e3e", border: "1px solid #31384c", borderRadius: "8px", padding: "20px", marginBottom: "20px" }}>
-        <h3 style={{ color: "#cdd2e2", marginBottom: "15px" }}>사용자 관리</h3>
+      <div className="admin-section">
+        <h3 className="admin-section-title">사용자 관리</h3>
         
         <button
           onClick={() => setShowUserList(!showUserList)}
-          style={{
-            backgroundColor: "#5383e8",
-            color: "white",
-            border: "none",
-            padding: "10px 20px",
-            borderRadius: "4px",
-            cursor: "pointer",
-            marginBottom: "15px"
-          }}
+          className="admin-button"
         >
           {showUserList ? "사용자 목록 숨기기" : "사용자 목록 보기"}
         </button>
 
         {showUserList && (
           <div>
-            <h4 style={{ color: "#cdd2e2", marginBottom: "10px" }}>등록된 사용자 ({users.length}명)</h4>
-            <div style={{ maxHeight: "400px", overflowY: "auto" }}>
+            <h4 className="admin-section-title admin-user-list-title">등록된 사용자 ({users.length}명)</h4>
+            <div className="admin-user-list-container">
               {users.map((user, index) => (
                 <div
                   key={index}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    padding: "10px",
-                    backgroundColor: "#1c202d",
-                    border: "1px solid #31384c",
-                    borderRadius: "4px",
-                    marginBottom: "8px"
-                  }}
+                  className="user-list-item"
                 >
-                  <div>
-                    <span style={{ color: "#cdd2e2", fontWeight: "bold" }}>
+                  <div className="user-info">
+                    <span className="user-name-bold">
                       {user.username}
                     </span>
                     {user.username === "admin1" && (
-                      <span style={{ color: "#e8a53e", marginLeft: "10px", fontSize: "12px" }}>
+                      <span className="admin-badge">
                         (관리자)
                       </span>
                     )}
                   </div>
-                  <div style={{ display: "flex", gap: "8px" }}>
+                  <div className="user-actions">
                     {user.username !== "admin1" && (
                       <button
                         onClick={() => handleDeleteUser(user.username)}
-                        style={{
-                          backgroundColor: "#dc3545",
-                          color: "white",
-                          border: "none",
-                          padding: "5px 10px",
-                          borderRadius: "4px",
-                          cursor: "pointer",
-                          fontSize: "12px"
-                        }}
+                        className="user-ban-button"
                       >
                         삭제
                       </button>
@@ -118,24 +94,16 @@ function AdminPage({ currentUser, onForceLogout }) {
         )}
       </div>
 
-      <div style={{ backgroundColor: "#282e3e", border: "1px solid #31384c", borderRadius: "8px", padding: "20px", marginBottom: "20px" }}>
-        <h3 style={{ color: "#cdd2e2", marginBottom: "15px" }}>게시글 관리</h3>
-        <p style={{ color: "#9e9eb1", fontSize: "14px" }}>
+      <div className="admin-section">
+        <h3 className="admin-section-title">게시글 관리</h3>
+        <p className="admin-section-text">
           게시글 관리 기능은 각 게시글에서 직접 삭제/수정할 수 있습니다.
         </p>
       </div>
 
-      <div style={{ textAlign: "center", marginTop: "30px" }}>
+      <div className="admin-actions">
         <Link to="/community/free">
-          <button style={{
-            backgroundColor: "#6c757d",
-            color: "white",
-            border: "none",
-            padding: "10px 20px",
-            borderRadius: "4px",
-            cursor: "pointer",
-            marginRight: "10px"
-          }}>
+          <button className="admin-back-button">
             커뮤니티로 돌아가기
           </button>
         </Link>

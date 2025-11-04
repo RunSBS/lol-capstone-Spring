@@ -1,13 +1,16 @@
 import React, { useEffect, useState } from "react";
 import boardApi from "../../data/communityApi";
 import commentApi from "../../data/commentApi";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import "../../styles/community.css";
 
-function BoardPage({ category }) {
+function BoardPage({ category, searchKeyword: propSearchKeyword, searchBy: propSearchBy, sortFilter: propSortFilter }) {
+  const navigate = useNavigate();
   const [posts, setPosts] = useState([]);
   const [commentCounts, setCommentCounts] = useState({});
-  const [searchKeyword, setSearchKeyword] = useState("");
-  const [searchBy, setSearchBy] = useState("all");
+  const [searchKeyword, setSearchKeyword] = useState(propSearchKeyword || "");
+  const [searchBy, setSearchBy] = useState(propSearchBy || "all");
+  const [sortFilter, setSortFilter] = useState(propSortFilter || "latest");
   const [searching, setSearching] = useState(false);
   
   // 페이징 상태
@@ -16,20 +19,175 @@ function BoardPage({ category }) {
   const [totalElements, setTotalElements] = useState(0);
   const [pageSize] = useState(10); // 페이지당 기본 10개
 
+  // 상대 시간 포맷 함수
+  const formatTimeAgo = (dateString) => {
+    if (!dateString) return '시간 정보 없음';
+    
+    const now = new Date();
+    const postDate = new Date(dateString);
+    const diffInMs = now - postDate;
+    
+    if (diffInMs < 0) return '시간 정보 없음'; // 미래 시간인 경우
+    
+    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+    
+    if (diffInMinutes < 1) {
+      return '방금 전';
+    } else if (diffInMinutes < 60) {
+      return `${diffInMinutes}분 전`;
+    } else if (diffInHours < 24) {
+      return `${diffInHours}시간 전`;
+    } else {
+      return `${diffInDays}일 전`;
+    }
+  };
+
+  // 카테고리를 한글로 변환하는 함수
+  const getCategoryKoreanName = (category) => {
+    const categoryMap = {
+      'free': '자유',
+      'guide': '공략',
+      'lolmuncheol': '롤문철',
+      'highrecommend': '추천글'
+    };
+    return categoryMap[category] || category;
+  };
+
+  // 게시글 내용에서 첫 번째 이미지 URL 추출
+  const extractFirstImage = (content) => {
+    if (!content) return null;
+    
+    try {
+      // HTML content에서 img 태그의 src 속성 추출
+      const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/i;
+      const match = content.match(imgRegex);
+      
+      if (match && match[1]) {
+        const imageUrl = match[1];
+        // base64 이미지나 서버 파일 URL 모두 허용
+        if (imageUrl.startsWith('data:image/') || imageUrl.startsWith('/api/files/') || imageUrl.startsWith('http')) {
+          return imageUrl;
+        }
+      }
+      
+      // data-media-type="image" 속성이 있는 img 태그도 확인
+      const mediaImgRegex = /<img[^>]+data-media-type=["']image["'][^>]+src=["']([^"']+)["'][^>]*>/i;
+      const mediaMatch = content.match(mediaImgRegex);
+      
+      if (mediaMatch && mediaMatch[1]) {
+        const imageUrl = mediaMatch[1];
+        if (imageUrl.startsWith('data:image/') || imageUrl.startsWith('/api/files/') || imageUrl.startsWith('http')) {
+          return imageUrl;
+        }
+      }
+    } catch (error) {
+      console.error('이미지 추출 오류:', error);
+    }
+    
+    return null;
+  };
+
+  // props 변경 시 상태 업데이트
   useEffect(() => {
-    setCurrentPage(0); // 카테고리 변경 시 첫 페이지로 이동
-    loadPostsAndComments(0);
+    if (propSearchKeyword !== undefined) {
+      setSearchKeyword(propSearchKeyword);
+    }
+    if (propSearchBy !== undefined) {
+      setSearchBy(propSearchBy);
+    }
+    if (propSortFilter !== undefined) {
+      setSortFilter(propSortFilter);
+    }
+  }, [propSearchKeyword, propSearchBy, propSortFilter]);
+
+  // 커스텀 이벤트 리스너 (CommunityPage에서 검색 트리거)
+  useEffect(() => {
+    const handleSearchEvent = async (event) => {
+      const { keyword, searchBy: eventSearchBy, sortFilter: eventSortFilter } = event.detail;
+      setSearchKeyword(keyword || "");
+      setSearchBy(eventSearchBy || "all");
+      setSortFilter(eventSortFilter || "latest");
+      if (keyword && keyword.trim()) {
+        await performSearch(keyword, eventSearchBy || "all", eventSortFilter || "latest");
+      } else {
+        setCurrentPage(0);
+        setSearching(false);
+        await loadPostsAndComments(0, eventSortFilter || "latest");
+      }
+    };
+
+    window.addEventListener('communitySearch', handleSearchEvent);
+    return () => {
+      window.removeEventListener('communitySearch', handleSearchEvent);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category]);
-  
+
+  // sortFilter 변경 시 정렬 적용 (props에서 직접 변경될 때)
+  useEffect(() => {
+    if (posts.length > 0 && !searching && propSortFilter && propSortFilter !== sortFilter) {
+      const sorted = applySortFilter([...posts], propSortFilter, true);
+    }
+  }, [propSortFilter]);
+
+  useEffect(() => {
+    // 카테고리 변경 시 검색 상태 초기화 및 첫 페이지로 이동
+    setCurrentPage(0);
+    setSearching(false);
+    setSearchKeyword("");
+    setSearchBy("all");
+    loadPostsAndComments(0, sortFilter);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [category]);
+
   useEffect(() => {
     if (!searching) {
-      loadPostsAndComments(currentPage);
+      loadPostsAndComments(currentPage, sortFilter);
     }
   }, [currentPage]);
 
-  const loadPostsAndComments = async (page = 0) => {
+  // 정렬 함수
+  const applySortFilter = (postsToSort, filter, updateState = true) => {
+    let sorted = [...postsToSort];
+    
+    switch (filter) {
+      case 'popular':
+        // 추천수(like) 기준으로 정렬
+        sorted.sort((a, b) => {
+          const aLike = typeof a.like === 'number' ? a.like : parseInt(a.like) || 0;
+          const bLike = typeof b.like === 'number' ? b.like : parseInt(b.like) || 0;
+          return bLike - aLike;
+        });
+        break;
+      case 'top':
+        // 추천수와 시간을 종합하여 정렬 (추천수 우선, 같은 추천수면 최신순)
+        sorted.sort((a, b) => {
+          const aLike = typeof a.like === 'number' ? a.like : parseInt(a.like) || 0;
+          const bLike = typeof b.like === 'number' ? b.like : parseInt(b.like) || 0;
+          if (bLike !== aLike) {
+            return bLike - aLike;
+          }
+          return new Date(b.createdAt) - new Date(a.createdAt);
+        });
+        break;
+      case 'latest':
+      default:
+        // 최신순 (기본값)
+        sorted.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        break;
+    }
+    
+    if (updateState) {
+      setPosts(sorted);
+    }
+    return sorted;
+  };
+
+  const loadPostsAndComments = async (page = 0, filter = "latest") => {
     try {
-      console.log('커뮤니티 탭 로드 시작, category:', category, 'page:', page)
+      console.log('커뮤니티 탭 로드 시작, category:', category, 'page:', page, 'filter:', filter)
       let posts = [];
       let totalPagesValue = 0;
       let totalElementsValue = 0;
@@ -53,12 +211,14 @@ function BoardPage({ category }) {
         }
         
         // 추천수 3개 이상인 글만 필터링
-        const filteredPosts = allPosts
+        let filteredPosts = allPosts
           .filter(post => {
             const likeCount = typeof post.like === 'number' ? post.like : parseInt(post.like) || 0;
             return likeCount >= 3;
-          })
-          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+          });
+        
+        // 정렬 적용
+        filteredPosts = applySortFilter(filteredPosts, filter);
         
         // 클라이언트 측 페이징 (추천글은 특수 처리)
         totalElementsValue = filteredPosts.length;
@@ -85,6 +245,9 @@ function BoardPage({ category }) {
           posts = [];
         }
         
+        // 정렬 적용
+        posts = applySortFilter(posts, filter);
+        
         console.log('파싱된 게시글 수:', posts.length, '총 페이지:', totalPagesValue)
       }
       
@@ -97,8 +260,6 @@ function BoardPage({ category }) {
       setTotalPages(totalPagesValue);
       setTotalElements(totalElementsValue);
       setSearching(false);
-      setSearchKeyword("");
-      setSearchBy("all");
 
       const counts = {};
       await Promise.all(posts.map(async (post) => {
@@ -121,114 +282,151 @@ function BoardPage({ category }) {
     }
   };
 
-  const handleSearch = async () => {
-    if (!searchKeyword.trim()) {
+  const performSearch = async (keyword, searchByParam, filterParam = "latest") => {
+    if (!keyword || !keyword.trim()) {
       setCurrentPage(0);
-      await loadPostsAndComments(0);
+      setSearching(false);
+      await loadPostsAndComments(0, filterParam);
       return;
     }
 
-    if (category === "highrecommend") {
-      const categories = ["free", "guide", "lolmuncheol"];
-      let allResults = [];
-      for (const cat of categories) {
-        const res = await boardApi.searchPosts(searchKeyword, cat);
-        allResults = allResults.concat(res);
-      }
-      // 추천수 3개 이상 필터링 (태그와 관계없이 추천수 기준)
-      const filteredPosts = allResults
-        .filter(post => {
+    try {
+      console.log('검색 수행:', { keyword, searchByParam, category, filterParam });
+      
+      let searchResults = [];
+      
+      if (category === "highrecommend") {
+        // 추천글 검색: 모든 카테고리에서 검색
+        const categories = ["free", "guide", "lolmuncheol"];
+        let allResults = [];
+        for (const cat of categories) {
+          try {
+            const res = await boardApi.searchPosts(keyword, cat);
+            allResults = allResults.concat(res || []);
+          } catch (error) {
+            console.error(`카테고리 ${cat} 검색 실패:`, error);
+          }
+        }
+        searchResults = allResults;
+        
+        // 추천수 3개 이상 필터링
+        searchResults = searchResults.filter(post => {
           const likeCount = typeof post.like === 'number' ? post.like : parseInt(post.like) || 0;
           return likeCount >= 3;
         });
-      setPosts(filteredPosts);
+      } else {
+        // 일반 검색
+        try {
+          searchResults = await boardApi.searchPosts(keyword, category);
+        } catch (error) {
+          console.error('검색 실패:', error);
+          searchResults = [];
+        }
+      }
+      
+      // 검색 옵션에 따라 추가 필터링
+      if (searchByParam !== "all" && searchResults.length > 0) {
+        searchResults = searchResults.filter(post => {
+          switch (searchByParam) {
+            case "writer":
+              return post.writer && post.writer.includes(keyword);
+            case "title":
+              return post.title && post.title.includes(keyword);
+            case "content":
+              return (post.content && post.content.includes(keyword)) || 
+                     (post.contentB && post.contentB.includes(keyword));
+            default:
+              return true;
+          }
+        });
+      }
+      
+      // 정렬 적용
+      searchResults = applySortFilter(searchResults, filterParam, false);
+      
+      // 검색 결과 설정
+      setPosts(searchResults);
       setSearching(true);
+      setCurrentPage(0);
+      setTotalPages(0);
+      setTotalElements(searchResults.length);
 
+      // 댓글 수 조회
       const counts = {};
-      await Promise.all(filteredPosts.map(async (post) => {
-        counts[post.id] = await commentApi.getCommentCountByPostId(post.id);
+      await Promise.all(searchResults.map(async (post) => {
+        try {
+          counts[post.id] = await commentApi.getCommentCountByPostId(post.id);
+        } catch (error) {
+          console.error(`댓글 수 조회 실패 postId=${post.id}:`, error);
+          counts[post.id] = 0;
+        }
       }));
       setCommentCounts(counts);
-    } else {
-      if (searchBy === "all") {
-        const res = await boardApi.searchPosts(searchKeyword, category);
-        setPosts(res);
-        setSearching(true);
-
-        const counts = {};
-        await Promise.all(res.map(async (post) => {
-          counts[post.id] = await commentApi.getCommentCountByPostId(post.id);
-        }));
-        setCommentCounts(counts);
-      } else {
-        const data = await boardApi.getPosts(0, 100, category);
-        let filtered = [];
-        switch (searchBy) {
-          case "writer":
-            filtered = data.content.filter(p => p.writer.includes(searchKeyword));
-            break;
-          case "title":
-            filtered = data.content.filter(p => p.title.includes(searchKeyword));
-            break;
-          case "content":
-            filtered = data.content.filter(p => 
-              (p.content && p.content.includes(searchKeyword)) || 
-              (p.contentB && p.contentB.includes(searchKeyword))
-            );
-            break;
-          case "comment":
-            const commentsJson = localStorage.getItem("dummyComments");
-            const comments = JSON.parse(commentsJson || "[]");
-            filtered = data.content.filter(p =>
-              comments.some(c => c.postId === p.id && c.text.includes(searchKeyword))
-            );
-            break;
-          default:
-            filtered = data.content;
-        }
-        setPosts(filtered);
-        setSearching(true);
-
-        const counts = {};
-        await Promise.all(filtered.map(async (post) => {
-          counts[post.id] = await commentApi.getCommentCountByPostId(post.id);
-        }));
-        setCommentCounts(counts);
-      }
+      
+      console.log('검색 완료:', searchResults.length, '개 결과');
+    } catch (error) {
+      console.error('검색 중 오류 발생:', error);
+      setPosts([]);
+      setCommentCounts({});
+      setSearching(false);
+      setTotalPages(0);
+      setTotalElements(0);
     }
   };
 
   return (
     <div>
-      {posts.map(post => (
-        <div key={post.id} style={{
-          display: "flex", justifyContent: "space-between", alignItems: "center",
-          borderBottom: "1px solid #ddd", padding: "10px 0"
-        }}>
-          <div>
-            <Link to={`/community/post/${post.id}`}>
-              <h4>{post.title}</h4>
-            </Link>
-            <div>
+      {posts.map(post => {
+        const firstImage = extractFirstImage(post.content);
+        return (
+          <div 
+            key={post.id} 
+            className="board-post-item"
+            onClick={() => navigate(`/community/post/${post.id}`)}
+          >
+            <div className="board-post-content">
+              <div className="board-post-title">
+                <h4>{post.title}</h4>
+                <span className="board-post-comment-count-inline">[{commentCounts[post.id] || 0}]</span>
+              </div>
+            <div className="board-post-meta">
               {post.category === "lolmuncheol" && post.writerB ? (
                 <>
-                  <a href={`/user/${encodeURIComponent(post.writer)}`} target="_blank" rel="noopener noreferrer">{post.writer}</a> vs <a href={`/user/${encodeURIComponent(post.writerB)}`} target="_blank" rel="noopener noreferrer">{post.writerB}</a>
+                  <a 
+                    href={`/user/${encodeURIComponent(post.writer)}`} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {post.writer}
+                  </a> vs <a 
+                    href={`/user/${encodeURIComponent(post.writerB)}`} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {post.writerB}
+                  </a>
                 </>
               ) : (
-                <a href={`/user/${encodeURIComponent(post.writer)}`} target="_blank" rel="noopener noreferrer">{post.writer}</a>
+                <a 
+                  href={`/user/${encodeURIComponent(post.writer)}`} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {post.writer}
+                </a>
               )}
               {" · "}
-              {new Date(post.createdAt).toLocaleString()} · {post.category}
+              {formatTimeAgo(post.createdAt)} · {getCategoryKoreanName(post.category)}
               {post.tags && post.tags.includes("highrecommend") && (
-                <span style={{
-                  marginLeft: 8, padding: "2px 6px", fontSize: 12,
-                  color: "white", backgroundColor: "orange", borderRadius: 4
-                }}>
+                <span className="board-post-highrecommend-badge">
                   추천글
                 </span>
               )}
             </div>
-            <div style={{ marginTop: 8 }}>
+            <div className="board-post-vote-info">
               추천: {post.like || 0} / 반대: {post.dislike || 0}
               {post.vote && post.vote.results && post.vote.options && (() => {
                 // Map이 JSON으로 변환되면 키가 문자열일 수 있으므로 안전하게 처리
@@ -241,29 +439,22 @@ function BoardPage({ category }) {
                 const totalVotes = votes0 + votes1
                 
                 return (
-                  <div style={{ marginTop: 4, fontSize: '12px', color: '#666' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div className="board-post-vote-info">
+                    <div className="board-post-vote-option">
                       {post.vote.options.map((option, index) => {
                         const votes = getVoteCount(index)
                         const percentage = totalVotes > 0 ? Math.round((votes / totalVotes) * 100) : 0;
                         
                         return (
                           <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                            <div 
-                              style={{
-                                width: '8px',
-                                height: '8px',
-                                borderRadius: '50%',
-                                backgroundColor: index === 0 ? '#007bff' : '#dc3545'
-                              }}
-                            />
+                            <div className={`board-post-vote-dot option-${index}`} />
                             <span style={{ color: '#666' }}>
                               {percentage}%
                             </span>
                           </div>
                         );
                       })}
-                      <span style={{ color: '#28a745', fontWeight: 'bold' }}>
+                      <span className="board-post-vote-total">
                         총 투표: {totalVotes}표
                       </span>
                     </div>
@@ -272,33 +463,15 @@ function BoardPage({ category }) {
               })()}
             </div>
           </div>
-          <div style={{
-            borderLeft: "1px solid #ccc", paddingLeft: 15, minWidth: 60,
-            textAlign: "center", fontWeight: "bold", color: "#555"
-          }}>
-            댓글 {commentCounts[post.id] || 0}
-          </div>
+          {firstImage && (
+            <div className="board-post-image-banner" onClick={(e) => e.stopPropagation()}>
+              <img src={firstImage} alt="게시글 미리보기" />
+            </div>
+          )}
         </div>
-      ))}
+        );
+      })}
 
-      <div style={{ marginTop: 20 }}>
-        <input
-          type="text"
-          value={searchKeyword}
-          onChange={e => setSearchKeyword(e.target.value)}
-          placeholder="검색어 입력"
-          style={{ width: 200, marginRight: 10 }}
-        />
-        <select value={searchBy} onChange={e => setSearchBy(e.target.value)} style={{ marginRight: 10 }}>
-          <option value="all">전체</option>
-          <option value="writer">작성자</option>
-          <option value="title">제목</option>
-          <option value="content">본문</option>
-          <option value="comment">댓글</option>
-        </select>
-        <button onClick={handleSearch}>검색</button>
-      </div>
-      
       {/* 페이징 UI */}
       {!searching && totalPages > 0 && (
         <Pagination 
@@ -352,26 +525,12 @@ function Pagination({ currentPage, totalPages, onPageChange, totalElements, page
   };
   
   return (
-    <div style={{ 
-      marginTop: 30, 
-      display: 'flex', 
-      justifyContent: 'center', 
-      alignItems: 'center',
-      gap: 5,
-      flexWrap: 'wrap'
-    }}>
+    <div className="pagination-container">
       {/* << 첫 페이지로 */}
       {currentPage > 0 && (
         <button
           onClick={handleFirstPage}
-          style={{
-            padding: '8px 12px',
-            border: '1px solid #ddd',
-            borderRadius: 4,
-            backgroundColor: '#fff',
-            cursor: 'pointer',
-            fontSize: '14px'
-          }}
+          className="pagination-button"
           title="첫 페이지"
         >
           &lt;&lt;
@@ -382,14 +541,7 @@ function Pagination({ currentPage, totalPages, onPageChange, totalElements, page
       {currentGroup > 0 && (
         <button
           onClick={handlePreviousGroup}
-          style={{
-            padding: '8px 12px',
-            border: '1px solid #ddd',
-            borderRadius: 4,
-            backgroundColor: '#fff',
-            cursor: 'pointer',
-            fontSize: '14px'
-          }}
+          className="pagination-button"
           title="이전 페이지 그룹"
         >
           &lt;
@@ -401,17 +553,7 @@ function Pagination({ currentPage, totalPages, onPageChange, totalElements, page
         <button
           key={pageNum}
           onClick={() => handlePageClick(pageNum)}
-          style={{
-            padding: '8px 12px',
-            border: '1px solid #ddd',
-            borderRadius: 4,
-            backgroundColor: pageNum === currentPage ? '#007bff' : '#fff',
-            color: pageNum === currentPage ? '#fff' : '#000',
-            cursor: 'pointer',
-            fontWeight: pageNum === currentPage ? 'bold' : 'normal',
-            fontSize: '14px',
-            minWidth: '40px'
-          }}
+          className={`pagination-button ${pageNum === currentPage ? 'active' : ''}`}
         >
           {pageNum + 1}
         </button>
@@ -421,14 +563,7 @@ function Pagination({ currentPage, totalPages, onPageChange, totalElements, page
       {endPage < totalPages - 1 && (
         <button
           onClick={handleNextGroup}
-          style={{
-            padding: '8px 12px',
-            border: '1px solid #ddd',
-            borderRadius: 4,
-            backgroundColor: '#fff',
-            cursor: 'pointer',
-            fontSize: '14px'
-          }}
+          className="pagination-button"
           title="다음 페이지 그룹"
         >
           &gt;
@@ -439,14 +574,7 @@ function Pagination({ currentPage, totalPages, onPageChange, totalElements, page
       {currentPage < totalPages - 1 && (
         <button
           onClick={handleLastPage}
-          style={{
-            padding: '8px 12px',
-            border: '1px solid #ddd',
-            borderRadius: 4,
-            backgroundColor: '#fff',
-            cursor: 'pointer',
-            fontSize: '14px'
-          }}
+          className="pagination-button"
           title="마지막 페이지"
         >
           &gt;&gt;
@@ -454,12 +582,7 @@ function Pagination({ currentPage, totalPages, onPageChange, totalElements, page
       )}
       
       {/* 페이지 정보 */}
-      <div style={{ 
-        marginLeft: 20, 
-        fontSize: '14px', 
-        color: '#666',
-        whiteSpace: 'nowrap'
-      }}>
+      <div className="pagination-info">
         전체 {totalElements}개 ({(currentPage + 1)}/{totalPages} 페이지)
       </div>
     </div>
@@ -467,3 +590,4 @@ function Pagination({ currentPage, totalPages, onPageChange, totalElements, page
 }
 
 export default BoardPage;
+

@@ -206,29 +206,56 @@ const boardApi = {
   // lolmuncheol cheer APIs
 
   searchPosts: (keyword, category) =>
-    new Promise((resolve) => {
-      const categories = category ? [category] : ["free", "guide", "lolmuncheol"];
-      let results = [];
-
-      const commentsJson = localStorage.getItem("dummyComments") || "[]";
-      const comments = JSON.parse(commentsJson);
-
-      categories.forEach((cat) => {
-        const posts = loadPosts(cat);
-        results = results.concat(
-          posts.filter((post) => {
-            const inTitle = post.title.includes(keyword);
-            const inWriter = post.writer.includes(keyword);
-            const hasCommentWithKeyword = comments.some(
-              (c) => c.postId === post.id && c.text.includes(keyword)
-            );
-            return inTitle || inWriter || hasCommentWithKeyword;
-          })
-        );
-      });
-
-      results.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-      resolve(results);
+    new Promise(async (resolve, reject) => {
+      try {
+        console.log('searchPosts 호출:', { keyword, category });
+        
+        // 백엔드에서 충분히 많은 게시글을 가져옴 (검색을 위해 1000개까지)
+        const categories = category ? [category] : ["free", "guide", "lolmuncheol"];
+        let allResults = [];
+        
+        for (const cat of categories) {
+          try {
+            // 백엔드에서 게시글 가져오기 (검색을 위해 충분히 많이)
+            const response = await backendApi.getPosts(cat, 0, 1000);
+            let posts = [];
+            
+            if (response && typeof response === 'object' && 'content' in response) {
+              posts = response.content || [];
+            } else if (Array.isArray(response)) {
+              posts = response;
+            }
+            
+            // 검색 키워드로 필터링
+            const filtered = posts.filter((post) => {
+              const inTitle = post.title && post.title.includes(keyword);
+              const inWriter = post.writer && post.writer.includes(keyword);
+              const inContent = post.content && post.content.includes(keyword);
+              const inContentB = post.contentB && post.contentB.includes(keyword);
+              
+              return inTitle || inWriter || inContent || inContentB;
+            });
+            
+            allResults = allResults.concat(filtered);
+          } catch (error) {
+            console.error(`카테고리 ${cat} 검색 실패:`, error);
+            // 에러가 발생해도 계속 진행
+          }
+        }
+        
+        // 최신순으로 정렬
+        allResults.sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
+          const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
+          return dateB - dateA;
+        });
+        
+        console.log('검색 결과:', allResults.length, '개');
+        resolve(allResults);
+      } catch (error) {
+        console.error('검색 실패:', error);
+        reject(error);
+      }
     }),
 
   likePost: (postId) =>

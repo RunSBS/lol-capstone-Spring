@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import "../../styles/community.css";
 
 function VoteSection({ voteData, onVoteChange, isEditMode = false, isLolmuncheol = false }) {
   const [vote, setVote] = useState(voteData || {
@@ -69,18 +70,12 @@ function VoteSection({ voteData, onVoteChange, isEditMode = false, isLolmuncheol
 
   if (isEditMode) {
     return (
-      <div style={{ 
-        border: "1px solid #ddd", 
-        borderRadius: 8, 
-        padding: 20, 
-        marginBottom: 20,
-        backgroundColor: "#f9f9f9"
-      }}>
-        <h3 style={{ marginBottom: 15, color: "#333" }}>📊 투표 설정</h3>
+      <div className="vote-section-edit-container">
+        <h3 className="vote-section-edit-title">📊 투표 설정</h3>
         
         {/* 투표 질문 */}
-        <div style={{ marginBottom: 15 }}>
-          <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
+        <div className="vote-section-edit-form-group">
+          <label className="vote-section-edit-label">
             투표 질문
           </label>
           <input
@@ -88,51 +83,30 @@ function VoteSection({ voteData, onVoteChange, isEditMode = false, isLolmuncheol
             value={vote.question}
             onChange={handleQuestionChange}
             placeholder="투표 질문을 입력하세요"
-            style={{
-              width: "100%",
-              padding: 10,
-              border: "1px solid #ddd",
-              borderRadius: 4
-            }}
+            className="vote-section-edit-input"
           />
         </div>
 
         {/* 투표 옵션들 */}
-        <div style={{ marginBottom: 15 }}>
-          <label style={{ display: "block", marginBottom: 10, fontWeight: "bold" }}>
+        <div className="vote-section-edit-form-group">
+          <label className="vote-section-edit-label">
             투표 옵션
           </label>
           {vote.options.map((option, index) => (
-            <div key={index} style={{ display: "flex", alignItems: "center", marginBottom: 8 }}>
-              <span style={{ marginRight: 10, minWidth: 20 }}>{index + 1}.</span>
+            <div key={index} className="vote-section-edit-option-row">
+              <span className="vote-section-edit-option-number">{index + 1}.</span>
               <input
                 type="text"
                 value={option}
                 onChange={(e) => handleOptionChange(index, e.target.value)}
                 placeholder={`${index + 1}번 답변을 입력하세요`}
-                style={{
-                  flex: 1,
-                  padding: 8,
-                  border: "1px solid #ddd",
-                  borderRadius: 4,
-                  marginRight: 8,
-                  wordWrap: "break-word",
-                  wordBreak: "break-word",
-                  maxWidth: "100%"
-                }}
+                className="vote-section-edit-option-input"
               />
               {!isLolmuncheol && vote.options.length > 2 && (
                 <button
                   type="button"
                   onClick={() => removeOption(index)}
-                  style={{
-                    padding: "8px 12px",
-                    backgroundColor: "#dc3545",
-                    color: "white",
-                    border: "none",
-                    borderRadius: 4,
-                    cursor: "pointer"
-                  }}
+                  className="vote-section-edit-remove-button"
                 >
                   삭제
                 </button>
@@ -142,28 +116,28 @@ function VoteSection({ voteData, onVoteChange, isEditMode = false, isLolmuncheol
         </div>
 
         {/* 종료 설정 */}
-        <div style={{ marginBottom: 15 }}>
-          <label style={{ display: "block", marginBottom: 10, fontWeight: "bold" }}>
+        <div className="vote-section-edit-form-group">
+          <label className="vote-section-edit-label">
             종료 설정
           </label>
-          <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-            <label style={{ display: "flex", alignItems: "center", cursor: "pointer" }}>
+          <div className="vote-section-edit-radio-group">
+            <label className="vote-section-edit-radio-label">
               <input
                 type="radio"
                 name="endTime"
                 checked={!vote.hasEndTime}
                 onChange={() => handleEndTimeToggle(false)}
-                style={{ marginRight: 8 }}
+                className="vote-section-edit-radio"
               />
               종료 없음
             </label>
-            <label style={{ display: "flex", alignItems: "center", cursor: "pointer" }}>
+            <label className="vote-section-edit-radio-label">
               <input
                 type="radio"
                 name="endTime"
                 checked={vote.hasEndTime}
                 onChange={() => handleEndTimeToggle(true)}
-                style={{ marginRight: 8 }}
+                className="vote-section-edit-radio"
               />
               종료 시간 설정
             </label>
@@ -173,12 +147,7 @@ function VoteSection({ voteData, onVoteChange, isEditMode = false, isLolmuncheol
               type="datetime-local"
               value={vote.endTime}
               onChange={handleEndTimeChange}
-              style={{
-                marginTop: 10,
-                padding: 8,
-                border: "1px solid #ddd",
-                borderRadius: 4
-              }}
+              className="vote-section-edit-datetime-input"
             />
           )}
         </div>
@@ -195,41 +164,35 @@ function VoteSection({ voteData, onVoteChange, isEditMode = false, isLolmuncheol
     : null;
 
   return (
-    <div style={{ 
-      border: "1px solid #ddd", 
-      borderRadius: 8, 
-      padding: 20, 
-      marginBottom: 20,
-      backgroundColor: "#f9f9f9"
-    }}>
-      <h3 style={{ marginBottom: 15, color: "#333" }}>📊 투표</h3>
+    <div className="vote-section-container">
+      <h3 className="vote-section-title">📊 투표</h3>
       
-      <div style={{ marginBottom: 15 }}>
-        <h4 style={{ marginBottom: 10 }}>{vote.question}</h4>
+      <div className="vote-section-question-section">
+        <h4 className="vote-section-question-text">{vote.question}</h4>
         
         {endTimeText && (
-          <p style={{ color: "#666", fontSize: "0.9em", marginBottom: 15 }}>
+          <p className="vote-section-end-time">
             종료 시간: {endTimeText}
           </p>
         )}
         
         {isExpired && (
-          <p style={{ color: "#dc3545", fontWeight: "bold", marginBottom: 15 }}>
+          <p className="vote-section-expired-message">
             ⏰ 투표가 종료되었습니다.
           </p>
         )}
       </div>
 
-      <div style={{ marginBottom: 15 }}>
+      <div className="vote-section-options-list">
         {vote.options.map((option, index) => (
-          <div key={index} style={{ marginBottom: 8 }}>
-            <label style={{ display: "flex", alignItems: "center", cursor: "pointer" }}>
+          <div key={index} className="vote-section-option-item">
+            <label className="vote-section-option-label">
               <input
                 type="radio"
                 name="voteOption"
                 value={index}
                 disabled={isExpired}
-                style={{ marginRight: 10 }}
+                className="vote-section-option-radio"
               />
               <span>{option}</span>
             </label>
@@ -239,14 +202,7 @@ function VoteSection({ voteData, onVoteChange, isEditMode = false, isLolmuncheol
 
       <button
         disabled={isExpired}
-        style={{
-          padding: "10px 20px",
-          backgroundColor: isExpired ? "#6c757d" : "#007bff",
-          color: "white",
-          border: "none",
-          borderRadius: 4,
-          cursor: isExpired ? "not-allowed" : "pointer"
-        }}
+        className="vote-section-submit-button"
       >
         {isExpired ? "투표 종료" : "투표하기"}
       </button>

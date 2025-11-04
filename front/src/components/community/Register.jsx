@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import "../../styles/community.css";
 
 function Register({ onRegister }) {
   const navigate = useNavigate();
@@ -61,12 +62,12 @@ function Register({ onRegister }) {
   };
 
   return (
-    <div style={{ maxWidth: 400, margin: "50px auto", padding: 20 }}>
-      <h2>회원가입</h2>
+    <div className="auth-container">
+      <h2 className="auth-title">회원가입</h2>
       
       <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: 15 }}>
-          <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
+        <div className="auth-form-group">
+          <label className="auth-label">
             아이디
           </label>
           <input
@@ -75,18 +76,13 @@ function Register({ onRegister }) {
             value={formData.username}
             onChange={handleInputChange}
             placeholder="아이디를 입력하세요"
-            style={{ 
-              width: "100%", 
-              padding: 10, 
-              border: "1px solid #ddd",
-              borderRadius: 4 
-            }}
+            className="auth-input"
             required
           />
         </div>
 
-        <div style={{ marginBottom: 15 }}>
-          <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
+        <div className="auth-form-group">
+          <label className="auth-label">
             이메일
           </label>
           <input
@@ -95,18 +91,13 @@ function Register({ onRegister }) {
             value={formData.email}
             onChange={handleInputChange}
             placeholder="이메일을 입력하세요"
-            style={{ 
-              width: "100%", 
-              padding: 10, 
-              border: "1px solid #ddd",
-              borderRadius: 4 
-            }}
+            className="auth-input"
             required
           />
         </div>
 
-        <div style={{ marginBottom: 15 }}>
-          <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
+        <div className="auth-form-group">
+          <label className="auth-label">
             비밀번호
           </label>
           <input
@@ -115,18 +106,13 @@ function Register({ onRegister }) {
             value={formData.password}
             onChange={handleInputChange}
             placeholder="비밀번호를 입력하세요 (4자 이상)"
-            style={{ 
-              width: "100%", 
-              padding: 10, 
-              border: "1px solid #ddd",
-              borderRadius: 4 
-            }}
+            className="auth-input"
             required
           />
         </div>
 
-        <div style={{ marginBottom: 20 }}>
-          <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
+        <div className="auth-form-group">
+          <label className="auth-label">
             비밀번호 확인
           </label>
           <input
@@ -135,28 +121,15 @@ function Register({ onRegister }) {
             value={formData.confirmPassword}
             onChange={handleInputChange}
             placeholder="비밀번호를 다시 입력하세요"
-            style={{ 
-              width: "100%", 
-              padding: 10, 
-              border: "1px solid #ddd",
-              borderRadius: 4 
-            }}
+            className="auth-input"
             required
           />
         </div>
 
-        <div style={{ display: "flex", gap: 10 }}>
+        <div className="auth-buttons">
           <button
             type="submit"
-            style={{
-              flex: 1,
-              padding: 12,
-              backgroundColor: "#28a745",
-              color: "white",
-              border: "none",
-              borderRadius: 4,
-              cursor: "pointer"
-            }}
+            className="auth-button auth-button-success"
           >
             회원가입
           </button>
@@ -164,14 +137,7 @@ function Register({ onRegister }) {
           <button
             type="button"
             onClick={onRegister}
-            style={{
-              padding: 12,
-              backgroundColor: "#6c757d",
-              color: "white",
-              border: "none",
-              borderRadius: 4,
-              cursor: "pointer"
-            }}
+            className="auth-button auth-button-secondary"
           >
             취소
           </button>

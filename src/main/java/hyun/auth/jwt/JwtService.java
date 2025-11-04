@@ -16,7 +16,6 @@ import java.util.Date;
 @Service
 public class JwtService {
     private final Key key = Keys.hmacShaKeyFor("change-this-very-long-secret-key-please".getBytes(StandardCharsets.UTF_8));
-    private final long accessMinutes = 30;
 
     public String createAccessToken(Long uid, String username, String role) {
         Instant now = Instant.now();
@@ -25,7 +24,7 @@ public class JwtService {
                 .claim("uid", uid)
                 .claim("role", role)
                 .issuedAt(Date.from(now))
-                .expiration(Date.from(now.plus(accessMinutes, ChronoUnit.MINUTES)))
+                // 만료 시간 제거 - 토큰이 만료되지 않음
                 .signWith(key)
                 .compact();
     }

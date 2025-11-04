@@ -1,0 +1,228 @@
+/* Token Ranking Styles */
+.token-ranking-container {
+  background-color: #282e3e;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.token-ranking-title {
+  margin: 0 0 20px 0;
+  color: #cdd2e2;
+  font-size: 18px;
+  text-align: center;
+  font-weight: bold;
+  padding: 20px 0 40px 0;
+}
+
+.token-ranking-loading {
+  padding: 20px;
+  text-align: center;
+  color: #9e9eb1;
+}
+
+.token-ranking-empty {
+  text-align: center;
+  color: #9e9eb1;
+  padding: 20px;
+  font-size: 14px;
+}
+
+/* Podium Section */
+.token-ranking-podium-container {
+  margin-bottom: 30px;
+  padding: 20px;
+  border-radius: 8px;
+  margin-top: 40px;
+}
+
+.token-ranking-podium-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 20px;
+  position: relative;
+  height: auto;
+  min-height: 140px;
+  margin-bottom: 20px;
+  margin-top: 20px;
+}
+
+.token-ranking-podium-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.token-ranking-podium-column {
+  width: 80px;
+  border-radius: 8px 8px 0 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 10px 5px;
+  position: relative;
+}
+
+.token-ranking-podium-bottom {
+  width: 80px;
+  height: 20px;
+  border-radius: 0 0 8px 8px;
+}
+
+.token-ranking-rank-icon {
+  font-size: 20px;
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+.token-ranking-avatar-container {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  overflow: hidden;
+  margin-bottom: 5px;
+  border: 2px solid white;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.token-ranking-avatar-container img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.token-ranking-avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  background-color: #323649;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9e9eb1;
+  font-size: 16px;
+}
+
+.token-ranking-username-link {
+  font-size: 12px;
+  font-weight: bold;
+  color: #cdd2e2;
+  text-align: center;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-decoration: none;
+  display: block;
+  transition: all 0.2s ease;
+  background-color: #323649;
+  padding: 4px 6px;
+  border-radius: 4px;
+  border: 1px solid #31384c;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  margin-top: 8px;
+}
+
+.token-ranking-username-link:hover {
+  color: #5383e8;
+  background-color: #3a4255;
+  transform: scale(1.05);
+}
+
+.token-ranking-token-count {
+  margin-top: 4px;
+  font-size: 10px;
+  color: #9e9eb1;
+  text-align: center;
+  background-color: #323649;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-weight: bold;
+  border: 1px solid #31384c;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* 4-10위 목록 */
+.token-ranking-list-section {
+  margin-top: 20px;
+}
+
+.token-ranking-list-title {
+  margin: 0 0 15px 0;
+  color: #cdd2e2;
+  font-size: 14px;
+  text-align: center;
+}
+
+.token-ranking-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.token-ranking-list-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  background-color: #1c202d;
+  border-radius: 6px;
+  border: 1px solid #31384c;
+  text-decoration: none;
+  color: #cdd2e2;
+  transition: all 0.2s ease;
+}
+
+.token-ranking-list-item:hover {
+  background-color: #323649;
+  transform: translateX(2px);
+}
+
+.token-ranking-rank-number {
+  font-size: 14px;
+  font-weight: bold;
+  color: #9e9eb1;
+  min-width: 30px;
+  text-align: center;
+}
+
+.token-ranking-list-avatar-container {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  overflow: hidden;
+  margin: 0 10px;
+  border: 2px solid #31384c;
+}
+
+.token-ranking-list-avatar-container img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.token-ranking-list-avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  background-color: #323649;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9e9eb1;
+  font-size: 14px;
+}
+
+.token-ranking-user-info {
+  flex: 1;
+}
+
+.token-ranking-user-name {
+  font-size: 13px;
+  font-weight: bold;
+  color: #cdd2e2;
+  margin-bottom: 2px;
+}
+
+.token-ranking-user-tokens {
+  font-size: 11px;
+  color: #9e9eb1;
+}
