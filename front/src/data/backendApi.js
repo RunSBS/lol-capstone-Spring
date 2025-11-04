@@ -585,6 +585,21 @@ const backendApi = {
     return await response.json();
   },
 
+  // 출석 보상 API
+  claimAttendanceReward: async () => {
+    const response = await fetch(`${API_BASE_URL}/shop/attendance`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: '출석 보상 지급 실패' }));
+      throw new Error(errorData.error || '출석 보상 지급 실패');
+    }
+
+    return await response.json();
+  },
+
   // 투표 관련 API
   voteOnPost: async (postId, optionIndex) => {
     const response = await fetch(`${API_BASE_URL}/posts/${postId}/vote?optionIndex=${optionIndex}`, {
