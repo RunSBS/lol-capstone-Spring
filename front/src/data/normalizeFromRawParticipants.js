@@ -49,17 +49,22 @@ export function normalizeFromRawParticipants(matchData) {
         const assists = p?.assists ?? 0
         const teamId = p?.teamId
         const teamKills = teamKillsById.get(teamId) || 0
-        const kpPercent = calculateKillParticipation(kills, assists, teamKills) // 정수 %
+        // 백엔드에서 제공하는 killParticipation 우선 사용 (0.0~1.0 형태), 없으면 로컬 계산
+        const kpPercent = (p?.killParticipation != null) 
+            ? Math.round(p.killParticipation * 100)  // 백엔드에서 0.0~1.0 형태로 받아서 100 곱함
+            : calculateKillParticipation(kills, assists, teamKills) // 정수 %
 
         return {
             team: ((p?.win != null) ? !!p.win : (teamWinById.get(teamId) ?? false)) ? 'win' : 'loss',
             side: teamId === 100 ? 'blue' : 'red',
             name: p?.summonerName || p?.riotIdGameName || '-',
+            gameName: p?.riotIdGameName || p?.summonerName || '-',
+            tagLine: p?.riotIdTagline || 'KR1', // 태그라인, 없으면 기본값 KR1
             tier: '',
             champion: {
-                name: p?.championName || 'Aatrox',
+                name: p?.championName || null,
                 level: p?.champLevel ?? 0,
-                imageUrl: buildChampionSquareUrl(ver, p?.championName),
+                imageUrl: p?.championName ? buildChampionSquareUrl(ver, p.championName) : null,
             },
             // 스펠 & 룬 아이콘 (Data Dragon 기반)
             spells: [
@@ -145,6 +150,10 @@ function safeKdaRatio(k = 0, d = 0, a = 0) {
 
 function computeCsPerMinute(p, gameDurationSec) {
     const cs = (p?.cs != null ? p.cs : (p?.csTotal != null ? p.csTotal : (p?.totalMinionsKilled ?? 0) + (p?.neutralMinionsKilled ?? 0)))
-    const m = Math.max(1, Math.floor((Number(gameDurationSec) || 0) / 60))
-    return (cs / m).toFixed(1)
+    const duration = Number(gameDurationSec) || 0
+    if (duration <= 0) return '0.0' // 게임 시간이 없으면 0.0 반환
+    const m = Math.max(1, Math.floor(duration / 60))
+    const result = cs / m
+    if (isNaN(result) || !isFinite(result)) return '0.0' // NaN이나 Infinity 체크
+    return result.toFixed(1)
 }

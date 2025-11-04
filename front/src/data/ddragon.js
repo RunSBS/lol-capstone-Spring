@@ -6,9 +6,9 @@
 // - itemId: 정수 아이템 ID. Match-V5 participants.item0~item6 그대로 사용 가능합니다.
 // - spellId / perkId: 숫자 ID. 스펠/룬은 파일명이 키 문자열 기반이라 추가 매핑이 필요합니다.
 export function buildChampionSquareUrl(version, championName) {
+  if (!championName) return null; // 챔피언 이름이 없으면 null 반환
   const safeVer = version || '15.18.1';
-  const key = championName || 'Aatrox';
-  return `https://ddragon.leagueoflegends.com/cdn/${safeVer}/img/champion/${key}.png`;
+  return `https://ddragon.leagueoflegends.com/cdn/${safeVer}/img/champion/${championName}.png`;
 }
 
 // 챔피언 이미지 로딩 테스트 함수
@@ -227,8 +227,13 @@ export async function loadRunes(version, lang = 'ko_KR') {
 
 // ===== 랭크 엠블렘 =====
 // 랭크 엠블렘 URL 빌더(CommunityDragon)
+// 에메랄드 티어는 로컬 이미지 사용 (API에서 제공되지 않음)
 export function buildRankEmblemUrl(tier) {
   const t = (tier || 'UNRANKED').toLowerCase();
+  // 에메랄드 티어는 로컬 이미지 사용
+  if (t === 'emerald') {
+    return '/emerald.png';
+  }
   return `https://ddragon.leagueoflegends.com/cdn/img/ranked-emblems/${t}.png`;
 }
 

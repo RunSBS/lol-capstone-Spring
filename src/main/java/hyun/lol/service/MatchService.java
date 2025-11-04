@@ -15,6 +15,7 @@ import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.Flux;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.web.server.ResponseStatusException;
 import reactor.util.retry.Retry;
@@ -41,23 +42,71 @@ public class MatchService {
     // 1. puuid → matchId 배열 조회
     // ==========================================
     
-    /** puuid로 matchId 배열 조회 */
+    /** puuid로 matchId 배열 조회 (Riot API는 한 번에 최대 20개만 반환하므로, 더 많이 필요하면 여러 번 호출) */
     private Mono<List<String>> getMatchIdsByPuuid(String puuid, int count) {
-        return riotRegionalClient.get()
-                .uri(uri -> uri.path("/lol/match/v5/matches/by-puuid/{puuid}/ids")
-                        .queryParam("start", 0)
-                        .queryParam("count", Math.max(1, Math.min(count, 20)))
-                        .build(puuid))
-                .retrieve()
-                .onStatus(s -> s.value() == 429, r -> {
-                    log.warn("Rate limit exceeded for puuid: {}", puuid);
-                    return Mono.error(new ResponseStatusException(
-                            org.springframework.http.HttpStatus.TOO_MANY_REQUESTS,
-                            "API 요청 한도 초과. 잠시 후 다시 시도해주세요."));
-                })
-                .onStatus(HttpStatusCode::isError, r -> toApiError("match-ids-by-puuid", r))
-                .bodyToMono(new ParameterizedTypeReference<List<String>>() {})
-                .defaultIfEmpty(List.of());
+        if (count <= 0) {
+            return Mono.just(List.of());
+        }
+        
+        // Riot API는 한 번에 최대 20개까지만 반환 가능
+        final int MAX_PER_REQUEST = 20;
+        final int requestsNeeded = (count + MAX_PER_REQUEST - 1) / MAX_PER_REQUEST; // 올림 연산
+        
+        if (requestsNeeded == 1) {
+            // 20개 이하면 한 번만 호출
+            return riotRegionalClient.get()
+                    .uri(uri -> uri.path("/lol/match/v5/matches/by-puuid/{puuid}/ids")
+                            .queryParam("start", 0)
+                            .queryParam("count", Math.min(count, MAX_PER_REQUEST))
+                            .build(puuid))
+                    .retrieve()
+                    .onStatus(s -> s.value() == 429, r -> {
+                        log.warn("Rate limit exceeded for puuid: {}", puuid);
+                        return Mono.error(new ResponseStatusException(
+                                org.springframework.http.HttpStatus.TOO_MANY_REQUESTS,
+                                "API 요청 한도 초과. 잠시 후 다시 시도해주세요."));
+                    })
+                    .onStatus(HttpStatusCode::isError, r -> toApiError("match-ids-by-puuid", r))
+                    .bodyToMono(new ParameterizedTypeReference<List<String>>() {})
+                    .defaultIfEmpty(List.of())
+                    .map(list -> list.stream().limit(count).toList()); // 요청한 개수만큼만 반환
+        } else {
+            // 20개 초과면 여러 번 호출하여 병합
+            List<Mono<List<String>>> requestMonos = new ArrayList<>();
+            for (int i = 0; i < requestsNeeded; i++) {
+                final int start = i * MAX_PER_REQUEST;
+                final int requestCount = Math.min(MAX_PER_REQUEST, count - start);
+                if (requestCount <= 0) break;
+                
+                Mono<List<String>> requestMono = riotRegionalClient.get()
+                        .uri(uri -> uri.path("/lol/match/v5/matches/by-puuid/{puuid}/ids")
+                                .queryParam("start", start)
+                                .queryParam("count", requestCount)
+                                .build(puuid))
+                        .retrieve()
+                        .onStatus(s -> s.value() == 429, r -> {
+                            log.warn("Rate limit exceeded for puuid: {}", puuid);
+                            return Mono.error(new ResponseStatusException(
+                                    org.springframework.http.HttpStatus.TOO_MANY_REQUESTS,
+                                    "API 요청 한도 초과. 잠시 후 다시 시도해주세요."));
+                        })
+                        .onStatus(HttpStatusCode::isError, r -> toApiError("match-ids-by-puuid", r))
+                        .bodyToMono(new ParameterizedTypeReference<List<String>>() {})
+                        .defaultIfEmpty(List.of())
+                        .delayElement(Duration.ofMillis(100 * i)); // 각 요청 사이 딜레이 (rate limit 방지)
+                
+                requestMonos.add(requestMono);
+            }
+            
+            // 모든 요청을 순차적으로 실행하여 결과 병합
+            return Flux.fromIterable(requestMonos)
+                    .flatMapSequential(mono -> mono, 1) // 순차 실행 (동시 실행 시 rate limit 위험)
+                    .collectList()
+                    .map(lists -> lists.stream()
+                            .flatMap(List::stream)
+                            .limit(count) // 요청한 개수만큼만 반환
+                            .toList());
+        }
     }
 
     // ==========================================
@@ -87,19 +136,64 @@ public class MatchService {
         }
         return reactor.core.publisher.Flux.fromIterable(matchDtos)
                 .map(this::convertMatchDtoToSummaryDto)                       // 각 MatchDto를 MatchSummaryDto로 변환
-                .collectList();
+                .collectList()
+                .map(summaryList -> {
+                    // gameCreation 기준 내림차순 정렬 (가장 최신 게임이 먼저)
+                    summaryList.sort((a, b) -> {
+                        long timeA = (a.getInfo() != null) ? a.getInfo().getGameCreation() : 0L;
+                        long timeB = (b.getInfo() != null) ? b.getInfo().getGameCreation() : 0L;
+                        return Long.compare(timeB, timeA); // 내림차순
+                    });
+                    return summaryList;
+                });
     }
 
     // ==========================================
     // 4. PUBLIC API - 게임명+태그로 MatchSummaryDto 리스트 조회 (위 3개 메서드 사용)
     // ==========================================
     
-    /** 게임명+태그로 최근 N개의 MatchSummaryDto 조회 (컨트롤러에서 사용) */
-    public Mono<List<MatchSummaryDto>> getMatchSummaryDtosByMatchIds(String gameName, String tagLine, int count) {
+    /** 게임명+태그로 최근 N개의 MatchSummaryDto 조회 (컨트롤러에서 사용, queueId로 필터링 가능) */
+    public Mono<List<MatchSummaryDto>> getMatchSummaryDtosByMatchIds(String gameName, String tagLine, int count, Integer queueId) {
         return summonerService.getAccountDtoByGameNameAndTagLine(gameName, tagLine)  // PUUID 조회 (SummonerService)
-                .flatMap(acc -> getMatchIdsByPuuid(acc.getPuuid(), count))           // 1. puuid로 matchId 배열 조회
+                .flatMap(acc -> {
+                    // queueId 또는 30일 필터링이 필요한 경우 더 많은 매치를 가져온 후 필터링
+                    // 필터링되지 않은 매치 수를 고려하여 충분한 개수를 가져옴
+                    // 30일 필터링과 queueId 필터링을 모두 고려하여 충분한 데이터 가져오기
+                    int fetchCount = (queueId != null) ? count * 5 : count * 2; // queueId 필터링 시 5배, 날짜 필터링만 시 2배 더 가져오기
+                    return getMatchIdsByPuuid(acc.getPuuid(), fetchCount);
+                })
                 .flatMap(this::getMatchDtosByMatchIds)                               // 2. matchId 배열로 MatchDto 배열 조회
-                .flatMap(this::getMatchSummaryDtosByMatchDtos);                      // 3. MatchDto 배열로 MatchSummaryDto 배열 변환
+                .flatMap(matchDtos -> {
+                    // 30일 이내 매치만 필터링 (gameCreation 기준)
+                    long currentTime = System.currentTimeMillis();
+                    long thirtyDaysAgo = currentTime - (30L * 24 * 60 * 60 * 1000); // 30일 전 타임스탬프
+                    
+                    // queueId와 날짜 필터링
+                    List<MatchDto> filtered = matchDtos.stream()
+                            .filter(m -> {
+                                if (m == null || m.getInfo() == null) return false;
+                                
+                                // 30일 이내 필터링
+                                Long gameCreation = m.getInfo().getGameCreation();
+                                if (gameCreation == null || gameCreation < thirtyDaysAgo) {
+                                    return false;
+                                }
+                                
+                                // queueId 필터링 (queueId가 지정된 경우만)
+                                if (queueId != null) {
+                                    Integer matchQueueId = m.getInfo().getQueueId();
+                                    if (matchQueueId == null || !matchQueueId.equals(queueId)) {
+                                        return false;
+                                    }
+                                }
+                                
+                                return true;
+                            })
+                            .limit(count) // 요청한 개수만큼만 반환
+                            .toList();
+                    
+                    return getMatchSummaryDtosByMatchDtos(filtered);                 // 3. MatchDto 배열로 MatchSummaryDto 배열 변환
+                });
     }
 
     // ==========================================
@@ -179,23 +273,49 @@ public class MatchService {
             info.setQueueId(rawInfo.getQueueId());
 
             var parts = rawInfo.getParticipants() == null ? List.<MatchDto.Participant>of() : rawInfo.getParticipants();
+            
+            // 팀별 킬 수 계산 (킬관여 계산용)
+            Map<Integer, Integer> teamKillsMap = new HashMap<>();
+            for (MatchDto.Participant p : parts) {
+                if (p == null) continue;
+                Integer teamId = p.getTeamId();
+                if (teamId != null) {
+                    teamKillsMap.put(teamId, teamKillsMap.getOrDefault(teamId, 0) + nz(p.getKills()));
+                }
+            }
+            
             info.setParticipants(parts.stream().map(p -> {
                 ParticipantDto x = new ParticipantDto();
                 x.setPuuid(p.getPuuid());
                 x.setRiotIdGameName(p.getRiotIdGameName());
-                x.setRiotIdTagline(p.getRiotIdTagline()); // 태그라인 추가
+                x.setRiotIdTagline(p.getRiotIdTagline());
                 x.setSummonerName(resolveSummonerName(p));
                 x.setChampionName(p.getChampionName());
                 x.setTeamId(nz(p.getTeamId()));
-                x.setKills(nz(p.getKills()));
-                x.setDeaths(nz(p.getDeaths()));
-                x.setAssists(nz(p.getAssists()));
+                x.setTeamPosition(p.getTeamPosition());
+                x.setIndividualPosition(p.getIndividualPosition());
+                int kills = nz(p.getKills());
+                int deaths = nz(p.getDeaths());
+                int assists = nz(p.getAssists());
+                x.setKills(kills);
+                x.setDeaths(deaths);
+                x.setAssists(assists);
                 x.setChampLevel(nz(p.getChampLevel()));
                 x.setWin(Boolean.TRUE.equals(p.getWin()));
 
                 // CS 합산
                 int cs = nz(p.getTotalMinionsKilled()) + nz(p.getNeutralMinionsKilled());
                 x.setCsTotal(cs);
+
+                // 킬관여 계산: (플레이어 킬 + 플레이어 어시스트) / 팀 전체 킬
+                Integer teamId = p.getTeamId();
+                int teamKills = teamKillsMap.getOrDefault(teamId, 0);
+                if (teamKills > 0) {
+                    double kp = (double)(kills + assists) / teamKills;
+                    x.setKillParticipation(kp); // 0.0~1.0 형태로 저장 (프론트엔드에서 100 곱해서 표시)
+                } else {
+                    x.setKillParticipation(0.0);
+                }
 
                 // 주문/룬/아이템
                 x.setSummoner1Id(p.getSummoner1Id());
@@ -206,6 +326,7 @@ public class MatchService {
                 x.setPerkIds(allPerkIds(p));
                 x.setTotalDamageDealtToChampions(nz(p.getTotalDamageDealtToChampions()));
                 x.setTotalDamageTaken(nz(p.getTotalDamageTaken()));
+                x.setGoldEarned(p.getGoldEarned()); // 획득한 골드 설정
                 x.setItem0(p.getItem0()); x.setItem1(p.getItem1()); x.setItem2(p.getItem2());
                 x.setItem3(p.getItem3()); x.setItem4(p.getItem4()); x.setItem5(p.getItem5()); x.setItem6(p.getItem6());
                 return x;
@@ -235,14 +356,26 @@ public class MatchService {
             Map<Integer, MatchDetailDto.Info.TeamDto> teamsMap = convertMatchDtoTeamsToTeamDtos(rawInfo.getTeams());
 
             // 참가자 정보 추출
-            List<ParticipantDto> participants = new ArrayList<>();
+            // 팀별 킬 수 계산 (킬관여 계산용)
+            Map<Integer, Integer> teamKillsMap = new HashMap<>();
             var parts = rawInfo.getParticipants();
+            if (parts != null) {
+                for (MatchDto.Participant p : parts) {
+                    if (p == null) continue;
+                    Integer teamId = p.getTeamId();
+                    if (teamId != null) {
+                        teamKillsMap.put(teamId, teamKillsMap.getOrDefault(teamId, 0) + nz(p.getKills()));
+                    }
+                }
+            }
+            
+            List<ParticipantDto> participants = new ArrayList<>();
             if (parts != null) {
                 for (MatchDto.Participant p : parts) {
                     if (p == null) continue;
                     // 참가자 매핑
                     try {
-                        participants.add(convertMatchDtoParticipantToParticipantDto(p));
+                        participants.add(convertMatchDtoParticipantToParticipantDto(p, teamKillsMap));
                     } catch (Exception ex) {
                         log.warn("Participant parse failed: {}", ex.getMessage());
                     }
@@ -281,7 +414,7 @@ public class MatchService {
     // ==========================================
     
     /** MatchDto.Participant → ParticipantDto 변환 */
-    private ParticipantDto convertMatchDtoParticipantToParticipantDto(MatchDto.Participant p) {
+    private ParticipantDto convertMatchDtoParticipantToParticipantDto(MatchDto.Participant p, Map<Integer, Integer> teamKillsMap) {
         int teamId = nz(p.getTeamId());
         int kills = nz(p.getKills());
         int deaths = nz(p.getDeaths());
@@ -319,9 +452,11 @@ public class MatchService {
         dto.setTeamId(teamId);
         dto.setPuuid(p.getPuuid());
         dto.setRiotIdGameName(p.getRiotIdGameName());
-        dto.setRiotIdTagline(p.getRiotIdTagline()); // 태그라인 추가
+        dto.setRiotIdTagline(p.getRiotIdTagline());
         dto.setSummonerName(resolveSummonerName(p));
         dto.setChampionName(p.getChampionName());
+        dto.setTeamPosition(p.getTeamPosition());
+        dto.setIndividualPosition(p.getIndividualPosition());
         dto.setKills(kills);
         dto.setDeaths(deaths);
         dto.setAssists(assists);
@@ -343,6 +478,20 @@ public class MatchService {
         dto.setCsTotal(cs);
         dto.setTotalDamageDealtToChampions(totalDmgToChamps);
         dto.setTotalDamageTaken(totalDmgTaken);
+        dto.setGoldEarned(p.getGoldEarned()); // 획득한 골드 설정
+        
+        // 킬관여 계산: (플레이어 킬 + 플레이어 어시스트) / 팀 전체 킬
+        Integer participantTeamId = p.getTeamId();
+        int teamKills = (teamKillsMap != null && participantTeamId != null) 
+                ? teamKillsMap.getOrDefault(participantTeamId, 0) 
+                : 0;
+        if (teamKills > 0) {
+            double kp = (double)(kills + assists) / teamKills;
+            dto.setKillParticipation(kp); // 0.0~1.0 형태로 저장
+        } else {
+            dto.setKillParticipation(0.0);
+        }
+        
         return dto;
     }
 

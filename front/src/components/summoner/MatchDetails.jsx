@@ -1,10 +1,13 @@
 // 매치 상세 표
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {normalizeFromRawParticipants} from "../../data/normalizeFromRawParticipants.js";
 import { loadRuneMap } from '../../data/ddragon.js'
 import { fetchMatchDetail } from '../../data/api.js'
 
 function MatchDetails({ matchData }) {
+  const navigate = useNavigate()
+  
   // 룬 맵 선로딩: 키스톤 아이콘이 빈칸으로 나오는 현상 방지
   const [runesReady, setRunesReady] = useState(false)
   useEffect(() => {
@@ -22,10 +25,22 @@ function MatchDetails({ matchData }) {
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [error, setError] = useState(null)
 
+  // matchData가 변경되면 상세 데이터 초기화
+  useEffect(() => {
+    setDetailedPlayers(null)
+    setLoadingDetail(false)
+    setError(null)
+  }, [matchData?.id, matchData?.matchId])
+
   // 입력 데이터 정규화 (목데이터/실데이터 모두 지원)
+  // gameDurationSec가 없으면 gameDuration을 gameDurationSec로 전달
+  const normalizedMatchData = {
+    ...matchData,
+    gameDurationSec: matchData?.gameDurationSec ?? matchData?.gameDuration ?? 0
+  }
   const basePlayers = Array.isArray(matchData?.detailedPlayers) && matchData.detailedPlayers.length
       ? matchData.detailedPlayers
-      : normalizeFromRawParticipants(matchData)
+      : normalizeFromRawParticipants(normalizedMatchData)
   
 
   // 필요 시 상세 호출: 현재 데이터에 피해량이 전부 0이면 detail API 조회 시도
@@ -46,6 +61,7 @@ function MatchDetails({ matchData }) {
           rawParticipants: null,
           participants: Array.isArray(detail?.participants) ? detail.participants : [],
           gameDuration: detail?.gameDuration ?? matchData?.gameDuration,
+          gameDurationSec: detail?.gameDuration ?? matchData?.gameDurationSec ?? matchData?.gameDuration ?? 0,
           ddVer: matchData?.ddVer,
           teams: Array.isArray(detail?.teams) ? detail.teams : (matchData?.teams || []),
         })
@@ -70,22 +86,32 @@ function MatchDetails({ matchData }) {
   // 그래프 최대값: 해당 게임에서 가장 큰 가한 피해량(최소 1 보장)
   const maxDamage = Math.max(...[...lossTeam, ...winTeam].map(p => p.damageDealt || 0), 1)
 
-  // TODO: 롤 공식 API 연동 시 gold 값을 실제 데이터로 바인딩합니다.
+  // 골드 값 가져오기 (백엔드에서 제공하는 실제 값 사용)
   const getGoldForPlayer = (player) => {
-    if (typeof player.gold === 'number') return player.gold
-    // 하드코딩: 이름+챔피언 기반으로 안정적인 더미 골드 생성 (대략 5,500~9,000)
-    const key = `${player.name}-${player.champion?.name || ''}`
-    let hash = 0
-    for (let i = 0; i < key.length; i++) {
-      hash = (hash * 31 + key.charCodeAt(i)) >>> 0
+    if (typeof player.gold === 'number' && player.gold > 0) {
+      return player.gold
     }
-    const raw = 5500 + (hash % 3501) // 5500 ~ 9001
-    return Math.round(raw / 10) * 10 // 10단위 반올림
+    // 백엔드에서 골드 데이터가 없는 경우 0 반환
+    return 0
+  }
+
+  // 플레이어 이름 클릭 핸들러
+  const handlePlayerNameClick = (player) => {
+    const gameName = player.gameName || player.name || ''
+    const tagLine = player.tagLine || 'KR1'
+    if (gameName && gameName !== '-') {
+      const encodedName = encodeURIComponent(`${gameName}#${tagLine}`)
+      navigate(`/summoner/${encodedName}`)
+    }
   }
 
   const renderPlayerRow = (player, index) => {
     // 아이템 6칸을 항상 채우기 위해 빈 슬롯으로 패딩
     const itemSlots = Array.from({ length: 6 }, (_, i) => (player?.items && player.items[i]) || '');
+    const gameName = player.gameName || player.name || ''
+    const tagLine = player.tagLine || 'KR1'
+    const isClickable = gameName && gameName !== '-'
+    
     return (
       <div key={index} className={`player-row ${player.team === 'win' ? 'win-team' : 'loss-team'}`}>
         <div className="player-identity">
@@ -105,7 +131,13 @@ function MatchDetails({ matchData }) {
             </div>
           </div>
           <div className="player-name-tier">
-            <span className="player-name">{player.name}</span>
+            <span 
+              className={`player-name ${isClickable ? 'clickable' : ''}`}
+              onClick={() => isClickable && handlePlayerNameClick(player)}
+              style={isClickable ? { cursor: 'pointer' } : {}}
+            >
+              {player.name}
+            </span>
             <span className="player-tier">{player.tier}</span>
           </div>
         </div>
@@ -126,11 +158,10 @@ function MatchDetails({ matchData }) {
         </div>
         <div className="cs-details">
           <p>{player.cs}</p>
-          <p className="cspm">분당 {player.cspm}</p>
+          <p className="cspm">분당 {player.cspm && !isNaN(player.cspm) ? player.cspm : '-'}</p>
         </div>
         <div className="gold-details">
-          {/* 하드코딩: 골드 바인딩 위치 */}
-          <p>{getGoldForPlayer(player)}</p>
+          <p>{getGoldForPlayer(player).toLocaleString()}</p>
         </div>
         <div className="items-details">
           {itemSlots.map((item, i) => (
@@ -163,7 +194,7 @@ function MatchDetails({ matchData }) {
         <div className="table-header">
           <span className="header-item">패배 ({lossSideLabel || '-'} )</span>
           <span className="header-item">KDA</span>
-          <span className="header-item">피해량 / 받은 피해량</span>
+          <span className="header-item">피해량</span>
           <span className="header-item">CS</span>
           <span className="header-item">골드</span>
           <span className="header-item">아이템</span>

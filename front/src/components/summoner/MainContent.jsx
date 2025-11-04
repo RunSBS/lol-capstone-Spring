@@ -1,17 +1,60 @@
 // 중단 메인 컨텐츠 네비게이션 바바
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import RecentGamesSummary from './RecentGamesSummary.jsx'
 import MatchHistoryItem from './MatchHistoryItem.jsx'
 
-function MainContent({ summaryData, matches, view }) {
+function MainContent({ summaryData, matches, view, gameName, tagLine, onLoadMore, loadingMore, onTabChange, loading }) {
     const [activeTab, setActiveTab] = useState('all')
-    const filtered = (() => {
-        if (activeTab === 'all') return matches
-        if (activeTab === 'solo')  return matches.filter(m => m.queueType === 'RANKED_SOLO_5x5' || m.queueId === 420)
-        if (activeTab === 'flex')  return matches.filter(m => m.queueType === 'RANKED_FLEX_SR' || m.queueId === 440)
-        if (activeTab === 'recent') return matches // 너 의도에 맞게 정의(예: 지난 7일만 등)
-        return matches
-    })()
+    const [displayedCount, setDisplayedCount] = useState(10)
+    
+    // 백엔드에서 필터링된 데이터를 받으므로, 탭에 맞는 데이터만 표시
+    // 'all' 탭이 아닌 경우에는 이미 백엔드에서 필터링된 데이터가 오므로 그대로 사용
+    // 'all' 탭인 경우에도 백엔드에서 모든 게임을 가져왔으므로 그대로 사용
+    const filtered = matches
+    
+    // 탭 변경 시 displayedCount 리셋 및 부모 컴포넌트에 알림
+    const handleTabChange = (tab) => {
+        setActiveTab(tab)
+        setDisplayedCount(10)
+        // 부모 컴포넌트에 탭 변경 알림 (queueId 전달)
+        if (onTabChange) {
+            const queueIdMap = {
+                'all': null,
+                'solo': 420,
+                'flex': 440,
+                'recent': null
+            }
+            onTabChange(tab, queueIdMap[tab])
+        }
+    }
+    
+    // 더보기 버튼 핸들러
+    const handleLoadMore = async () => {
+        // 현재 표시된 개수가 필터된 매치 개수보다 작으면 프론트엔드에서 더 표시
+        if (displayedCount < filtered.length) {
+            setDisplayedCount(prev => Math.min(prev + 10, filtered.length))
+        } else if (onLoadMore && gameName && tagLine) {
+            // 백엔드에서 추가 데이터 가져오기
+            await onLoadMore()
+        }
+    }
+    
+    // matches가 업데이트되면 displayedCount 조정 (새로운 데이터가 추가되었을 때)
+    useEffect(() => {
+        if (filtered.length > displayedCount && displayedCount >= 10) {
+            // 새로운 데이터가 추가되었고, 이미 일부가 표시된 상태라면
+            // displayedCount를 증가시켜 새로운 항목들을 표시
+            const newCount = Math.min(displayedCount + 10, filtered.length)
+            if (newCount > displayedCount) {
+                setDisplayedCount(newCount)
+            }
+        }
+    }, [filtered.length, displayedCount])
+    
+    // 표시할 매치 목록 (displayedCount만큼만)
+    const displayedMatches = filtered.slice(0, displayedCount)
+    // 더 표시할 항목이 있는지 확인 (프론트엔드에 있거나 백엔드에서 더 가져올 수 있으면 true)
+    const hasMore = displayedCount < filtered.length || (onLoadMore && gameName && tagLine)
 
     // 필터링된 매치를 기반으로 통계 계산
     const filteredSummaryData = useMemo(() => {
@@ -105,21 +148,36 @@ function MainContent({ summaryData, matches, view }) {
     return (
         <div className="left-column">
           <div className="content-tabs">
-            <button className={activeTab === 'all' ? 'active' : ''} onClick={() => setActiveTab('all')}>전체</button>
-            <button className={activeTab === 'solo' ? 'active' : ''} onClick={() => setActiveTab('solo')}>개인/2인 랭크 게임</button>
-            <button className={activeTab === 'flex' ? 'active' : ''} onClick={() => setActiveTab('flex')}>자유 랭크 게임</button>
-            <button className={activeTab === 'recent' ? 'active' : ''} onClick={() => setActiveTab('recent')}>최근 플레이</button>
+            <button className={activeTab === 'all' ? 'active' : ''} onClick={() => handleTabChange('all')}>전체</button>
+            <button className={activeTab === 'solo' ? 'active' : ''} onClick={() => handleTabChange('solo')}>개인/2인 랭크 게임</button>
+            <button className={activeTab === 'flex' ? 'active' : ''} onClick={() => handleTabChange('flex')}>자유 랭크 게임</button>
+            <button className={activeTab === 'recent' ? 'active' : ''} onClick={() => handleTabChange('recent')}>최근 플레이</button>
           </div>
           {filtered.length > 0 && <RecentGamesSummary data={filteredSummaryData} />}
           <div className="match-history-list">
-            {filtered.length === 0 ? (
+            {loading ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: 'var(--color-text-light)' }}>
+                <p>전적을 불러오는 중...</p>
+              </div>
+            ) : filtered.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '40px', color: 'var(--color-text-light)' }}>
                 <p>최근 기록된 전적이 없습니다.</p>
               </div>
             ) : (
-              filtered.map((match) => (
-                <MatchHistoryItem key={match.id} matchData={match} />
-              ))
+              <>
+                {displayedMatches.map((match) => (
+                  <MatchHistoryItem key={match.id} matchData={match} view={view} />
+                ))}
+                {filtered.length > 0 && (
+                  <button 
+                    className={`load-more-button ${!hasMore ? 'disabled' : ''}`}
+                    onClick={handleLoadMore}
+                    disabled={!hasMore || loadingMore}
+                  >
+                    {loadingMore ? '로딩 중...' : (hasMore ? '더 보기' : '모든 전적을 표시했습니다')}
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>

@@ -80,7 +80,9 @@ body {
 .info-card .rank-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
 .info-card .rank-header h3 { font-size: 12px; margin: 0; }
 .info-card .fa-circle-info { color: var(--color-text-light); }
-.info-card .rank-body { display: flex; gap: 15px; align-items: center; }
+.info-card .rank-body { display: flex; gap: 15px; align-items: center; justify-content: space-between; }
+.info-card .rank-body .rank-info-small { flex: 0 1 auto; }
+.info-card .rank-body .rank-win-loss { flex: 0 0 auto; margin-left: auto; }
 .info-card .rank-emblem { width: 48px; height: 48px; }
 .info-card .rank-info-small .rank-tier { font-size: 16px; font-weight: bold; margin: 0; }
 .info-card .rank-info-small .rank-lp { font-size: 12px; color: var(--color-text-light); margin: 0; }
@@ -95,8 +97,8 @@ body {
 .champion-stats-list { list-style: none; padding: 0; margin: 0; }
 .champion-stats-list li { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 12px; }
 .champion-stats-list .champ-icon { width: 32px; height: 32px; border-radius: 50%; }
-.champion-stats-list .champ-details { flex-grow: 1; }
-.champion-stats-list .champ-name { font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.champion-stats-list .champ-details { flex-grow: 1; min-width: 0; }
+.champion-stats-list .champ-name { font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .champion-stats-list .champ-cs { color: var(--color-text-light); }
 .champion-stats-list .champ-kda-stats { text-align: center; width: 90px; flex-shrink: 0; }
 .champion-stats-list .kda-ratio { color: var(--color-gold); font-weight: bold; }
@@ -121,6 +123,8 @@ body {
 .home-ad img { display: block; width: 100%; height: auto; }
 
 .mastery-champions { display: grid; grid-template-columns: repeat(auto-fill, minmax(50px, 1fr)); gap: 10px; }
+.mastery-champions .no-data { grid-column: 1 / -1; text-align: center; padding: 20px 0; }
+.mastery-champions .no-data p { margin: 0; white-space: nowrap; }
 .mastery-champion-item { text-align: center; }
 .mastery-champion-item img { width: 50px; height: 50px; border-radius: 4px; }
 .mastery-champion-item .mastery-points { font-size: 11px; color: var(--color-text-light); margin-top: 4px; }
@@ -132,6 +136,8 @@ body {
 .played-with-list .player-info { flex-grow: 1; }
 .played-with-list .player-name-tag { margin: 0; font-weight: bold; }
 .played-with-list .player-name-tag span { font-weight: normal; color: var(--color-text-light); }
+.played-with-list .player-name-tag span.clickable { cursor: pointer; }
+.played-with-list .player-name-tag span.clickable:hover { color: var(--color-win); transition: color 0.2s; }
 .played-with-list .player-level { margin: 0; font-size: 11px; color: var(--color-text-light); }
 .played-with-list .player-stats { text-align: right; }
 .played-with-list .player-stats p { margin: 0; }
@@ -171,6 +177,31 @@ body {
 .position-bar .role-icon { width: 20px; position: absolute; bottom: -25px; left: 50%; transform: translateX(-50%); filter: grayscale(1) brightness(0.7); opacity: 0.8; }
 
 .match-history-list { display: flex; flex-direction: column; gap: 8px; }
+.load-more-button {
+  width: 100%;
+  padding: 12px 20px;
+  margin-top: 8px;
+  background-color: var(--color-bg-light);
+  border: none;
+  border-radius: 4px;
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: center;
+  transition: background-color 0.2s;
+}
+.load-more-button:hover:not(.disabled) {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+.load-more-button:active:not(.disabled) {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+.load-more-button.disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  color: var(--color-text-light);
+}
 .match-item-wrapper { background-color: var(--color-bg-light); border-radius: 4px; border: 1px solid var(--color-border); }
 .match-item { display: flex; align-items: center; gap: 12px; padding: 8px 12px; color: #cdd2e2; font-size: 12px; }
 .match-item.win { background-color: #28344e; border-left: 6px solid #5383e8; }
@@ -202,6 +233,7 @@ body {
 .player-lists .player { display: flex; align-items: center; gap: 4px; }
 .player-lists .player img { width: 16px; height: 16px; }
 .player-lists .player span { width: 70px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #cdd2e2; }
+.player-lists .player span.clickable:hover { color: var(--color-win); transition: color 0.2s; }
 .details-toggle { display: flex; flex-direction: column; align-items: center; justify-content: center; margin-left: auto; align-self: stretch; background-color: rgba(0,0,0,0.1); padding: 0 10px; border-radius: 4px; cursor: pointer; }
 .arrow-down { width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 6px solid #5a5a6b; }
 .arrow-up { width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 6px solid var(--color-text-light); }
@@ -225,6 +257,7 @@ body {
 .player-identity .spells img, .player-identity .runes img { width: 19px; height: 19px; border-radius: 2px; }
 .player-identity .player-name-tier { display: flex; flex-direction: column; gap: 0; line-height: 1.2; margin-left: 2px; }
 .player-identity .player-name { font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px; margin: 0; }
+.player-identity .player-name.clickable:hover { color: var(--color-win); transition: color 0.2s; }
 .player-identity .player-tier { font-size: 11px; color: var(--color-text-light); margin: 0; }
 .kda-details { text-align: center; line-height: 1.4; }
 .kda-details .kda-text { font-weight: bold; letter-spacing: 0.5px; }
@@ -421,4 +454,115 @@ body {
   background: #4A4C52;
 }
 
+/* 자동완성 그룹화 스타일 */
+.suggestion-group {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.suggestion-group:last-child {
+  border-bottom: none;
+}
+
+.suggestion-group-header {
+  cursor: pointer;
+  position: relative;
+}
+
+.expand-indicator {
+  color: var(--color-text-light);
+  font-size: 10px;
+  margin-left: auto;
+  padding-left: 10px;
+}
+
+.suggestion-group-items {
+  background-color: rgba(0, 0, 0, 0.2);
+  padding-left: 40px;
+}
+
+.suggestion-tag-item {
+  padding-left: 20px !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.suggestion-tag-item:hover {
+  background-color: rgba(83, 131, 232, 0.1);
+}
+
+.tag-count {
+  color: var(--color-text-light);
+  font-size: 11px;
+  font-weight: normal;
+  margin-left: 6px;
+}
+
+.total-count {
+  color: var(--color-text-light);
+  font-size: 11px;
+  font-weight: normal;
+  margin-left: 8px;
+}
+
+/* 페이지네이션 스타일 */
+.suggestions-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  border-top: 1px solid var(--color-border);
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.page-button {
+  background-color: var(--color-bg-light);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background-color 0.2s;
+}
+
+.page-button:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.page-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.page-numbers {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.page-number {
+  background-color: var(--color-bg-light);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.page-number:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.page-number.active {
+  background-color: var(--color-win);
+  border-color: var(--color-win);
+  color: white;
+  font-weight: bold;
+}
 

@@ -1,10 +1,12 @@
 package hyun.lol.service;
 
 import hyun.lol.dto.AccountDto;
+import hyun.lol.dto.AutocompleteDto;
 import hyun.lol.dto.ChampionMasteryDto;
 import hyun.lol.dto.LeagueEntryDto;
 import hyun.lol.dto.MatchSummaryDto;
 import hyun.lol.dto.PlayedWithDto;
+import hyun.lol.dto.PositionDto;
 import hyun.lol.dto.SummonerDto;
 import hyun.lol.dto.ViewDto;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -14,10 +16,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.Flux;
 
 import java.text.DecimalFormat;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.time.Duration;
 
 @Service
 public class SummonerService {
@@ -55,6 +59,12 @@ public class SummonerService {
                 .build(gameName, tagLine))
                 // 여기부터 역직렬화 하겠다
                 .retrieve()
+                // Rate limit 에러 처리
+                .onStatus(s -> s.value() == 429, r -> {
+                    return Mono.error(new org.springframework.web.server.ResponseStatusException(
+                            org.springframework.http.HttpStatus.TOO_MANY_REQUESTS,
+                            "API 요청 한도 초과. 잠시 후 다시 시도해주세요."));
+                })
                 // 상태코드가 에러일경우, 에러코드를 던지자
                 .onStatus(HttpStatusCode::isError, r -> toApiError("account-by-gameName-tagLine", r))
                 // 결과를 dto에 저장
@@ -115,12 +125,19 @@ public class SummonerService {
                         })
                 );
     }
+    
     /* puuid로 LeagueEntryDto 목록 반환 */
     public Mono<List<LeagueEntryDto>> getLeagueEntryDtoByPuuid(String puuid){
         return platformClient.get()
                 .uri(uri -> uri.path("/lol/league/v4/entries/by-puuid/{puuid}")
                         .build(puuid))
                 .retrieve()
+                // Rate limit 에러 처리
+                .onStatus(s -> s.value() == 429, r -> {
+                    return Mono.error(new org.springframework.web.server.ResponseStatusException(
+                            org.springframework.http.HttpStatus.TOO_MANY_REQUESTS,
+                            "API 요청 한도 초과. 잠시 후 다시 시도해주세요."));
+                })
                 .onStatus(HttpStatusCode::isError, r -> toApiError("leagueEntryDto-by-puuid", r))
                 .bodyToFlux(LeagueEntryDto.class)   // <-- 배열 응답
                 .collectList();
@@ -373,8 +390,8 @@ public class SummonerService {
                 .flatMap(acc -> {
                     String puuid = acc.getPuuid();
                     // 최근 20개 매치 조회
-                    return matchService.getMatchSummaryDtosByMatchIds(gameName, tagLine, 20)
-                            .map(matches -> {
+                    return matchService.getMatchSummaryDtosByMatchIds(gameName, tagLine, 20, null)
+                            .flatMap(matches -> {
                                 // 같은 팀 참가자들을 추출하여 집계
                                 Map<String, PlayedWithStats> statsMap = new HashMap<>();
                                 
@@ -414,30 +431,189 @@ public class SummonerService {
                                     }
                                 }
                                 
-                                // 통계를 DTO로 변환하고 게임 수 기준 정렬 후 상위 5개
-                                return statsMap.values().stream()
+                                // 통계를 게임 수 기준 정렬 후 상위 5개 선택
+                                List<PlayedWithStats> topStats = statsMap.values().stream()
                                         .sorted((a, b) -> Integer.compare(b.games, a.games))
                                         .limit(5)
-                                        .map(stats -> {
-                                            PlayedWithDto dto = new PlayedWithDto();
-                                            // 이름과 태그 분리 (Riot ID 형식)
-                                            String[] nameParts = stats.name.split("#");
-                                            dto.setName(nameParts[0]);
-                                            dto.setTag(nameParts.length > 1 ? nameParts[1] : "KR1");
-                                            dto.setLevel(100); // 기본값, 실제로는 AccountDto 조회 필요
-                                            dto.setIconUrl(""); // 프로필 아이콘 URL (프론트엔드에서 처리)
-                                            dto.setGames(stats.wins + "승 / " + stats.losses + "패");
-                                            int totalGames = stats.wins + stats.losses;
-                                            dto.setWinrate(totalGames > 0 ? (stats.wins * 100 / totalGames) : 0);
-                                            dto.setWins(stats.wins);
-                                            dto.setLosses(stats.losses);
-                                            return dto;
-                                        })
                                         .collect(Collectors.toList());
+                                
+                                // 빈 리스트인 경우 빈 결과 반환
+                                if (topStats.isEmpty()) {
+                                    return Mono.just(Collections.<PlayedWithDto>emptyList());
+                                }
+                                
+                                // 각 소환사의 레벨을 조회하기 위해 PUUID 리스트 생성
+                                List<String> puuids = topStats.stream()
+                                        .map(s -> s.puuid)
+                                        .collect(Collectors.toList());
+                                
+                                // PUUID 리스트로 SummonerDto를 병렬 조회 (Flux 사용) - 레벨과 프로필 아이콘 모두 가져오기
+                                return Flux.fromIterable(puuids)
+                                        .flatMap(playerPuuid -> getSummonerDtoByPuuid(playerPuuid)
+                                                .map(summoner -> {
+                                                    Long level = summoner.getSummonerLevel();
+                                                    Integer profileIconId = summoner.getProfileIconId();
+                                                    // PUUID, 레벨, profileIconId를 함께 전달
+                                                    return Map.entry(playerPuuid, new Object[] {
+                                                        level != null ? level.intValue() : 100,
+                                                        profileIconId != null ? profileIconId : 5426 // 기본 프로필 아이콘
+                                                    });
+                                                })
+                                                .onErrorReturn(Map.entry(playerPuuid, new Object[] { 100, 5426 }))) // 에러 시 기본값
+                                        .collectMap(Map.Entry::getKey, Map.Entry::getValue)
+                                        .defaultIfEmpty(new HashMap<>())
+                                        .map(summonerDataMap -> {
+                                            // 레벨과 프로필 아이콘 맵을 사용하여 DTO 생성
+                                            return topStats.stream()
+                                                    .map(stats -> {
+                                                        PlayedWithDto dto = new PlayedWithDto();
+                                                        // 이름과 태그 분리 (Riot ID 형식)
+                                                        String[] nameParts = stats.name.split("#");
+                                                        dto.setName(nameParts[0]);
+                                                        dto.setTag(nameParts.length > 1 ? nameParts[1] : "KR1");
+                                                        
+                                                        // SummonerDto에서 가져온 데이터 사용
+                                                        Object[] summonerData = summonerDataMap.get(stats.puuid);
+                                                        int level = summonerData != null ? (Integer) summonerData[0] : 100;
+                                                        int profileIconId = summonerData != null ? (Integer) summonerData[1] : 5426;
+                                                        
+                                                        dto.setLevel(level);
+                                                        // 프로필 아이콘 URL 생성 (Data Dragon 최신 버전 사용)
+                                                        dto.setIconUrl("https://ddragon.leagueoflegends.com/cdn/15.18.1/img/profileicon/" + profileIconId + ".png");
+                                                        dto.setGames(stats.wins + "승 / " + stats.losses + "패");
+                                                        int totalGames = stats.wins + stats.losses;
+                                                        dto.setWinrate(totalGames > 0 ? (stats.wins * 100 / totalGames) : 0);
+                                                        dto.setWins(stats.wins);
+                                                        dto.setLosses(stats.losses);
+                                                        return dto;
+                                                    })
+                                                    .collect(Collectors.toList());
+                                        });
                             })
-                            .defaultIfEmpty(Collections.emptyList());
+                            .defaultIfEmpty(Collections.<PlayedWithDto>emptyList());
                 })
-                .defaultIfEmpty(Collections.emptyList());
+                .defaultIfEmpty(Collections.<PlayedWithDto>emptyList());
+    }
+    
+    // ==========================================
+    // 선호 포지션 조회
+    // ==========================================
+    
+    /** 게임명+태그로 최근 N게임의 포지션 데이터 조회 */
+    public Mono<List<PositionDto>> getPositionsByGameNameAndTagLine(String gameName, String tagLine, int count) {
+        return getAccountDtoByGameNameAndTagLine(gameName, tagLine)
+                .flatMap(acc -> {
+                    String puuid = acc.getPuuid();
+                    // 최근 N개 매치 조회 (랭크 게임만 필터링)
+                    return matchService.getMatchSummaryDtosByMatchIds(gameName, tagLine, count, null)
+                            .map(matches -> {
+                                // 포지션별 게임 수 집계
+                                Map<String, Integer> roleCount = new HashMap<>();
+                                roleCount.put("TOP", 0);
+                                roleCount.put("JUNGLE", 0);
+                                roleCount.put("MIDDLE", 0);
+                                roleCount.put("BOTTOM", 0);
+                                roleCount.put("UTILITY", 0);
+                                
+                                int totalGames = 0;
+                                
+                                for (MatchSummaryDto match : matches) {
+                                    if (match.getInfo() == null || match.getInfo().getParticipants() == null) {
+                                        continue;
+                                    }
+                                    
+                                    // 랭크 게임만 필터링 (420=솔랭, 440=자랭)
+                                    Integer queueId = match.getInfo().getQueueId();
+                                    if (queueId == null || (queueId != 420 && queueId != 440)) {
+                                        continue;
+                                    }
+                                    
+                                    // 현재 소환사 찾기
+                                    for (var p : match.getInfo().getParticipants()) {
+                                        if (puuid.equals(p.getPuuid())) {
+                                            // teamPosition 우선, 없으면 individualPosition 사용
+                                            String position = p.getTeamPosition();
+                                            if (position == null || position.isEmpty() || "NONE".equals(position)) {
+                                                position = p.getIndividualPosition();
+                                            }
+                                            
+                                            if (position != null && !position.isEmpty() && !"NONE".equals(position)) {
+                                                roleCount.put(position, roleCount.getOrDefault(position, 0) + 1);
+                                                totalGames++;
+                                            }
+                                            break;
+                                        }
+                                    }
+                                }
+                                
+                                // Riot API 포지션을 UI 표시용으로 변환
+                                Map<String, String> positionMapping = new HashMap<>();
+                                positionMapping.put("TOP", "TOP");
+                                positionMapping.put("JUNGLE", "JNG");
+                                positionMapping.put("MIDDLE", "MID");
+                                positionMapping.put("BOTTOM", "ADC");
+                                positionMapping.put("UTILITY", "SUP");
+                                
+                                // 포지션 아이콘 매핑
+                                Map<String, String> iconMap = new HashMap<>();
+                                iconMap.put("TOP", "https://s-lol-web.op.gg/images/icon/icon-position-top.svg");
+                                iconMap.put("JNG", "https://s-lol-web.op.gg/images/icon/icon-position-jungle.svg");
+                                iconMap.put("MID", "https://s-lol-web.op.gg/images/icon/icon-position-mid.svg");
+                                iconMap.put("ADC", "https://s-lol-web.op.gg/images/icon/icon-position-adc.svg");
+                                iconMap.put("SUP", "https://s-lol-web.op.gg/images/icon/icon-position-support.svg");
+                                
+                                // PositionDto 리스트 생성
+                                List<PositionDto> positions = new ArrayList<>();
+                                String[] displayRoles = {"TOP", "JNG", "MID", "ADC", "SUP"};
+                                
+                                for (String displayRole : displayRoles) {
+                                    // displayRole을 Riot API 포지션으로 변환
+                                    String riotRole = positionMapping.entrySet().stream()
+                                            .filter(e -> e.getValue().equals(displayRole))
+                                            .map(Map.Entry::getKey)
+                                            .findFirst()
+                                            .orElse(null);
+                                    
+                                    int roleGameCount = (riotRole != null) ? roleCount.getOrDefault(riotRole, 0) : 0;
+                                    int percentage = (totalGames > 0) ? Math.round((roleGameCount * 100) / totalGames) : 0;
+                                    
+                                    PositionDto posDto = new PositionDto();
+                                    posDto.setRole(displayRole);
+                                    posDto.setPercentage(percentage);
+                                    posDto.setIcon(iconMap.getOrDefault(displayRole, ""));
+                                    positions.add(posDto);
+                                }
+                                
+                                return positions;
+                            })
+                            .defaultIfEmpty(createDefaultPositions());
+                })
+                .cast(List.class)
+                .map(list -> (List<PositionDto>) list)
+                .defaultIfEmpty(createDefaultPositions());
+    }
+    
+    /** 기본 포지션 리스트 생성 (데이터가 없을 때) */
+    private List<PositionDto> createDefaultPositions() {
+        Map<String, String> iconMap = new HashMap<>();
+        iconMap.put("TOP", "https://s-lol-web.op.gg/images/icon/icon-position-top.svg");
+        iconMap.put("JNG", "https://s-lol-web.op.gg/images/icon/icon-position-jungle.svg");
+        iconMap.put("MID", "https://s-lol-web.op.gg/images/icon/icon-position-mid.svg");
+        iconMap.put("ADC", "https://s-lol-web.op.gg/images/icon/icon-position-adc.svg");
+        iconMap.put("SUP", "https://s-lol-web.op.gg/images/icon/icon-position-support.svg");
+        
+        List<PositionDto> positions = new ArrayList<>();
+        String[] displayRoles = {"TOP", "JNG", "MID", "ADC", "SUP"};
+        
+        for (String displayRole : displayRoles) {
+            PositionDto posDto = new PositionDto();
+            posDto.setRole(displayRole);
+            posDto.setPercentage(0);
+            posDto.setIcon(iconMap.getOrDefault(displayRole, ""));
+            positions.add(posDto);
+        }
+        
+        return positions;
     }
     
     /** 함께 플레이한 소환사 통계를 저장하는 내부 클래스 */
@@ -452,5 +628,123 @@ public class SummonerService {
             this.name = name;
             this.puuid = puuid;
         }
+    }
+    
+    // ==========================================
+    // 자동완성 검색
+    // ==========================================
+    
+    /** 자동완성 검색 - 입력된 쿼리로 유효한 계정 찾기 */
+    public Mono<List<AutocompleteDto>> autocompleteSearch(String query) {
+        if (query == null || query.trim().isEmpty() || query.length() < 2) {
+            return Mono.just(Collections.emptyList());
+        }
+        
+        String trimmedQuery = query.trim();
+        String gameName = trimmedQuery;
+        String userTag = null;
+        
+        // 태그가 포함된 경우 분리
+        if (trimmedQuery.contains("#")) {
+            String[] parts = trimmedQuery.split("#", 2);
+            gameName = parts[0].trim();
+            userTag = parts.length > 1 ? parts[1].trim().toUpperCase() : null;
+        }
+        
+        if (gameName.isEmpty()) {
+            return Mono.just(Collections.emptyList());
+        }
+        
+        // 사용자가 태그를 지정한 경우 해당 태그로만 검색
+        if (userTag != null && !userTag.isEmpty()) {
+            return searchWithTag(gameName, userTag)
+                    .map(result -> result != null ? List.of(result) : Collections.<AutocompleteDto>emptyList())
+                    .defaultIfEmpty(Collections.emptyList());
+        }
+        
+        // 태그가 없으면 한국 서버 태그들로 검색 시도 (KR1~KR10만 - API 호출 최소화)
+        List<String> commonTags = new ArrayList<>();
+        for (int i = 1; i <= 10; i++) {
+            commonTags.add("KR" + i);
+        }
+        final String finalGameName = gameName;
+        
+        return Flux.fromIterable(commonTags)
+                .index() // 인덱스 추가 (딜레이 계산용)
+                .flatMap(tuple -> {
+                    long index = tuple.getT1();
+                    String tag = tuple.getT2();
+                    // 각 요청 사이 200ms 딜레이 추가 (rate limit 방지)
+                    Mono<AutocompleteDto> searchMono = searchWithTag(finalGameName, tag);
+                    if (index > 0) {
+                        searchMono = Mono.delay(Duration.ofMillis(200 * index))
+                                .then(searchMono);
+                    }
+                    return searchMono
+                            .filter(result -> result != null)
+                            .onErrorResume(e -> {
+                                // Rate limit 에러는 재전파, 다른 에러는 무시
+                                if (e instanceof org.springframework.web.server.ResponseStatusException rse) {
+                                    if (rse.getStatusCode().value() == 429) {
+                                        return Mono.error(e); // Rate limit 에러는 전파
+                                    }
+                                }
+                                return Mono.empty(); // 다른 에러는 무시
+                            });
+                }, 2) // 최대 2개 동시 요청으로 감소 (rate limit 방지 강화)
+                .collectList() // 모든 결과 수집 (제한 없음)
+                .onErrorResume(e -> {
+                    // Rate limit 에러인 경우 빈 리스트 반환 대신 에러 전파
+                    if (e instanceof org.springframework.web.server.ResponseStatusException rse) {
+                        if (rse.getStatusCode().value() == 429) {
+                            return Mono.error(e);
+                        }
+                    }
+                    // 다른 에러는 빈 리스트 반환
+                    return Mono.just(Collections.emptyList());
+                })
+                .defaultIfEmpty(Collections.emptyList());
+    }
+    
+    /** 특정 태그로 계정 검색 */
+    private Mono<AutocompleteDto> searchWithTag(String gameName, String tag) {
+        return getAccountDtoByGameNameAndTagLine(gameName, tag)
+                .flatMap(account -> {
+                    // 계정이 존재하면 추가 정보 조회
+                    return Mono.zip(
+                            getSummonerDtoByPuuid(account.getPuuid()),
+                            getLeagueEntryDtoByPuuid(account.getPuuid()).defaultIfEmpty(Collections.emptyList())
+                    ).map(tuple -> {
+                        SummonerDto summoner = tuple.getT1();
+                        List<LeagueEntryDto> leagues = tuple.getT2();
+                        
+                        AutocompleteDto dto = new AutocompleteDto();
+                        dto.setId(account.getPuuid().hashCode()); // 고유 ID 생성
+                        dto.setName(account.getGameName());
+                        dto.setTag(account.getTagLine());
+                        dto.setLevel(summoner.getSummonerLevel() != null ? summoner.getSummonerLevel().intValue() : null);
+                        dto.setProfileIconId(summoner.getProfileIconId());
+                        dto.setDdVer("15.18.1"); // 기본값, 필요시 동적으로 가져올 수 있음
+                        
+                        // 랭크 정보 찾기 (솔로랭크 우선)
+                        LeagueEntryDto soloRank = leagues != null ? leagues.stream()
+                                .filter(l -> "RANKED_SOLO_5x5".equals(l.getQueueType()))
+                                .findFirst()
+                                .orElse(null) : null;
+                        
+                        if (soloRank != null) {
+                            dto.setTier(soloRank.getTier());
+                            dto.setRank(soloRank.getRank());
+                            dto.setLp(soloRank.getLeaguePoints());
+                        } else {
+                            dto.setTier(null);
+                            dto.setRank(null);
+                            dto.setLp(null);
+                        }
+                        
+                        return dto;
+                    });
+                })
+                .onErrorResume(e -> Mono.empty()); // 에러 시 빈 결과 반환
     }
 }

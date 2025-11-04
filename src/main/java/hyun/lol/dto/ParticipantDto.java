@@ -18,10 +18,12 @@ public class ParticipantDto {
     // ===== 팀 리스트 표시용 (10명 모두 공통) =====
     private String puuid;              // 고유 ID (백엔드에서 메인 참가자 찾기용)
     private String riotIdGameName;     // 게임 닉네임
-    private String riotIdTagline;      // 라이엇 ID 태그라인 (프론트엔드에서 참가자 찾기용)
+    private String riotIdTagline;      // 게임 태그라인
     private String summonerName;       // 소환사 이름
     private String championName;        // 플레이한 챔피언
     private int teamId;                // 100=블루팀, 200=레드팀
+    private String teamPosition;       // 팀 포지션 (TOP, JUNGLE, MIDDLE, BOTTOM, UTILITY)
+    private String individualPosition; // 개별 포지션 (TOP, JUNGLE, MIDDLE, BOTTOM, UTILITY)
     
     // ===== 메인 참가자(뷰어) 전용 상세 정보 =====
     private boolean win;                // 승리 여부
@@ -43,4 +45,8 @@ public class ParticipantDto {
     // 전투 통계
     private int totalDamageDealtToChampions;  // 챔피언에게 가한 총 피해
     private int totalDamageTaken;             // 받은 총 피해
+    private Double killParticipation;         // 킬관여율 (0.0~1.0 또는 0~100 형태, 백엔드에서는 0.0~1.0)
+    
+    // 골드 통계
+    private Integer goldEarned;               // 획득한 골드
 }

@@ -24,9 +24,10 @@ public class MatchController {
     public Mono<List<MatchSummaryDto>> recent(
             @RequestParam String gameName,
             @RequestParam String tagLine,
-            @RequestParam(defaultValue = "5") int count
+            @RequestParam(defaultValue = "5") int count,
+            @RequestParam(required = false) Integer queueId
     ) {
-        return matchService.getMatchSummaryDtosByMatchIds(gameName, tagLine, count)
+        return matchService.getMatchSummaryDtosByMatchIds(gameName, tagLine, count, queueId)
                 .doOnError(e -> {
                     if (e instanceof org.springframework.web.server.ResponseStatusException rse) {
                         if (rse.getStatusCode().value() == 429) {

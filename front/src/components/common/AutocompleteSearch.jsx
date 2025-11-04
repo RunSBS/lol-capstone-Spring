@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { fetchAutocompleteKeywords } from '../../data/api.js'
 import { normalizeRiotIdQuery } from '../../data/normalize.js'
-import { searchAutocompleteMockData } from '../../data/mockData.js'
 
 function AutocompleteSearch({ 
   placeholder = "플레이어 이름 (태그는 자동으로 #KR1이 추가됩니다)",
@@ -13,6 +12,9 @@ function AutocompleteSearch({
   const [loading, setLoading] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(-1)
+  const [currentPage, setCurrentPage] = useState(0)
+  const [rateLimitError, setRateLimitError] = useState(false)
+  const ITEMS_PER_PAGE = 5 // 한 페이지에 표시할 항목 수
   
   const navigate = useNavigate()
   const debounceRef = useRef(null)
@@ -44,19 +46,30 @@ function AutocompleteSearch({
           let data = []
           try {
             data = await fetchAutocompleteKeywords(searchQuery)
+            setRateLimitError(false) // 성공 시 rate limit 에러 초기화
           } catch (apiError) {
-            // API 호출 실패 시 목업 데이터 사용
-            data = searchAutocompleteMockData(searchQuery)
+            // Rate limit 에러인 경우 특별 처리
+            if (apiError?.message?.includes('RATE_LIMIT') || apiError?.message?.includes('429')) {
+              setRateLimitError(true)
+              console.warn('Rate limit exceeded')
+            } else {
+              setRateLimitError(false)
+            }
+            // API 호출 실패 시 빈 배열 반환
+            data = []
           }
-          setSuggestions(data)
+          // 같은 이름의 소환사들을 그룹화
+          const grouped = groupByGameName(data)
+          setSuggestions(grouped)
           setShowSuggestions(true)
           setSelectedIndex(-1)
+          setCurrentPage(0) // 새 검색 시 첫 페이지로
         } catch (error) {
-          // 최종 폴백으로 목업 데이터 사용
-          const mockData = searchAutocompleteMockData(query)
-          setSuggestions(mockData)
-          setShowSuggestions(true)
+          // 최종 폴백으로 빈 배열 반환
+          setSuggestions([])
+          setShowSuggestions(false)
           setSelectedIndex(-1)
+          setCurrentPage(0)
         } finally {
           setLoading(false)
         }
@@ -83,21 +96,47 @@ function AutocompleteSearch({
       return
     }
 
+    const currentPageItems = getPaginatedSuggestions()
+    const maxIndexInPage = currentPageItems.length - 1
+    const startIndex = currentPage * ITEMS_PER_PAGE
+
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault()
-        setSelectedIndex(prev => 
-          prev < suggestions.length - 1 ? prev + 1 : prev
-        )
+        setSelectedIndex(prev => {
+          const relativeIndex = prev >= startIndex ? prev - startIndex : -1
+          if (relativeIndex < maxIndexInPage) {
+            return startIndex + relativeIndex + 1
+          } else if (currentPage < totalPages - 1) {
+            // 현재 페이지의 마지막 항목이면 다음 페이지로
+            setCurrentPage(currentPage + 1)
+            return (currentPage + 1) * ITEMS_PER_PAGE
+          }
+          return prev
+        })
         break
       case 'ArrowUp':
         e.preventDefault()
-        setSelectedIndex(prev => prev > 0 ? prev - 1 : prev)
+        setSelectedIndex(prev => {
+          const relativeIndex = prev >= startIndex ? prev - startIndex : maxIndexInPage + 1
+          if (relativeIndex > 0) {
+            return startIndex + relativeIndex - 1
+          } else if (currentPage > 0) {
+            // 현재 페이지의 첫 항목이면 이전 페이지로
+            setCurrentPage(currentPage - 1)
+            return (currentPage - 1) * ITEMS_PER_PAGE + ITEMS_PER_PAGE - 1
+          }
+          return -1
+        })
         break
       case 'Enter':
         e.preventDefault()
-        if (selectedIndex >= 0 && selectedIndex < suggestions.length) {
-          handleSuggestionClick(suggestions[selectedIndex])
+        if (selectedIndex >= startIndex && selectedIndex < startIndex + currentPageItems.length) {
+          const relativeIndex = selectedIndex - startIndex
+          const selectedGroup = currentPageItems[relativeIndex]
+          if (selectedGroup && selectedGroup.items && selectedGroup.items.length > 0) {
+            handleGroupClick(selectedGroup)
+          }
         } else {
           handleSearch(keyword)
         }
@@ -105,6 +144,28 @@ function AutocompleteSearch({
       case 'Escape':
         setShowSuggestions(false)
         setSelectedIndex(-1)
+        break
+      case 'ArrowLeft':
+        if (currentPage > 0) {
+          e.preventDefault()
+          setCurrentPage(prev => prev - 1)
+          setSelectedIndex(prev => {
+            const newStartIndex = (currentPage - 1) * ITEMS_PER_PAGE
+            const relativeIndex = prev >= startIndex ? prev - startIndex : 0
+            return newStartIndex + Math.min(relativeIndex, ITEMS_PER_PAGE - 1)
+          })
+        }
+        break
+      case 'ArrowRight':
+        if (currentPage < totalPages - 1) {
+          e.preventDefault()
+          setCurrentPage(prev => prev + 1)
+          setSelectedIndex(prev => {
+            const newStartIndex = (currentPage + 1) * ITEMS_PER_PAGE
+            const relativeIndex = prev >= startIndex ? prev - startIndex : 0
+            return newStartIndex + Math.min(relativeIndex, ITEMS_PER_PAGE - 1)
+          })
+        }
         break
     }
   }
@@ -133,32 +194,46 @@ function AutocompleteSearch({
     }
   }
 
-  // 자동완성 항목 클릭 핸들러
-  const handleSuggestionClick = (suggestion) => {
-    // 사용자가 입력한 태그가 있으면 그것을 사용, 없으면 제안된 태그 사용
-    let finalTag = suggestion.tag
-    if (keyword.includes('#')) {
-      const [, userTag] = keyword.split('#')
-      if (userTag.trim()) {
-        finalTag = userTag.trim().toUpperCase()
+  // 자동완성 항목 클릭 핸들러 (그룹화된 항목용)
+  const handleGroupClick = (group) => {
+    // 첫 번째 항목을 기본으로 선택
+    if (group.items && group.items.length > 0) {
+      const firstItem = group.items[0]
+      const fullName = `${firstItem.name}#${firstItem.tag}`
+      setKeyword(fullName)
+      setShowSuggestions(false)
+      setSuggestions([])
+      
+      if (onSummonerSelect) {
+        onSummonerSelect({ 
+          gameName: firstItem.name, 
+          tagLine: firstItem.tag, 
+          fullName: fullName, 
+          suggestion: firstItem 
+        })
+      } else {
+        setTimeout(() => {
+          handleSearch(fullName)
+        }, 100)
       }
     }
-    
-    const fullName = `${suggestion.name}#${finalTag}`
+  }
+
+  // 특정 태그 항목 클릭 핸들러
+  const handleTagItemClick = (group, item) => {
+    const fullName = `${item.name}#${item.tag}`
     setKeyword(fullName)
     setShowSuggestions(false)
     setSuggestions([])
     
-    // 콜백이 있으면 콜백 호출, 없으면 기본 동작 (페이지 이동)
     if (onSummonerSelect) {
       onSummonerSelect({ 
-        gameName: suggestion.name, 
-        tagLine: finalTag, 
+        gameName: item.name, 
+        tagLine: item.tag, 
         fullName: fullName, 
-        suggestion: suggestion 
+        suggestion: item 
       })
     } else {
-      // 자동으로 검색 실행
       setTimeout(() => {
         handleSearch(fullName)
       }, 100)
@@ -185,6 +260,33 @@ function AutocompleteSearch({
     }
   }, [])
 
+  // 같은 이름의 소환사들을 그룹화하는 함수
+  const groupByGameName = (data) => {
+    const grouped = {}
+    data.forEach(item => {
+      const name = item.name
+      if (!grouped[name]) {
+        grouped[name] = {
+          name: name,
+          items: [],
+          totalCount: 0
+        }
+      }
+      grouped[name].items.push(item)
+      grouped[name].totalCount++
+    })
+    return Object.values(grouped)
+  }
+
+  // 페이지네이션된 데이터 가져오기
+  const getPaginatedSuggestions = () => {
+    const startIndex = currentPage * ITEMS_PER_PAGE
+    const endIndex = startIndex + ITEMS_PER_PAGE
+    return suggestions.slice(startIndex, endIndex)
+  }
+
+  const totalPages = Math.ceil(suggestions.length / ITEMS_PER_PAGE)
+
   // 컴포넌트 언마운트 시 타이머 정리
   useEffect(() => {
     return () => {
@@ -206,51 +308,131 @@ function AutocompleteSearch({
         autoComplete="off"
       />
       {loading && <div className="search-loading">검색 중...</div>}
+      {rateLimitError && (
+        <div className="rate-limit-warning" style={{ 
+          padding: '8px 12px', 
+          backgroundColor: 'rgba(232, 64, 87, 0.1)', 
+          color: 'var(--color-loss)', 
+          fontSize: '12px',
+          borderRadius: '4px',
+          marginTop: '4px',
+          border: '1px solid rgba(232, 64, 87, 0.3)'
+        }}>
+          ⚠️ API 요청 한도 초과로 인해 제한된 결과만 표시됩니다. 잠시 후 다시 시도해주세요.
+        </div>
+      )}
       
       {showSuggestions && suggestions.length > 0 && (
         <div ref={suggestionsRef} className="autocomplete-suggestions">
-          <div className="suggestions-header">Summoner Profiles</div>
+          <div className="suggestions-header">
+            Summoner Profiles
+            <span className="total-count">(총 {suggestions.length}개)</span>
+          </div>
           <div className="suggestions-list">
-            {suggestions.map((suggestion, index) => {
-              // 사용자가 입력한 태그가 있으면 그것을 표시, 없으면 제안된 태그 표시
-              let displayTag = suggestion.tag
-              if (keyword.includes('#')) {
-                const [, userTag] = keyword.split('#')
-                if (userTag.trim()) {
-                  displayTag = userTag.trim().toUpperCase()
-                }
-              }
+            {getPaginatedSuggestions().map((group, groupIndex) => {
+              const globalIndex = currentPage * ITEMS_PER_PAGE + groupIndex
+              const isExpanded = selectedIndex === globalIndex
               
               return (
-                <div
-                  key={suggestion.id}
-                  className={`suggestion-item ${index === selectedIndex ? 'selected' : ''}`}
-                  onClick={() => handleSuggestionClick(suggestion)}
-                >
-                  <div className="suggestion-profile-icon">
-                    <img
-                      src={`https://ddragon.leagueoflegends.com/cdn/${suggestion.ddVer}/img/profileicon/${suggestion.profileIconId}.png`}
-                      alt="Profile Icon"
-                    />
-                  </div>
-                  <div className="suggestion-content">
-                    <div className="suggestion-name">
-                      <span className="name-text">{suggestion.name}</span>
-                      <span className="tag-text">#{displayTag}</span>
-                    </div>
-                    <div className="suggestion-details">
-                      {suggestion.tier && suggestion.rank && suggestion.lp !== null 
-                        ? `${suggestion.tier} ${suggestion.rank} - ${suggestion.lp}LP`
-                        : suggestion.level 
-                        ? `Level ${suggestion.level}`
-                        : ''
+                <div key={group.name} className="suggestion-group">
+                  <div
+                    className={`suggestion-item suggestion-group-header ${globalIndex === selectedIndex ? 'selected' : ''}`}
+                    onClick={() => {
+                      if (isExpanded) {
+                        setSelectedIndex(-1)
+                      } else {
+                        setSelectedIndex(globalIndex)
                       }
+                    }}
+                  >
+                    <div className="suggestion-profile-icon">
+                      {group.items[0] && (
+                        <img
+                          src={`https://ddragon.leagueoflegends.com/cdn/${group.items[0].ddVer || '15.18.1'}/img/profileicon/${group.items[0].profileIconId || 5465}.png`}
+                          alt="Profile Icon"
+                        />
+                      )}
+                    </div>
+                    <div className="suggestion-content">
+                      <div className="suggestion-name">
+                        <span className="name-text">{group.name}</span>
+                        <span className="tag-count">(총 {group.totalCount}명)</span>
+                      </div>
+                      <div className="suggestion-details">
+                        {group.items[0]?.tier && group.items[0]?.rank && group.items[0]?.lp !== null 
+                          ? `${group.items[0].tier} ${group.items[0].rank} - ${group.items[0].lp}LP`
+                          : group.items[0]?.level 
+                          ? `Level ${group.items[0].level}`
+                          : ''
+                        }
+                      </div>
+                    </div>
+                    <div className="expand-indicator">
+                      {isExpanded ? '▼' : '▶'}
                     </div>
                   </div>
+                  {isExpanded && (
+                    <div className="suggestion-group-items">
+                      {group.items.map((item, itemIndex) => (
+                        <div
+                          key={`${item.name}-${item.tag}-${itemIndex}`}
+                          className="suggestion-item suggestion-tag-item"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleTagItemClick(group, item)
+                          }}
+                        >
+                          <div className="suggestion-content">
+                            <div className="suggestion-name">
+                              <span className="name-text">{item.name}</span>
+                              <span className="tag-text">#{item.tag}</span>
+                            </div>
+                            <div className="suggestion-details">
+                              {item.tier && item.rank && item.lp !== null 
+                                ? `${item.tier} ${item.rank} - ${item.lp}LP`
+                                : item.level 
+                                ? `Level ${item.level}`
+                                : ''
+                              }
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )
             })}
           </div>
+          {totalPages > 1 && (
+            <div className="suggestions-pagination">
+              <button
+                className="page-button"
+                onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
+                disabled={currentPage === 0}
+              >
+                이전
+              </button>
+              <div className="page-numbers">
+                {Array.from({ length: totalPages }, (_, i) => i).map(pageNum => (
+                  <button
+                    key={pageNum}
+                    className={`page-number ${pageNum === currentPage ? 'active' : ''}`}
+                    onClick={() => setCurrentPage(pageNum)}
+                  >
+                    {pageNum + 1}
+                  </button>
+                ))}
+              </div>
+              <button
+                className="page-button"
+                onClick={() => setCurrentPage(prev => Math.min(totalPages - 1, prev + 1))}
+                disabled={currentPage >= totalPages - 1}
+              >
+                다음
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

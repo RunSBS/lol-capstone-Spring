@@ -25,48 +25,29 @@ export function hasAttendedToday(username) {
   return lastAttendance === today;
 }
 
-// 출석 처리 및 토큰 지급 (백엔드 API 호출)
-export async function processAttendance(username) {
-  try {
-    const token = localStorage.getItem('accessToken');
-    if (!token) {
-      console.error('로그인 토큰이 없습니다.');
-      return { attended: false, tokensEarned: 0, error: '로그인이 필요합니다.' };
-    }
-
-    // 백엔드 API 호출
-    const response = await fetch('/api/shop/attendance', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('출석 보상 지급 실패:', response.status, errorText);
-      return { attended: false, tokensEarned: 0, error: '출석 보상 지급에 실패했습니다.' };
-    }
-
-    const result = await response.json();
-    
-    // 출석 성공 시 localStorage에도 기록 (UI 표시용)
-    if (result.attended) {
-      const today = getTodayString();
-      setLastAttendanceDate(username, today);
-    }
-    
-    return {
-      attended: result.attended || false,
-      tokensEarned: result.tokensEarned || 0,
-      newBalance: result.newBalance,
-      message: result.message
-    };
-  } catch (error) {
-    console.error('출석 보상 처리 중 오류:', error);
-    return { attended: false, tokensEarned: 0, error: '출석 보상 처리 중 오류가 발생했습니다.' };
+// 출석 처리 및 토큰 지급
+export function processAttendance(username) {
+  const today = getTodayString();
+  
+  // 오늘 이미 출석했다면 false 반환
+  if (hasAttendedToday(username)) {
+    return { attended: false, tokensEarned: 0 };
   }
+  
+  // 출석 처리
+  setLastAttendanceDate(username, today);
+  
+  // 사용자 데이터 업데이트
+  const usersJson = localStorage.getItem("users") || "[]";
+  const users = JSON.parse(usersJson);
+  const userIndex = users.findIndex(u => u.username === username);
+  
+  if (userIndex !== -1) {
+    users[userIndex].tokens = (users[userIndex].tokens || 0) + 30;
+    localStorage.setItem("users", JSON.stringify(users));
+  }
+  
+  return { attended: true, tokensEarned: 30 };
 }
 
 // 자정에 출석 데이터 초기화 (실제로는 사용자가 로그인할 때 체크)

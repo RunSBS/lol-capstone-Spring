@@ -84,7 +84,6 @@ function SummonerProfile({ nickname, profileIconId, summonerLevel, gameName, tag
         )}
         <div className="profile-actions">
           <button className="btn-primary" onClick={onRefresh} disabled={refreshDisabled}>{isRefreshing ? '갱신 중…' : '전적 갱신'}</button>
-          <button className="btn-secondary">티어 그래프</button>
         </div>
       </div>
     </section>
