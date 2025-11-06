@@ -1,7 +1,0 @@
--- POSTS 테이블에 MATCH_DATA 컬럼 추가
-ALTER TABLE POSTS 
-ADD MATCH_DATA CLOB;
-
--- 코멘트 추가
-COMMENT ON COLUMN POSTS.MATCH_DATA IS '전적 데이터 (JSON 형식, 롤문철 카테고리용)';
-
