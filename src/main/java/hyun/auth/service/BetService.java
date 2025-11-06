@@ -279,5 +279,31 @@ public class BetService {
         log.info("정산 완료: betId={}, winnerOption={}, 내기승리자=1명, 투표승리자={}명, 지급 토큰=50개/인", 
             bet.getId(), winnerOption, voteWinnerCount);
     }
+    
+    /**
+     * 사용자가 투표한 내기 중 최근 정산 완료된 것 조회
+     * @param userId 사용자 ID
+     * @param since 이 시각 이후 정산된 것만 조회 (중복 알림 방지)
+     * @return 정산 완료된 내기 목록 (settledAt 내림차순 정렬)
+     */
+    public List<Bet> getSettledBetsByUserVote(Long userId, Instant since) {
+        List<Bet> bets = betRepository.findSettledBetsByUserVote(userId, since);
+        
+        // Oracle의 ORA-01791 에러 방지를 위해 서비스 레이어에서 정렬
+        // BetSettlement의 settledAt으로 정렬
+        return bets.stream()
+            .sorted((b1, b2) -> {
+                BetSettlement s1 = betSettlementRepository.findByBet(b1).orElse(null);
+                BetSettlement s2 = betSettlementRepository.findByBet(b2).orElse(null);
+                
+                if (s1 == null && s2 == null) return 0;
+                if (s1 == null) return 1;
+                if (s2 == null) return -1;
+                
+                // 내림차순 정렬 (최신순)
+                return s2.getSettledAt().compareTo(s1.getSettledAt());
+            })
+            .collect(java.util.stream.Collectors.toList());
+    }
 }
 

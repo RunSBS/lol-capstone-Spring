@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AttendanceModal from "../common/AttendanceModal.jsx";
+import betApi from "../../data/betApi";
 import { processAttendance } from "../../utils/attendanceUtils.js";
 import "../../styles/community.css";
 
@@ -35,6 +36,23 @@ function Login({ onLogin, onShowRegister }) {
         localStorage.setItem('accessToken', data.accessToken);
         localStorage.setItem('currentUser', formData.username);
         onLogin(formData.username);
+        // 전역 로그인 상태 즉시 반영 (App 훅이 바로 작동하도록)
+        window.dispatchEvent(new Event('loginStateChanged'));
+        
+        // 로그인 직후: 오프라인 동안 마감된 내기 사전 조회 → 대기 큐 저장
+        try {
+          const sinceStored = localStorage.getItem('betLastSeenAt');
+          const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+          const since = sinceStored ? (new Date(sinceStored) > new Date(thirtyDaysAgo) ? sinceStored : thirtyDaysAgo) : thirtyDaysAgo;
+          const settled = await betApi.getSettledBets(since);
+          if (Array.isArray(settled) && settled.length > 0) {
+            localStorage.setItem('betPendingSettlements', JSON.stringify(settled));
+          }
+          // 기준 시각을 현재로 업데이트 (중복 알림 방지)
+          localStorage.setItem('betLastSeenAt', new Date().toISOString());
+        } catch (prefetchErr) {
+          console.warn('정산 알림 사전 조회 실패:', prefetchErr);
+        }
         
         // 출석 보상 체크 (백엔드 API 호출)
         try {
