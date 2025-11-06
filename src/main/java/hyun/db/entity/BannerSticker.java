@@ -39,7 +39,10 @@ public class BannerSticker {
     
     @Column(nullable = false)
     private Double height;       // 스티커 높이
-    
+
+    @Column(name = "ROTATION")
+    private Double rotation = 0.0;  // 스티커 회전 각도 (0~360도)
+
     @Column(name = "CREATED_AT")
     private LocalDateTime createdAt = LocalDateTime.now();
 }

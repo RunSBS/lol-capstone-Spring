@@ -96,9 +96,11 @@ public class ShopController {
         Double positionY = ((Number) request.get("positionY")).doubleValue();
         Double width = ((Number) request.get("width")).doubleValue();
         Double height = ((Number) request.get("height")).doubleValue();
+        Double rotation = request.get("rotation") != null ? 
+            ((Number) request.get("rotation")).doubleValue() : 0.0;
         
         BannerSticker result = bannerStickerService.addStickerToBanner(
-            user.getId(), itemCode, positionX, positionY, width, height);
+            user.getId(), itemCode, positionX, positionY, width, height, rotation);
         return ResponseEntity.ok(result);
     }
 
@@ -145,9 +147,11 @@ public class ShopController {
         Double positionY = ((Number) request.get("positionY")).doubleValue();
         Double width = ((Number) request.get("width")).doubleValue();
         Double height = ((Number) request.get("height")).doubleValue();
+        Double rotation = request.get("rotation") != null ? 
+            ((Number) request.get("rotation")).doubleValue() : null;
         
         BannerSticker result = bannerStickerService.updateStickerPosition(
-            user.getId(), bannerStickerId, positionX, positionY, width, height);
+            user.getId(), bannerStickerId, positionX, positionY, width, height, rotation);
         return ResponseEntity.ok(result);
     }
 

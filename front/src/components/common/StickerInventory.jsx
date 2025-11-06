@@ -4,6 +4,7 @@ import { buildChampionSquareUrl, buildItemIconUrl, tryBuildRuneIconUrl, buildRun
 export default function StickerInventory({ user, onStickerSelect, onStickerRemove }) {
   const [selectedSticker, setSelectedSticker] = useState(null);
   const [runeMapLoaded, setRuneMapLoaded] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState('all'); // all | champion | item | rune | emote | other
 
   // 룬 매핑 데이터 로드
   useEffect(() => {
@@ -46,6 +47,16 @@ export default function StickerInventory({ user, onStickerSelect, onStickerRemov
       }
     });
   }
+
+  // 카테고리 필터 적용
+  const filteredOwnedStickers = ownedStickers.filter(s => {
+    if (categoryFilter === 'all') return true;
+    if (categoryFilter === 'champion') return s.id.startsWith('champion_');
+    if (categoryFilter === 'item') return s.id.startsWith('item_');
+    if (categoryFilter === 'rune') return s.id.startsWith('rune_') || s.id.startsWith('style_');
+    if (categoryFilter === 'emote') return s.id.startsWith('emote_');
+    return true;
+  });
 
   // 룬 매핑이 로드되면 재렌더링을 위해 key 업데이트 (이미지 URL이 변경되므로)
   const stickerKey = runeMapLoaded ? 'loaded' : 'loading';
@@ -177,13 +188,87 @@ export default function StickerInventory({ user, onStickerSelect, onStickerRemov
   return (
     <div style={{ padding: '20px' }}>
       <h3 style={{ margin: '0 0 15px 0', color: '#cdd2e2' }}>스티커 보유탭</h3>
+      {/* 카테고리 필터 */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+        <span style={{ fontSize: 12, color: '#9e9eb1', alignSelf: 'center' }}>카테고리:</span>
+        <button 
+          onClick={() => setCategoryFilter('all')} 
+          style={{ 
+            padding: '6px 10px', 
+            border: '1px solid #31384c', 
+            backgroundColor: (categoryFilter === 'all') ? '#5383e8' : '#1c202d', 
+            color: (categoryFilter === 'all') ? '#fff' : '#cdd2e2', 
+            borderRadius: 4, 
+            cursor: 'pointer', 
+            fontSize: 12 
+          }}
+        >
+          전체
+        </button>
+        <button 
+          onClick={() => setCategoryFilter('champion')} 
+          style={{ 
+            padding: '6px 10px', 
+            border: '1px solid #31384c', 
+            backgroundColor: (categoryFilter === 'champion') ? '#5383e8' : '#1c202d', 
+            color: (categoryFilter === 'champion') ? '#fff' : '#cdd2e2', 
+            borderRadius: 4, 
+            cursor: 'pointer', 
+            fontSize: 12 
+          }}
+        >
+          챔피언
+        </button>
+        <button 
+          onClick={() => setCategoryFilter('item')} 
+          style={{ 
+            padding: '6px 10px', 
+            border: '1px solid #31384c', 
+            backgroundColor: (categoryFilter === 'item') ? '#5383e8' : '#1c202d', 
+            color: (categoryFilter === 'item') ? '#fff' : '#cdd2e2', 
+            borderRadius: 4, 
+            cursor: 'pointer', 
+            fontSize: 12 
+          }}
+        >
+          아이템
+        </button>
+        <button 
+          onClick={() => setCategoryFilter('rune')} 
+          style={{ 
+            padding: '6px 10px', 
+            border: '1px solid #31384c', 
+            backgroundColor: (categoryFilter === 'rune') ? '#5383e8' : '#1c202d', 
+            color: (categoryFilter === 'rune') ? '#fff' : '#cdd2e2', 
+            borderRadius: 4, 
+            cursor: 'pointer', 
+            fontSize: 12 
+          }}
+        >
+          룬
+        </button>
+        <button 
+          onClick={() => setCategoryFilter('emote')} 
+          style={{ 
+            padding: '6px 10px', 
+            border: '1px solid #31384c', 
+            backgroundColor: (categoryFilter === 'emote') ? '#5383e8' : '#1c202d', 
+            color: (categoryFilter === 'emote') ? '#fff' : '#cdd2e2', 
+            borderRadius: 4, 
+            cursor: 'pointer', 
+            fontSize: 12 
+          }}
+        >
+          이모트
+        </button>
+      </div>
       
       <div style={{ 
         display: 'grid', 
         gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', 
         gap: '15px' 
       }}>
-        {ownedStickers.map((sticker) => (
+        {filteredOwnedStickers.map((sticker) => (
           <div 
             key={sticker.id}
             style={{ 

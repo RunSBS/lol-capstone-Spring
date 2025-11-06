@@ -50,4 +50,11 @@ public class User {
 
     @Column(name = "CREATED_AT")
     private Instant createdAt;   // 가입 일시
+
+    @Lob
+    @Column(name = "BIO")
+    private String bio;          // 소개글
+
+    @Column(name = "AVATAR_URL", length = 500)
+    private String avatarUrl;    // 프로필 이미지 URL
 }

@@ -165,23 +165,15 @@ const boardApi = {
     }),
 
   deletePost: (id, requester) =>
-    new Promise((resolve, reject) => {
-      const categories = ["free", "guide", "lolmuncheol"];
-      let deleted = false;
-      categories.forEach((category) => {
-        const posts = loadPosts(category);
-        const index = posts.findIndex((p) => p.id === Number(id));
-        if (index !== -1) {
-          const isLol = posts[index].category === "lolmuncheol";
-          if ((isLol && requester === adminId) || (!isLol && (posts[index].writer === requester || requester === adminId))) {
-            posts.splice(index, 1);
-            savePosts(category, posts);
-            deleted = true;
-          }
-        }
-      });
-      if (deleted) resolve(true);
-      else reject("삭제 권한이 없거나 게시글을 찾을 수 없습니다.");
+    new Promise(async (resolve, reject) => {
+      try {
+        // 백엔드 API로 게시글 삭제 (백엔드에서 권한 체크)
+        await backendApi.deletePost(id);
+        resolve(true);
+      } catch (error) {
+        console.error('게시글 삭제 실패:', error);
+        reject(error.message || "삭제 권한이 없거나 게시글을 찾을 수 없습니다.");
+      }
     }),
 
   updatePost: (id, updatedPost) =>

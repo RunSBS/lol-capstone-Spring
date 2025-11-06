@@ -2,44 +2,6 @@ import backendApi from './backendApi';
 
 const ADMIN_ID = "admin1";
 
-// vote record helpers: per commentId + username, store { type, date }
-function getVoteKey(commentId, username) {
-  return `comment-vote-${commentId}-${username || "guest"}`;
-}
-
-function getTodayString() {
-  return new Date().toLocaleDateString();
-}
-
-function readTodayVote(commentId, username) {
-  const key = getVoteKey(commentId, username);
-  const raw = localStorage.getItem(key);
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw);
-    if (parsed && parsed.date === getTodayString()) {
-      return parsed; // { type: 'like' | 'dislike', date }
-    }
-  } catch (e) {
-    // ignore parse errors and treat as no vote today
-  }
-  // stale -> cleanup
-  localStorage.removeItem(key);
-  return null;
-}
-
-function writeTodayVote(commentId, username, type) {
-  const key = getVoteKey(commentId, username);
-  localStorage.setItem(key, JSON.stringify({ type, date: getTodayString() }));
-}
-
-function clearTodayVote(commentId, username) {
-  const key = getVoteKey(commentId, username);
-  localStorage.removeItem(key);
-}
-
-// no spend concept: cancel does not consume the day
-
 const commentApi = {
   getCommentsByPostId: (postId) =>
     new Promise(async (resolve, reject) => {
@@ -128,11 +90,10 @@ const commentApi = {
       }
     }),
 
-  // 백엔드 API를 사용한 댓글 좋아요
+  // 백엔드 API를 사용한 댓글 좋아요 (localStorage 제거)
   likeComment: async (id, username) => {
     try {
       await backendApi.likeComment(id);
-      writeTodayVote(id, username, "like");
       return true;
     } catch (error) {
       console.error('댓글 좋아요 실패:', error);
@@ -143,7 +104,6 @@ const commentApi = {
   removeLikeComment: async (id, username) => {
     try {
       await backendApi.removeLikeComment(id);
-      clearTodayVote(id, username);
       return true;
     } catch (error) {
       console.error('댓글 좋아요 취소 실패:', error);
@@ -154,7 +114,6 @@ const commentApi = {
   dislikeComment: async (id, username) => {
     try {
       await backendApi.dislikeComment(id);
-      writeTodayVote(id, username, "dislike");
       return true;
     } catch (error) {
       console.error('댓글 싫어요 실패:', error);
@@ -165,17 +124,11 @@ const commentApi = {
   removeDislikeComment: async (id, username) => {
     try {
       await backendApi.removeDislikeComment(id);
-      clearTodayVote(id, username);
       return true;
     } catch (error) {
       console.error('댓글 싫어요 취소 실패:', error);
       throw error;
     }
-  },
-
-  // expose today's vote info for UI: returns { type: 'like'|'dislike'|'spent', date } or null
-  getTodayVoteInfo: (commentId, username) => {
-    return readTodayVote(commentId, username);
   },
 };
 

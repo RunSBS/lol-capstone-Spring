@@ -2,15 +2,14 @@ package hyun.auth.controller;
 
 import hyun.db.entity.User;
 import hyun.db.repo.UserRepository;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
 
@@ -47,8 +46,51 @@ public class UserController {
         userInfo.put("email", user.getEmail());
         userInfo.put("tokenBalance", user.getTokenBalance());
         userInfo.put("role", user.getRole());
+        userInfo.put("bio", user.getBio() != null ? user.getBio() : "");
+        userInfo.put("avatarUrl", user.getAvatarUrl() != null ? user.getAvatarUrl() : "");
         
         return ResponseEntity.ok(userInfo);
+    }
+
+    /**
+     * 프로필 업데이트 (소개글, 프로필 이미지)
+     */
+    @PutMapping("/profile")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> updateProfile(@RequestBody Map<String, Object> request) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        
+        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "인증이 필요합니다.");
+        }
+        
+        String username = auth.getName();
+        User user = userRepository.findByUsername(username)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."));
+        
+        // 소개글 업데이트
+        if (request.containsKey("bio")) {
+            String bio = (String) request.get("bio");
+            user.setBio(bio != null && !bio.trim().isEmpty() ? bio : null);
+            log.info("프로필 소개글 업데이트: userId={}, bio={}", user.getId(), bio);
+        }
+        
+        // 프로필 이미지 URL 업데이트
+        if (request.containsKey("avatarUrl")) {
+            String avatarUrl = (String) request.get("avatarUrl");
+            user.setAvatarUrl(avatarUrl != null && !avatarUrl.trim().isEmpty() ? avatarUrl : null);
+            log.info("프로필 이미지 업데이트: userId={}, avatarUrl={}", user.getId(), avatarUrl);
+        }
+        
+        userRepository.save(user);
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("message", "프로필이 업데이트되었습니다.");
+        response.put("bio", user.getBio());
+        response.put("avatarUrl", user.getAvatarUrl());
+        
+        return ResponseEntity.ok(response);
     }
 
     /**

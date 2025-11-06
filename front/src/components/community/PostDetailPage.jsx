@@ -73,13 +73,9 @@ function PostDetailPage({ currentUser, adminId, postId }) {
       alert('게시글을 불러오는 데 실패했습니다: ' + error);
     });
 
-    const voteInfo = JSON.parse(localStorage.getItem(getVoteKey()));
-    if (voteInfo && voteInfo.date === new Date().toLocaleDateString()) {
-      setUserVoted(voteInfo.type);
-    } else {
-      localStorage.removeItem(getVoteKey());
-      setUserVoted(null);
-    }
+    // localStorage에서 투표 기록 제거 (백엔드 기반으로 변경)
+    // localStorage.removeItem(getVoteKey());
+    setUserVoted(null);
 
     // 투표 결과 및 사용자 투표 정보 로드
     // 롤문철 카테고리이면 항상 투표 결과 조회 (로그인 여부와 관계없이)
@@ -124,50 +120,45 @@ function PostDetailPage({ currentUser, adminId, postId }) {
     // no state here for cheer; handled inline
   }, [id, currentUser]);
 
-  const handleVoteToggle = (type) => {
+  const handleVoteToggle = async (type) => {
     if (!currentUser) {
       alert("로그인이 필요합니다.");
       return;
     }
 
-    if (userVoted === type) {
-      if (type === "like") {
-        boardApi.removeLikePost(post.id).then(() => {
-          setLike((prev) => Math.max(prev - 1, 0));
-          setUserVoted(null);
-          localStorage.removeItem(getVoteKey());
-        });
+    try {
+      if (userVoted === type) {
+        // 취소
+        if (type === "like") {
+          await boardApi.removeLikePost(post.id);
+        } else {
+          await boardApi.removeDislikePost(post.id);
+        }
+        setUserVoted(null);
       } else {
-        boardApi.removeDislikePost(post.id).then(() => {
-          setDislike((prev) => Math.max(prev - 1, 0));
-          setUserVoted(null);
-          localStorage.removeItem(getVoteKey());
-        });
-      }
-    } else {
-      if (userVoted) {
-        alert("추천과 반대는 동시에 할 수 없습니다.");
-        return;
-      }
-      if (type === "like") {
-        boardApi.likePost(post.id).then(() => {
-          setLike((prev) => prev + 1);
+        // 새로운 투표
+        if (userVoted) {
+          alert("추천과 반대는 동시에 할 수 없습니다.");
+          return;
+        }
+        if (type === "like") {
+          await boardApi.likePost(post.id);
           setUserVoted("like");
-          localStorage.setItem(
-            getVoteKey(),
-            JSON.stringify({ type: "like", date: new Date().toLocaleDateString() })
-          );
-        });
-      } else if (type === "dislike") {
-        boardApi.dislikePost(post.id).then(() => {
-          setDislike((prev) => prev + 1);
+        } else if (type === "dislike") {
+          await boardApi.dislikePost(post.id);
           setUserVoted("dislike");
-          localStorage.setItem(
-            getVoteKey(),
-            JSON.stringify({ type: "dislike", date: new Date().toLocaleDateString() })
-          );
-        });
+        }
       }
+      
+      // 백엔드에서 최신 게시글 정보 조회하여 상태 업데이트
+      const updatedPost = await boardApi.getPost(post.id);
+      setLike(updatedPost.like || 0);
+      setDislike(updatedPost.dislike || 0);
+      
+      // localStorage는 사용하지 않음 (백엔드만 신뢰)
+    } catch (error) {
+      console.error('투표 처리 실패:', error);
+      alert('투표 처리 중 오류가 발생했습니다.');
     }
   };
 

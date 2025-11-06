@@ -33,7 +33,7 @@ public class BannerStickerService {
     @Transactional
     public BannerSticker addStickerToBanner(Long userId, String itemCode, 
                                             Double positionX, Double positionY, 
-                                            Double width, Double height) {
+                                            Double width, Double height, Double rotation) {
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."));
         
@@ -60,6 +60,7 @@ public class BannerStickerService {
         bannerSticker.setPositionY(positionY);
         bannerSticker.setWidth(width);
         bannerSticker.setHeight(height);
+        bannerSticker.setRotation(rotation != null ? rotation : 0.0);
         bannerSticker.setCreatedAt(LocalDateTime.now());
         bannerStickerRepository.save(bannerSticker);
         
@@ -71,8 +72,8 @@ public class BannerStickerService {
             userItemRepository.save(userItem);
         }
         
-        log.info("스티커 부착 완료: userId={}, itemCode={}, position=({},{})", 
-            userId, itemCode, positionX, positionY);
+        log.info("스티커 부착 완료: userId={}, itemCode={}, position=({},{}), rotation={}", 
+            userId, itemCode, positionX, positionY, rotation);
         
         return bannerSticker;
     }
@@ -112,7 +113,7 @@ public class BannerStickerService {
     @Transactional
     public BannerSticker updateStickerPosition(Long userId, Long bannerStickerId,
                                                Double positionX, Double positionY,
-                                               Double width, Double height) {
+                                               Double width, Double height, Double rotation) {
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."));
         
@@ -127,7 +128,13 @@ public class BannerStickerService {
         bannerSticker.setPositionY(positionY);
         bannerSticker.setWidth(width);
         bannerSticker.setHeight(height);
+        if (rotation != null) {
+            bannerSticker.setRotation(rotation);
+        }
         bannerStickerRepository.save(bannerSticker);
+        
+        log.info("스티커 위치 업데이트: userId={}, bannerStickerId={}, position=({},{}), size=({},{}), rotation={}", 
+            userId, bannerStickerId, positionX, positionY, width, height, rotation);
         
         return bannerSticker;
     }

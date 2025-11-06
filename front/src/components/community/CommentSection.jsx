@@ -45,19 +45,10 @@ function CommentSection({ postId, currentUser }) {
     fetchComments();
   }, [postId]);
 
-  // 사용자 투표 상태 로드
+  // 사용자 투표 상태는 백엔드에서 관리하지 않으므로 초기화
+  // (백엔드에 사용자별 투표 기록 테이블이 없음)
   useEffect(() => {
-    if (currentUser) {
-      const votes = {};
-      comments.forEach(comment => {
-        const voteKey = `comment-vote-${comment.id}-${currentUser}`;
-        const voteInfo = JSON.parse(localStorage.getItem(voteKey) || 'null');
-        if (voteInfo && voteInfo.date === new Date().toLocaleDateString()) {
-          votes[comment.id] = voteInfo.type;
-        }
-      });
-      setUserVotes(votes);
-    }
+    setUserVotes({});
   }, [comments, currentUser]);
 
   const handleSubmit = async (e) => {
@@ -130,7 +121,6 @@ function CommentSection({ postId, currentUser }) {
       return;
     }
 
-    const voteKey = `comment-vote-${commentId}-${currentUser}`;
     const currentVote = userVotes[commentId];
 
     try {
@@ -141,7 +131,6 @@ function CommentSection({ postId, currentUser }) {
         } else {
           await commentApi.removeDislikeComment(commentId, currentUser);
         }
-        localStorage.removeItem(voteKey);
         setUserVotes(prev => ({ ...prev, [commentId]: null }));
       } else {
         // 다른 버튼을 누른 경우 - 기존 취소 후 새로 투표
@@ -157,13 +146,10 @@ function CommentSection({ postId, currentUser }) {
           await commentApi.dislikeComment(commentId, currentUser);
         }
         
-        localStorage.setItem(voteKey, JSON.stringify({
-          date: new Date().toLocaleDateString(),
-          type: type
-        }));
         setUserVotes(prev => ({ ...prev, [commentId]: type }));
       }
       
+      // 백엔드에서 최신 댓글 정보 조회하여 상태 업데이트
       fetchComments();
     } catch (error) {
       alert("투표 중 오류가 발생했습니다: " + error);
