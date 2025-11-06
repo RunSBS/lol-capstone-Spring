@@ -2,8 +2,10 @@ package hyun.auth.service;
 
 import hyun.auth.dto.CommentDto;
 import hyun.db.entity.Comment;
+import hyun.db.entity.CommentReaction;
 import hyun.db.entity.Post;
 import hyun.db.entity.User;
+import hyun.db.repo.CommentReactionRepository;
 import hyun.db.repo.CommentRepository;
 import hyun.db.repo.PostRepository;
 import hyun.db.repo.UserRepository;
@@ -17,6 +19,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -25,6 +28,7 @@ public class CommentService {
     private final CommentRepository comments;
     private final PostRepository posts;
     private final UserRepository users;
+    private final CommentReactionRepository commentReactions;
 
     private User me() {
         var auth = SecurityContextHolder.getContext().getAuthentication();
@@ -138,37 +142,103 @@ public class CommentService {
 
     @Transactional
     public void likeComment(Long commentId) {
-        me(); // 인증 체크
+        User u = me(); // 인증 체크
         Comment c = comments.findById(commentId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "댓글 없음"));
-        c.setLikes(c.getLikes() + 1);
+        
+        // 이미 투표했는지 확인
+        Optional<CommentReaction> existing = commentReactions.findByCommentAndUser(c, u);
+        
+        if (existing.isPresent()) {
+            CommentReaction reaction = existing.get();
+            if ("LIKE".equals(reaction.getReactionType())) {
+                // 이미 추천했으면 중복 투표 방지
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 추천한 댓글입니다.");
+            } else if ("DISLIKE".equals(reaction.getReactionType())) {
+                // 반대를 추천으로 변경
+                reaction.setReactionType("LIKE");
+                commentReactions.save(reaction);
+                c.setDislikes(Math.max(c.getDislikes() - 1, 0));
+                c.setLikes(c.getLikes() + 1);
+            }
+        } else {
+            // 새로운 추천 추가
+            CommentReaction reaction = new CommentReaction();
+            reaction.setComment(c);
+            reaction.setUser(u);
+            reaction.setReactionType("LIKE");
+            commentReactions.save(reaction);
+            c.setLikes(c.getLikes() + 1);
+        }
+        
         comments.save(c);
     }
 
     @Transactional
     public void dislikeComment(Long commentId) {
-        me(); // 인증 체크
+        User u = me(); // 인증 체크
         Comment c = comments.findById(commentId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "댓글 없음"));
-        c.setDislikes(c.getDislikes() + 1);
+        
+        // 이미 투표했는지 확인
+        Optional<CommentReaction> existing = commentReactions.findByCommentAndUser(c, u);
+        
+        if (existing.isPresent()) {
+            CommentReaction reaction = existing.get();
+            if ("DISLIKE".equals(reaction.getReactionType())) {
+                // 이미 반대했으면 중복 투표 방지
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 반대한 댓글입니다.");
+            } else if ("LIKE".equals(reaction.getReactionType())) {
+                // 추천을 반대로 변경
+                reaction.setReactionType("DISLIKE");
+                commentReactions.save(reaction);
+                c.setLikes(Math.max(c.getLikes() - 1, 0));
+                c.setDislikes(c.getDislikes() + 1);
+            }
+        } else {
+            // 새로운 반대 추가
+            CommentReaction reaction = new CommentReaction();
+            reaction.setComment(c);
+            reaction.setUser(u);
+            reaction.setReactionType("DISLIKE");
+            commentReactions.save(reaction);
+            c.setDislikes(c.getDislikes() + 1);
+        }
+        
         comments.save(c);
     }
 
     @Transactional
     public void removeLikeComment(Long commentId) {
-        me(); // 인증 체크
+        User u = me(); // 인증 체크
         Comment c = comments.findById(commentId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "댓글 없음"));
-        c.setLikes(Math.max(c.getLikes() - 1, 0));
-        comments.save(c);
+        
+        // 추천 기록 확인
+        Optional<CommentReaction> reaction = commentReactions.findByCommentAndUser(c, u);
+        if (reaction.isPresent() && "LIKE".equals(reaction.get().getReactionType())) {
+            commentReactions.delete(reaction.get());
+            c.setLikes(Math.max(c.getLikes() - 1, 0));
+            comments.save(c);
+        } else {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "추천한 기록이 없습니다.");
+        }
     }
 
     @Transactional
     public void removeDislikeComment(Long commentId) {
-        me(); // 인증 체크
+        User u = me(); // 인증 체크
         Comment c = comments.findById(commentId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "댓글 없음"));
-        c.setDislikes(Math.max(c.getDislikes() - 1, 0));
-        comments.save(c);
+        
+        // 반대 기록 확인
+        Optional<CommentReaction> reaction = commentReactions.findByCommentAndUser(c, u);
+        if (reaction.isPresent() && "DISLIKE".equals(reaction.get().getReactionType())) {
+            commentReactions.delete(reaction.get());
+            c.setDislikes(Math.max(c.getDislikes() - 1, 0));
+            comments.save(c);
+        } else {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "반대한 기록이 없습니다.");
+        }
     }
 }

@@ -133,13 +133,7 @@ function CommentSection({ postId, currentUser }) {
         }
         setUserVotes(prev => ({ ...prev, [commentId]: null }));
       } else {
-        // 다른 버튼을 누른 경우 - 기존 취소 후 새로 투표
-        if (currentVote === 'like') {
-          await commentApi.removeLikeComment(commentId, currentUser);
-        } else if (currentVote === 'dislike') {
-          await commentApi.removeDislikeComment(commentId, currentUser);
-        }
-        
+        // 다른 버튼을 누른 경우 - 백엔드에서 자동으로 처리 (기존 취소 후 새로 투표)
         if (type === 'like') {
           await commentApi.likeComment(commentId, currentUser);
         } else {
@@ -152,7 +146,15 @@ function CommentSection({ postId, currentUser }) {
       // 백엔드에서 최신 댓글 정보 조회하여 상태 업데이트
       fetchComments();
     } catch (error) {
-      alert("투표 중 오류가 발생했습니다: " + error);
+      // 백엔드에서 중복 투표 에러 발생 시 처리
+      const errorMessage = error.message || error.toString();
+      if (errorMessage.includes("이미 추천한") || errorMessage.includes("이미 반대한")) {
+        alert("이미 투표한 댓글입니다.");
+      } else {
+        alert("투표 중 오류가 발생했습니다: " + errorMessage);
+      }
+      // 댓글 정보 다시 불러오기
+      fetchComments();
     }
   };
 
