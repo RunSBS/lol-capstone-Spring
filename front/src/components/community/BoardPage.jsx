@@ -162,7 +162,7 @@ function BoardPage({ category, searchKeyword: propSearchKeyword, searchBy: propS
         });
         break;
       case 'top':
-        // 추천수와 시간을 종합하여 정렬 (추천수 우선, 같은 추천수면 최신순)
+        // 추천수와 시간을 종합하여 정렬 (추천수 우선, 같은 추천수면 최신순) - 내림차순
         sorted.sort((a, b) => {
           const aLike = typeof a.like === 'number' ? a.like : parseInt(a.like) || 0;
           const bLike = typeof b.like === 'number' ? b.like : parseInt(b.like) || 0;
@@ -170,6 +170,17 @@ function BoardPage({ category, searchKeyword: propSearchKeyword, searchBy: propS
             return bLike - aLike;
           }
           return new Date(b.createdAt) - new Date(a.createdAt);
+        });
+        break;
+      case 'top-desc':
+        // 추천수와 시간을 종합하여 정렬 (추천수 낮은 순 우선, 같은 추천수면 오래된 순) - 오름차순
+        sorted.sort((a, b) => {
+          const aLike = typeof a.like === 'number' ? a.like : parseInt(a.like) || 0;
+          const bLike = typeof b.like === 'number' ? b.like : parseInt(b.like) || 0;
+          if (aLike !== bLike) {
+            return aLike - bLike;
+          }
+          return new Date(a.createdAt) - new Date(b.createdAt);
         });
         break;
       case 'latest':
@@ -374,10 +385,31 @@ function BoardPage({ category, searchKeyword: propSearchKeyword, searchBy: propS
     }
   };
 
+  // 제목을 회색으로 표시할지 판단하는 함수
+  const shouldShowGrayTitle = (post) => {
+    // 롤문철 글에서 내기자B가 아직 본문을 작성하지 않은 경우
+    if (post.category === "lolmuncheol" && post.writerB && (!post.contentB || post.contentB.trim() === "")) {
+      return true;
+    }
+    
+    // 투표가 마감되어 정산이 끝난 경우
+    if (post.vote && post.vote.endTime) {
+      const deadline = new Date(post.vote.endTime);
+      const now = new Date();
+      // 마감 시간이 지났으면 회색 표시
+      if (now > deadline) {
+        return true;
+      }
+    }
+    
+    return false;
+  };
+
   return (
     <div>
       {posts.map(post => {
         const firstImage = extractFirstImage(post.content);
+        const isGrayTitle = shouldShowGrayTitle(post);
         return (
           <div 
             key={post.id} 
@@ -386,7 +418,7 @@ function BoardPage({ category, searchKeyword: propSearchKeyword, searchBy: propS
           >
             <div className="board-post-content">
               <div className="board-post-title">
-                <h4>{post.title}</h4>
+                <h4 style={{ color: isGrayTitle ? '#999' : 'inherit' }}>{post.title}</h4>
                 <span className="board-post-comment-count-inline">[{commentCounts[post.id] || 0}]</span>
               </div>
             <div className="board-post-meta">

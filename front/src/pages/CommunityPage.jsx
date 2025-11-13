@@ -131,6 +131,13 @@ function CommunityPage() {
 
   // 필터 변경 핸들러
   const handleFilterChange = (filter) => {
+    // TOP 버튼을 다시 클릭하면 정렬 방향 토글
+    if (filter === 'top' && sortFilter === 'top') {
+      filter = 'top-desc'; // 내림차순 → 오름차순
+    } else if (filter === 'top' && sortFilter === 'top-desc') {
+      filter = 'top'; // 오름차순 → 내림차순
+    }
+    
     // 필터 변경 시 검색어 초기화하고 일반 목록 불러오기
     setSearchKeyword("");
     setSearchBy("all");
@@ -260,11 +267,11 @@ function CommunityPage() {
                 <span className="filter-icon">🔥</span>
               </button>
               <button 
-                className={`community-filter-tab ${sortFilter === 'top' ? 'active' : ''}`}
+                className={`community-filter-tab ${sortFilter === 'top' || sortFilter === 'top-desc' ? 'active' : ''}`}
                 onClick={() => handleFilterChange('top')}
               >
                 TOP
-                <span className="filter-icon">▲</span>
+                <span className="filter-icon">{sortFilter === 'top-desc' ? '▼' : '▲'}</span>
               </button>
             </div>
           </div>

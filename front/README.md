@@ -17,8 +17,6 @@
 
 ## 실행 방법
 
-### 프론트엔드 개발 서버 실행
-
 1) 의존성 설치
 
 ```bash
@@ -36,53 +34,6 @@ npm i react-router-dom
 ```bash
 npm run dev
 ```
-
-### 백엔드 Docker 이미지 실행 (필수)
-
-프론트엔드가 백엔드 API를 호출하므로, 먼저 백엔드 서버를 실행해야 합니다.
-
-#### 실행 방법
-
-1. **터미널에서 실행** (권장)
-   ```bash
-   cd front
-   docker pull paqas/lol-backend:ver1.3
-   docker-compose -f docker-compose.backend.yml up -d
-   ```
-
-2. **Docker Desktop에서 실행**
-   - Docker Desktop 실행
-   - 왼쪽 사이드바에서 "Containers" 또는 "Images" 선택
-   - 우측 상단 "..." 메뉴 → "Import from file" 또는 "Compose" 선택
-   - 또는 `docker-compose.backend.yml` 파일을 Docker Desktop에 드래그 앤 드롭
-   - 실행 버튼 클릭
-
-**완료!** 환경변수는 `.env.backend` 파일에 설정되어 있어 바로 실행됩니다.
-
-**중지:**
-```bash
-docker-compose -f docker-compose.backend.yml down
-```
-
-#### 방법 2: docker run 사용
-
-```bash
-docker pull paqas/lol-backend:ver1.3
-
-docker run -d -p 8080:8080 \
-  -e SPRING_PROFILES_ACTIVE=docker \
-  -e TNS_ADMIN=/app/wallet \
-  -e DB_TNS_NAME=ruf8a028o85qyaux_high \
-  -e DB_USERNAME=ADMIN \
-  -e DB_PASSWORD=실제_비밀번호 \
-  -e RIOT_API_KEY=실제_API_키 \
-  -e JAVA_OPTS=-Duser.timezone=Asia/Seoul \
-  --name lol-backend \
-  paqas/lol-backend:ver1.3
-```
-
-**백엔드 서버 확인:**
-- 브라우저에서 `http://localhost:8080` 접속하여 확인
 
 ## 라우팅
 
@@ -116,6 +67,9 @@ src/
     common/                   # 재사용 가능한 공통 컴포넌트
       Header.jsx             # 헤더 (네비게이션, 로그인 기능)
       Footer.jsx             # 푸터
+      BetSettlementModal.jsx # 투표 마감 알림 모달
+      AttendanceModal.jsx    # 출석 보상 모달
+      AutocompleteSearch.jsx # 자동완성 검색 컴포넌트
     homepage/                # 홈페이지 전용
       PopularPosts.jsx       # 인기 게시글
     summoner/                # 전적검색 전용 컴포넌트 ⭐ 전적검색 담당
@@ -146,6 +100,10 @@ src/
     normalize.js             # 데이터 정규화
     communityApi.js          # 커뮤니티 API 함수
     commentApi.js            # 댓글 API 함수
+    betApi.js                # 내기 관련 API 함수
+
+  hooks/                     # 커스텀 훅
+    useBetSettlementNotification.js  # 투표 마감 알림 훅
 
   styles/                    # 스타일
     summoner.css             # 전적검색 페이지 스타일
@@ -173,6 +131,7 @@ src/
     useAuth.js              # 인증 관련 훅
     useLocalStorage.js      # 로컬스토리지 훅
     useDebounce.js          # 디바운스 훅
+    useBetSettlementNotification.js  # 투표 마감 알림 훅 ✅ 완료
 ```
 
 ## 🛠️ 개발 가이드라인
@@ -218,10 +177,11 @@ src/
 
 - 아이콘은 `index.html`에서 Font Awesome CDN을 사용합니다.
 - ESLint 구성을 유지하며, 린트 에러가 없도록 작업했습니다.
-- 현재 백엔드 API는 Mock 데이터로 동작하며, 실제 서버 연동은 백엔드 담당자가 진행 예정입니다.
-- 커뮤니티 기능은 LocalStorage를 사용하여 클라이언트 사이드에서 동작합니다.
+- 현재 백엔드 API는 Spring Boot 서버와 연동되어 있습니다.
+- 커뮤니티 기능은 Oracle Cloud ADB 데이터베이스와 연동되어 있습니다.
 - 관리자 계정: `admin1` / `1234` (자동 생성됨)
 - 로그인 상태는 Header에서 전역으로 관리됩니다.
+- JWT 토큰 기반 인증 시스템 사용 중
 
 ---
 
@@ -234,13 +194,6 @@ src/
 - `src/pages/SummonerPage.jsx`: `닉네임#태그` 파싱 → 백엔드 호출 → 화면 바인딩
 - `src/pages/HomePage.jsx`: 소환사 검색 기능
 
-<<<<<<< HEAD
-#### 백엔드 연동 유틸 (Mock 데이터)
-- `src/data/api.js`
-  - `fetchSummonerView(gameName, tagLine)` - 소환사 정보 조회
-  - `fetchRecentMatches(gameName, tagLine, count)` - 최근 매치 조회
-  - `fetchDDragonVersion()` - Data Dragon 버전 조회
-=======
 #### 백엔드 연동 유틸 (Mock 데이터 + API 연동 준비)
 - `src/data/api.js`
   - `fetchSummonerView(gameName, tagLine)` - 소환사 정보 조회
@@ -250,7 +203,6 @@ src/
   - `fetchMatchDetail(matchId, useCache)` - 매치 상세 정보 조회
   - `fetchChampionMastery(gameName, tagLine)` - 챔피언 숙련도 조회 (상위 4개)
   - `fetchPlayedWith(gameName, tagLine)` - 함께 플레이한 소환사 조회 (상위 5개)
->>>>>>> friend/summoner2
 
 #### Data Dragon 유틸
 - `src/data/ddragon.js`
@@ -260,14 +212,6 @@ src/
 #### 전적검색 컴포넌트
 - `src/components/summoner/SummonerProfile.jsx`: 소환사 프로필 표시
 - `src/components/summoner/RankedGameCard.jsx`, `FlexRankCard.jsx`: 랭크 정보
-<<<<<<< HEAD
-- `src/components/summoner/RecentChampionsCard.jsx`: 최근 챔피언
-- `src/components/summoner/MasteryCard.jsx`: 숙련도
-- `src/components/summoner/PlayedWithCard.jsx`: 함께 플레이한 플레이어
-- `src/components/summoner/RecentGamesSummary.jsx`: 최근 게임 요약
-- `src/components/summoner/MatchHistoryItem.jsx`: 매치 히스토리
-- `src/components/summoner/MatchDetails.jsx`: 매치 상세 정보
-=======
 - `src/components/summoner/RecentChampionsCard.jsx`: 최근 챔피언 (탭별 데이터 표시)
 - `src/components/summoner/MasteryCard.jsx`: 숙련도 (상위 4개 챔피언)
 - `src/components/summoner/PlayedWithCard.jsx`: 함께 플레이한 플레이어 (상위 5명)
@@ -275,7 +219,6 @@ src/
 - `src/components/summoner/MatchHistoryItem.jsx`: 매치 히스토리
 - `src/components/summoner/MatchDetails.jsx`: 매치 상세 정보
 - `src/components/common/AutocompleteSearch.jsx`: 자동완성 검색 컴포넌트
->>>>>>> friend/summoner2
 
 ### ✅ 완료된 기능 (커뮤니티)
 
@@ -285,20 +228,27 @@ src/
 - `src/components/community/PostDetailPage.jsx`: 게시글 상세 보기
 - `src/components/community/WritePost.jsx`: 게시글 작성/수정
 - `src/components/community/CommentSection.jsx`: 댓글 기능
+  - 댓글 추천/추천반대 중복 투표 방지 ✅
+  - 댓글 정렬: 오래된 댓글부터 최신 댓글 순서 ✅
 - `src/components/community/Login.jsx`: 로그인 기능
 - `src/components/community/Register.jsx`: 회원가입 기능
 - `src/components/community/AdminPage.jsx`: 관리자 페이지
 - 게시글 검색/필터링
 - 추천/반대 기능
 - 사용자 관리 (관리자)
+- **투표 마감 알림 기능** ✅
+  - `src/hooks/useBetSettlementNotification.js`: 투표 마감 알림 훅
+  - `src/components/common/BetSettlementModal.jsx`: 투표 마감 알림 모달
+  - `src/data/betApi.js`: 내기 관련 API 함수
+  - 로그인한 사용자가 투표한 내기가 마감되면 모달로 알림 표시
+  - 오프라인 후 로그인 시에도 알림 표시
 
 #### 데이터 관리
-- `src/data/communityApi.js`: 커뮤니티 API 함수 (LocalStorage 기반)
-- `src/data/commentApi.js`: 댓글 API 함수 (LocalStorage 기반)
+- `src/data/communityApi.js`: 커뮤니티 API 함수 (백엔드 연동)
+- `src/data/commentApi.js`: 댓글 API 함수 (백엔드 연동)
+- `src/data/betApi.js`: 내기 관련 API 함수 (백엔드 연동) ✅
 - `src/styles/community.css`: 커뮤니티 스타일
 
-<<<<<<< HEAD
-=======
 ## 🔗 백엔드 API 명세 (백엔드 팀원용)
 
 ### 📋 필수 구현 API 엔드포인트
@@ -413,15 +363,16 @@ GET /summoner/played-with/{gameName}/{tagLine}
 ]
 ```
 
->>>>>>> friend/summoner2
 ### 🚧 개발 예정 기능
 
 #### 백엔드 서버 (백엔드 담당자)
-- [ ] Express.js 서버 구축
-- [ ] 데이터베이스 설계 및 연동
-- [ ] Riot Games API 연동
-- [ ] 사용자 인증 시스템
-- [ ] 커뮤니티 API 엔드포인트
+- [x] Spring Boot 서버 구축 ✅
+- [x] Oracle Cloud ADB 데이터베이스 설계 및 연동 ✅
+- [x] Riot Games API 연동 ✅
+- [x] JWT 기반 사용자 인증 시스템 ✅
+- [x] 커뮤니티 API 엔드포인트 ✅
+- [x] 댓글 추천/반대 중복 투표 방지 (CommentReaction 엔티티) ✅
+- [x] 투표 마감 알림 시스템 ✅
 
 #### 전적검색 개선 (전적검색 담당자)
 - [ ] 스펠/룬 아이콘 매핑 완성
@@ -429,8 +380,6 @@ GET /summoner/played-with/{gameName}/{tagLine}
 - [ ] 매치 상세 정보 확장
 - [ ] 실시간 전적 갱신
 
-<<<<<<< HEAD
-=======
 ### 🆕 최근 추가된 기능 (2024년 12월)
 
 #### 1. 자동완성 검색 기능
@@ -500,6 +449,29 @@ GET /summoner/played-with/{gameName}/{tagLine}
   - `playedWithData`: 함께 플레이한 소환사 데이터
   - 포지션 데이터 (`teamPosition`, `individualPosition`)
 
+#### 9. 투표 마감 알림 기능
+- **파일**: 
+  - `src/hooks/useBetSettlementNotification.js`: 투표 마감 알림 훅
+  - `src/components/common/BetSettlementModal.jsx`: 투표 마감 알림 모달
+  - `src/data/betApi.js`: 내기 관련 API 함수
+- **기능**: 로그인한 사용자가 투표한 내기가 마감되면 자동으로 모달 알림 표시
+- **특징**:
+  - 1분마다 정산 완료된 내기 체크
+  - 오프라인 후 로그인 시에도 마감된 내기 알림 표시
+  - 중복 알림 방지 (이미 알림을 띄운 내기는 다시 표시하지 않음)
+  - 현재 보고 있는 화면 위에 모달 표시
+
+#### 10. 댓글 기능 개선
+- **파일**: `src/components/community/CommentSection.jsx`
+- **기능**: 
+  - 댓글 추천/추천반대 중복 투표 방지
+  - 댓글 정렬 순서 변경 (오래된 댓글부터 최신 댓글 순서)
+- **특징**:
+  - 백엔드에서 `CommentReaction` 엔티티로 사용자별 투표 기록 관리
+  - 같은 댓글에 추천/반대는 각각 한 번만 가능
+  - 이미 투표한 경우 다시 누르면 취소
+  - 다른 버튼 클릭 시 자동으로 전환 (추천 ↔ 반대)
+
 ### 🤝 백엔드 팀원 협업 가이드
 
 #### API 연동 시 주의사항
@@ -509,13 +481,24 @@ GET /summoner/played-with/{gameName}/{tagLine}
 4. **CORS**: 프론트엔드(localhost:5174)에서 백엔드 API 호출을 위한 CORS 설정이 필요합니다.
 
 #### 백엔드 서버 구축 시 필요한 설정
-```javascript
-// Express.js CORS 설정 예시
-const cors = require('cors');
-app.use(cors({
-  origin: 'http://localhost:5174',
-  credentials: true
-}));
+```java
+// Spring Boot CORS 설정 예시
+@Configuration
+public class CorsConfig {
+    @Bean
+    public WebMvcConfigurer corsConfigurer() {
+        return new WebMvcConfigurer() {
+            @Override
+            public void addCorsMappings(CorsRegistry registry) {
+                registry.addMapping("/**")
+                    .allowedOrigins("http://localhost:5174")
+                    .allowedMethods("GET", "POST", "PUT", "DELETE")
+                    .allowedHeaders("*")
+                    .allowCredentials(true);
+            }
+        };
+    }
+}
 ```
 
 #### API 응답 형식 예시
@@ -533,23 +516,19 @@ app.use(cors({
 }
 ```
 
->>>>>>> friend/summoner2
 ### 🔧 개발 서버/프록시 설정
 
-현재 프록시 미사용. 백엔드 서버 구축 후 `vite.config.js`에 다음 프록시 설정 추가 예정:
+현재 프록시 설정 완료. `vite.config.js`에 다음 프록시 설정이 적용되어 있습니다:
 
 ```javascript
 export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-<<<<<<< HEAD
-=======
-      '/summoner': 'http://localhost:3001',
->>>>>>> friend/summoner2
-      '/api/summoner': 'http://localhost:3001',
-      '/api/match': 'http://localhost:3001',
-      '/api/community': 'http://localhost:3001'
+      '/summoner': 'http://localhost:8080',
+      '/match': 'http://localhost:8080',
+      '/api': 'http://localhost:8080',
+      '/auth': 'http://localhost:8080'
     }
   }
 })
@@ -557,8 +536,6 @@ export default defineConfig({
 
 ---
 
-<<<<<<< HEAD
-=======
 ## 🧪 테스트 방법 (백엔드 팀원용)
 
 ### 현재 동작 확인
@@ -588,7 +565,6 @@ export default defineConfig({
 - **데이터 종류**: 자동완성, 매치, 숙련도, 함께 플레이한 소환사
 - **구조**: 실제 API 응답과 동일한 구조로 설계
 
->>>>>>> friend/summoner2
 ## 🎨 UI/UX 가이드라인
 
 ### 아이콘/이미지 경로 규칙
@@ -609,6 +585,13 @@ export default defineConfig({
 - **게시글 작성**: 로그인 후 커뮤니티에서 "글쓰기" 버튼 클릭
 - **관리자 기능**: `admin1` 계정으로 로그인 후 "관리자 페이지" 버튼 클릭
 - **추천글**: 게시글에 `highercommend` 태그가 있으면 "추천글" 배지 표시
+- **댓글 기능**:
+  - 댓글은 오래된 것부터 최신 순서로 표시됩니다
+  - 댓글 추천/추천반대는 각각 한 번만 누를 수 있습니다
+  - 이미 추천한 댓글에 다시 추천을 누르면 취소됩니다
+- **투표 마감 알림**:
+  - 로그인한 사용자가 투표한 내기가 마감되면 자동으로 모달 알림이 표시됩니다
+  - 오프라인 후 로그인 시에도 마감된 내기 알림이 표시됩니다
 
 ---
 
