@@ -7,6 +7,12 @@ function App() {
   const [currentUser, setCurrentUser] = useState(null)
   const location = useLocation()
   
+  // 테마 초기화
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme') || 'dark'
+    document.documentElement.setAttribute('data-theme', savedTheme)
+  }, [])
+  
   // 로그인 상태 확인
   useEffect(() => {
     const user = localStorage.getItem('currentUser')

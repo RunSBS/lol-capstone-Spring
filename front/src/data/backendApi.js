@@ -573,14 +573,20 @@ const backendApi = {
     return await response.json();
   },
 
-  // 프로필 업데이트 (소개글, 프로필 이미지)
-  updateProfile: async (bio, avatarUrl) => {
+  // 프로필 업데이트 (소개글, 프로필 이미지, 티어, 주 챔피언)
+  updateProfile: async (bio, avatarUrl, tier, mainChampion) => {
     const requestBody = {};
     if (bio !== undefined) {
       requestBody.bio = bio;
     }
     if (avatarUrl !== undefined) {
       requestBody.avatarUrl = avatarUrl;
+    }
+    if (tier !== undefined) {
+      requestBody.tier = tier;
+    }
+    if (mainChampion !== undefined) {
+      requestBody.mainChampion = mainChampion;
     }
 
     const response = await fetch(`${API_BASE_URL}/user/profile`, {

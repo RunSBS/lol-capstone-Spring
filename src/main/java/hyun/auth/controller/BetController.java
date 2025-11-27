@@ -3,8 +3,11 @@ package hyun.auth.controller;
 import hyun.auth.service.BetService;
 import hyun.db.entity.Bet;
 import hyun.db.entity.BetSettlement;
+import hyun.db.entity.BetVote;
 import hyun.db.entity.User;
+import hyun.db.repo.BetRepository;
 import hyun.db.repo.BetSettlementRepository;
+import hyun.db.repo.BetVoteRepository;
 import hyun.db.repo.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -25,6 +28,8 @@ public class BetController {
     private final BetService betService;
     private final UserRepository userRepository;
     private final BetSettlementRepository betSettlementRepository;
+    private final BetRepository betRepository;
+    private final BetVoteRepository betVoteRepository;
 
     /**
      * 투표하기
@@ -101,6 +106,102 @@ public class BetController {
                 return map;
             })
             .collect(Collectors.toList());
+        
+        return ResponseEntity.ok(result);
+    }
+    
+    /**
+     * 투표 참여 유저들의 티어 분포도 조회
+     * 마감된 내기만 조회 가능
+     */
+    @GetMapping("/{betId}/tier-distribution")
+    public ResponseEntity<Map<String, Object>> getTierDistribution(@PathVariable Long betId) {
+        Bet bet = betRepository.findById(betId)
+            .orElseThrow(() -> new RuntimeException("내기를 찾을 수 없습니다."));
+        
+        // 마감 여부 확인
+        boolean isClosed = Instant.now().isAfter(bet.getDeadline());
+        if (!isClosed) {
+            return ResponseEntity.badRequest().body(Map.of("error", "아직 마감되지 않은 내기입니다."));
+        }
+        
+        // 투표 목록 조회
+        List<BetVote> votes = betVoteRepository.findByBet(bet);
+        
+        // 티어별 집계
+        Map<String, Long> tierCount = new HashMap<>();
+        long totalVotes = votes.size();
+        long votesWithTier = 0;
+        
+        for (BetVote vote : votes) {
+            User user = vote.getUser();
+            String tier = user.getTier();
+            if (tier != null && !tier.trim().isEmpty()) {
+                tierCount.put(tier, tierCount.getOrDefault(tier, 0L) + 1);
+                votesWithTier++;
+            }
+        }
+        
+        // 응답 데이터 구성
+        Map<String, Object> result = new HashMap<>();
+        result.put("totalVotes", totalVotes);
+        result.put("votesWithTier", votesWithTier);
+        result.put("tierDistribution", tierCount);
+        
+        // 티어별 비율 계산
+        Map<String, Double> tierPercentage = new HashMap<>();
+        if (votesWithTier > 0) {
+            for (Map.Entry<String, Long> entry : tierCount.entrySet()) {
+                double percentage = (entry.getValue() * 100.0) / votesWithTier;
+                tierPercentage.put(entry.getKey(), Math.round(percentage * 10.0) / 10.0);
+            }
+        }
+        result.put("tierPercentage", tierPercentage);
+        
+        return ResponseEntity.ok(result);
+    }
+    
+    /**
+     * 승리자를 맞춘 유저 통계 조회
+     * 정산이 완료된 내기만 조회 가능
+     */
+    @GetMapping("/{betId}/winner-stats")
+    public ResponseEntity<Map<String, Object>> getWinnerStats(@PathVariable Long betId) {
+        Bet bet = betRepository.findById(betId)
+            .orElseThrow(() -> new RuntimeException("내기를 찾을 수 없습니다."));
+        
+        // 정산 정보 확인
+        BetSettlement settlement = betSettlementRepository.findByBet(bet)
+            .orElse(null);
+        
+        if (settlement == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "아직 정산되지 않은 내기입니다."));
+        }
+        
+        String winnerOption = settlement.getWinnerOption();
+        
+        // 전체 투표 목록 조회
+        List<BetVote> allVotes = betVoteRepository.findByBet(bet);
+        
+        // 승리 옵션에 투표한 유저 목록
+        List<BetVote> winningVotes = betVoteRepository.findByBetAndSelectedOption(bet, winnerOption);
+        
+        // 통계 계산
+        long totalVotes = allVotes.size();
+        long correctVotes = winningVotes.size();
+        long incorrectVotes = totalVotes - correctVotes;
+        
+        double correctPercentage = totalVotes > 0 ? (correctVotes * 100.0) / totalVotes : 0.0;
+        double incorrectPercentage = totalVotes > 0 ? (incorrectVotes * 100.0) / totalVotes : 0.0;
+        
+        // 응답 데이터 구성
+        Map<String, Object> result = new HashMap<>();
+        result.put("totalVotes", totalVotes);
+        result.put("correctVotes", correctVotes);
+        result.put("incorrectVotes", incorrectVotes);
+        result.put("correctPercentage", Math.round(correctPercentage * 10.0) / 10.0);
+        result.put("incorrectPercentage", Math.round(incorrectPercentage * 10.0) / 10.0);
+        result.put("winnerOption", winnerOption);
         
         return ResponseEntity.ok(result);
     }

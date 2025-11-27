@@ -48,6 +48,8 @@ public class UserController {
         userInfo.put("role", user.getRole());
         userInfo.put("bio", user.getBio() != null ? user.getBio() : "");
         userInfo.put("avatarUrl", user.getAvatarUrl() != null ? user.getAvatarUrl() : "");
+        userInfo.put("tier", user.getTier() != null ? user.getTier() : "");
+        userInfo.put("mainChampion", user.getMainChampion() != null ? user.getMainChampion() : "");
         
         return ResponseEntity.ok(userInfo);
     }
@@ -82,6 +84,20 @@ public class UserController {
             log.info("프로필 이미지 업데이트: userId={}, avatarUrl={}", user.getId(), avatarUrl);
         }
         
+        // 티어 업데이트
+        if (request.containsKey("tier")) {
+            String tier = (String) request.get("tier");
+            user.setTier(tier != null && !tier.trim().isEmpty() ? tier : null);
+            log.info("프로필 티어 업데이트: userId={}, tier={}", user.getId(), tier);
+        }
+        
+        // 주 챔피언 업데이트
+        if (request.containsKey("mainChampion")) {
+            String mainChampion = (String) request.get("mainChampion");
+            user.setMainChampion(mainChampion != null && !mainChampion.trim().isEmpty() ? mainChampion : null);
+            log.info("프로필 주 챔피언 업데이트: userId={}, mainChampion={}", user.getId(), mainChampion);
+        }
+        
         userRepository.save(user);
         
         Map<String, Object> response = new HashMap<>();
@@ -89,6 +105,8 @@ public class UserController {
         response.put("message", "프로필이 업데이트되었습니다.");
         response.put("bio", user.getBio());
         response.put("avatarUrl", user.getAvatarUrl());
+        response.put("tier", user.getTier());
+        response.put("mainChampion", user.getMainChampion());
         
         return ResponseEntity.ok(response);
     }

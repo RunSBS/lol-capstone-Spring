@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import boardApi from "../../data/communityApi";
+import betApi from "../../data/betApi";
 import CommentSection from "./CommentSection";
 import VoteSection from "./VoteSection";
 import MatchHistoryItem from "../summoner/MatchHistoryItem";
@@ -269,6 +270,18 @@ function PostDetailPage({ currentUser, adminId, postId }) {
   const renderContentWithMedia = (content) => {
     if (!content) return '';
     
+    // 현재 테마 가져오기
+    const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+    const isLight = currentTheme === 'light';
+    
+    // 테마별 색상
+    const borderColor = isLight ? '#ddd' : '#444';
+    const bgColor = isLight ? '#f9f9f9' : '#2D2D2D';
+    const textColor = isLight ? '#333' : '#cdd2e2';
+    const textMuted = isLight ? '#666' : '#9e9eb1';
+    const bgMuted = isLight ? '#f8f9fa' : '#323649';
+    const borderDashed = isLight ? '#dee2e6' : '#555';
+    
     // [MEDIA:id] 태그를 찾아서 실제 미디어로 변환
     const mediaTagRegex = /\[MEDIA:([^\]]+)\]/g;
     let processedContent = content;
@@ -281,25 +294,25 @@ function PostDetailPage({ currentUser, adminId, postId }) {
       
       if (mediaData && mediaData.url) {
         if (mediaData.type === 'image') {
-          return `<div style="margin: 15px 0; padding: 10px; border: 1px solid #ddd; border-radius: 8px; background: #f9f9f9;">
+          return `<div style="margin: 15px 0; padding: 10px; border: 1px solid ${borderColor}; border-radius: 8px; background: ${bgColor};">
             <img src="${mediaData.url}" alt="${mediaData.name}" style="max-width: 100%; max-height: 300px; border-radius: 4px; display: block; margin: 0 auto;" />
-            <div style="font-size: 12px; color: #666; margin-top: 8px; text-align: center;">${mediaData.name}</div>
+            <div style="font-size: 12px; color: ${textMuted}; margin-top: 8px; text-align: center;">${mediaData.name}</div>
           </div>`;
         } else if (mediaData.type === 'video') {
-          return `<div style="margin: 15px 0; padding: 10px; border: 1px solid #ddd; border-radius: 8px; background: #f9f9f9;">
+          return `<div style="margin: 15px 0; padding: 10px; border: 1px solid ${borderColor}; border-radius: 8px; background: ${bgColor};">
             <video src="${mediaData.url}" controls style="max-width: 100%; max-height: 300px; border-radius: 4px; display: block; margin: 0 auto;" />
-            <div style="font-size: 12px; color: #666; margin-top: 8px; text-align: center;">${mediaData.name}</div>
+            <div style="font-size: 12px; color: ${textMuted}; margin-top: 8px; text-align: center;">${mediaData.name}</div>
           </div>`;
         }
       }
       
       // 미디어 데이터를 찾을 수 없는 경우
       console.log('미디어 데이터를 찾을 수 없음:', mediaId);
-      return `<div style="margin: 15px 0; padding: 20px; background: #f8f9fa; border: 1px dashed #dee2e6; border-radius: 8px; text-align: center; color: #6c757d;">
+      return `<div style="margin: 15px 0; padding: 20px; background: ${bgMuted}; border: 1px dashed ${borderDashed}; border-radius: 8px; text-align: center; color: ${textMuted};">
         <div style="font-size: 24px; margin-bottom: 8px;">📎</div>
         <div>첨부된 미디어</div>
         <div style="font-size: 12px; margin-top: 4px;">ID: ${mediaId}</div>
-        <div style="font-size: 10px; margin-top: 2px; color: #999;">데이터를 찾을 수 없습니다</div>
+        <div style="font-size: 10px; margin-top: 2px; color: ${textMuted};">데이터를 찾을 수 없습니다</div>
       </div>`;
     });
     
@@ -355,7 +368,8 @@ function PostDetailPage({ currentUser, adminId, postId }) {
         const escapedUrl = url.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         const escapedLinkUrl = linkUrl.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         
-        result += `<a href="${escapedLinkUrl}" target="_blank" rel="noopener noreferrer" style="color: #007bff; text-decoration: underline;">${escapedUrl}</a>`;
+        const linkColor = isLight ? '#007bff' : '#5383e8';
+        result += `<a href="${escapedLinkUrl}" target="_blank" rel="noopener noreferrer" style="color: ${linkColor}; text-decoration: underline;">${escapedUrl}</a>`;
       }
       
       lastIndex = offset + url.length;
@@ -497,6 +511,7 @@ function PostDetailPage({ currentUser, adminId, postId }) {
             onVoteSubmit={handleVoteSubmit}
             onVoteCancel={handleVoteCancel}
             currentUser={currentUser}
+            postId={post.id}
           />
         )}
 
@@ -538,6 +553,7 @@ function PostDetailPage({ currentUser, adminId, postId }) {
           onVoteSubmit={handleVoteSubmit}
           onVoteCancel={handleVoteCancel}
           currentUser={currentUser}
+          postId={post.id}
         />
       )}
       
@@ -561,12 +577,15 @@ function PostDetailPage({ currentUser, adminId, postId }) {
 }
 
   // 투표 표시 컴포넌트
-function VoteDisplay({ voteData, userVoteOption, onVoteSubmit, onVoteCancel, currentUser }) {
+function VoteDisplay({ voteData, userVoteOption, onVoteSubmit, onVoteCancel, currentUser, postId }) {
   const [selectedOption, setSelectedOption] = useState(userVoteOption);
   const [hasVoted, setHasVoted] = useState(userVoteOption !== null);
   const [isExpired, setIsExpired] = useState(false);
   const [endTimeText, setEndTimeText] = useState(null);
   const [remainingTimeText, setRemainingTimeText] = useState(null);
+  const [betId, setBetId] = useState(null);
+  const [tierDistribution, setTierDistribution] = useState(null);
+  const [winnerStats, setWinnerStats] = useState(null);
 
   // userVoteOption이 변경될 때 상태 업데이트
   useEffect(() => {
@@ -605,6 +624,39 @@ function VoteDisplay({ voteData, userVoteOption, onVoteSubmit, onVoteCancel, cur
       setEndTimeText(null);
     }
   }, [voteData]);
+
+  // betId 조회
+  useEffect(() => {
+    if (!postId) return;
+    
+    boardApi.getBetIdByPostId(postId).then((betInfo) => {
+      if (betInfo && betInfo.betId) {
+        setBetId(betInfo.betId);
+        
+        // bet이 마감되었는지 확인
+        if (betInfo.deadline) {
+          const deadline = new Date(betInfo.deadline);
+          const now = new Date();
+          if (now > deadline) {
+            // bet이 마감되었으면 티어 분포도와 승리자 통계 조회
+            betApi.getTierDistribution(betInfo.betId).then((data) => {
+              setTierDistribution(data);
+            }).catch((error) => {
+              console.error('티어 분포도 조회 실패:', error);
+            });
+            
+            betApi.getWinnerStats(betInfo.betId).then((data) => {
+              setWinnerStats(data);
+            }).catch((error) => {
+              console.error('승리자 통계 조회 실패:', error);
+            });
+          }
+        }
+      }
+    }).catch((error) => {
+      console.error('betId 조회 실패:', error);
+    });
+  }, [postId]);
 
   // 투표 종료 시간 체크 및 남은 시간 계산
   useEffect(() => {
@@ -847,6 +899,68 @@ function VoteDisplay({ voteData, userVoteOption, onVoteSubmit, onVoteCancel, cur
           <p className="vote-display-expired-info">
             투표가 종료되었습니다. 위의 결과를 확인하세요.
           </p>
+        </div>
+      )}
+
+      {/* 티어 분포도 및 승리자 통계 표시 (bet이 마감된 경우) */}
+      {isExpired && (tierDistribution || winnerStats) && (
+        <div className="vote-stats-container" style={{ marginTop: '20px', padding: '15px', border: '1px solid var(--border-color)', borderRadius: '8px', backgroundColor: 'var(--card-bg)' }}>
+          <h4 style={{ marginBottom: '15px', color: 'var(--text-primary)' }}>📊 투표 통계</h4>
+          
+          {/* 티어 분포도 */}
+          {tierDistribution && tierDistribution.tierDistribution && (
+            <div style={{ marginBottom: '20px' }}>
+              <h5 style={{ marginBottom: '10px', color: 'var(--text-primary)' }}>참여 유저 티어 분포</h5>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                {Object.entries(tierDistribution.tierDistribution).map(([tier, count]) => {
+                  const percentage = tierDistribution.tierPercentage?.[tier] || 0;
+                  return (
+                    <div key={tier} style={{ 
+                      padding: '8px 12px', 
+                      backgroundColor: 'var(--hover-bg)', 
+                      borderRadius: '4px',
+                      border: '1px solid var(--border-color)'
+                    }}>
+                      <span style={{ color: 'var(--text-primary)', fontWeight: 'bold' }}>{tier}</span>
+                      <span style={{ color: 'var(--text-secondary)', marginLeft: '8px' }}>
+                        {count}명 ({percentage}%)
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              <p style={{ marginTop: '8px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                총 {tierDistribution.totalVotes}명 중 {tierDistribution.votesWithTier}명의 티어 정보가 있습니다.
+              </p>
+            </div>
+          )}
+
+          {/* 승리자 통계 */}
+          {winnerStats && (
+            <div>
+              <h5 style={{ marginBottom: '10px', color: 'var(--text-primary)' }}>승리자 맞춘 유저 통계</h5>
+              <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+                <div style={{ 
+                  padding: '10px 15px', 
+                  backgroundColor: 'var(--color-success)', 
+                  borderRadius: '4px',
+                  color: 'white',
+                  fontWeight: 'bold'
+                }}>
+                  맞춘 유저: {winnerStats.correctVotes}명 ({winnerStats.correctPercentage}%)
+                </div>
+                <div style={{ 
+                  padding: '10px 15px', 
+                  backgroundColor: 'var(--color-danger)', 
+                  borderRadius: '4px',
+                  color: 'white',
+                  fontWeight: 'bold'
+                }}>
+                  틀린 유저: {winnerStats.incorrectVotes}명 ({winnerStats.incorrectPercentage}%)
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

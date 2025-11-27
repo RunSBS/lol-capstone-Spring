@@ -57,4 +57,10 @@ public class User {
 
     @Column(name = "AVATAR_URL", length = 500)
     private String avatarUrl;    // 프로필 이미지 URL
+    
+    @Column(name = "TIER", length = 50)
+    private String tier;         // 롤 티어 (예: "GOLD", "PLATINUM", "DIAMOND" 등)
+    
+    @Column(name = "MAIN_CHAMPION", length = 50)
+    private String mainChampion; // 주 챔피언 (예: "Yasuo", "Zed" 등)
 }

@@ -1,3 +1,121 @@
+:root[data-theme="dark"] {
+  /* 배경색 - 검정, 남색, 파란색 계열 */
+  --bg-primary: #1E1E1E;
+  --bg-secondary: #2D2D2D;
+  --bg-tertiary: #1c202d;
+  --bg-quaternary: #282e3e;
+  --bg-quinary: #323649;
+  
+  /* 텍스트 색상 */
+  --text-primary: #ffffff;
+  --text-secondary: #cdd2e2;
+  --text-tertiary: #9e9eb1;
+  --text-muted: #6b7280;
+  
+  /* 테두리 색상 */
+  --border-color: #444;
+  --border-light: #31384c;
+  --border-lighter: #3a4158;
+  
+  /* 카드/컨테이너 배경 */
+  --card-bg: #2D2D2D;
+  --card-bg-light: #282e3e;
+  --card-bg-lighter: #323649;
+  
+  /* 호버 효과 */
+  --hover-bg: #3D3D3D;
+  
+  /* 입력 필드 */
+  --input-bg: #202636;
+  --input-border: #2b3143;
+  
+  /* 그림자 */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.5);
+  
+  /* Community 색상 (다크모드) */
+  --color-bg: #1c202d;
+  --color-bg-light: #282e3e;
+  --color-bg-lighter: #323649;
+  --color-border: #31384c;
+  --color-border-light: #3a4158;
+  --color-text: #cdd2e2;
+  --color-text-light: #9e9eb1;
+  --color-text-muted: #6b7280;
+  --color-primary: #5383e8;
+  --color-primary-hover: #3a6ed8;
+  --color-input-bg: #202636;
+  --color-input-border: #2b3143;
+  --color-danger: #e84057;
+  --color-danger-hover: #c72e42;
+  --color-success: #28a745;
+  --color-warning: #e8a53e;
+  --color-info: #17a2b8;
+  --color-win: #5383e8;
+  --color-loss: #e84057;
+  --color-gold: #e8a53e;
+}
+
+:root[data-theme="light"] {
+  /* 배경색 - 흰색, 회색 계열 */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8f9fa;
+  --bg-tertiary: #f5f5f5;
+  --bg-quaternary: #e9ecef;
+  --bg-quinary: #dee2e6;
+  
+  /* 텍스트 색상 - 검정 계열 */
+  --text-primary: #1E1E1E;
+  --text-secondary: #333333;
+  --text-tertiary: #666666;
+  --text-muted: #999999;
+  
+  /* 테두리 색상 */
+  --border-color: #ddd;
+  --border-light: #e0e0e0;
+  --border-lighter: #e5e5e5;
+  
+  /* 카드/컨테이너 배경 */
+  --card-bg: #ffffff;
+  --card-bg-light: #f8f9fa;
+  --card-bg-lighter: #f5f5f5;
+  
+  /* 호버 효과 */
+  --hover-bg: #e9ecef;
+  
+  /* 입력 필드 */
+  --input-bg: #ffffff;
+  --input-border: #ced4da;
+  
+  /* 그림자 */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.15);
+  
+  /* Community 색상 (화이트모드) */
+  --color-bg: #ffffff;
+  --color-bg-light: #f8f9fa;
+  --color-bg-lighter: #f5f5f5;
+  --color-border: #e0e0e0;
+  --color-border-light: #d0d0d0;
+  --color-text: #1E1E1E;
+  --color-text-light: #333333;
+  --color-text-muted: #666666;
+  --color-primary: #5383e8;
+  --color-primary-hover: #3a6ed8;
+  --color-input-bg: #ffffff;
+  --color-input-border: #ced4da;
+  --color-danger: #e84057;
+  --color-danger-hover: #c72e42;
+  --color-success: #28a745;
+  --color-warning: #e8a53e;
+  --color-info: #17a2b8;
+  --color-win: #5383e8;
+  --color-loss: #e84057;
+  --color-gold: #e8a53e;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -10,14 +128,16 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #1E1E1E;
-  color: #ffffff;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
   min-height: 100vh;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 #root {
   min-height: 100vh;
-  background-color: #1E1E1E;
+  background-color: var(--bg-primary);
+  transition: background-color 0.3s ease;
 }
 
 code {

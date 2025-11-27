@@ -333,6 +333,32 @@ const boardApi = {
         reject(error.message || "투표 취소 실패");
       }
     }),
+
+  // postId로 betId 조회
+  getBetIdByPostId: async (postId) => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`/api/posts/${postId}/bet-id`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        }
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          return null; // bet이 없는 경우
+        }
+        throw new Error('betId 조회 실패');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('betId 조회 실패:', error);
+      return null;
+    }
+  },
 };
 
 export default boardApi;

@@ -7,6 +7,10 @@ function Header() {
   const location = useLocation()
   const navigate = useNavigate()
   const [currentUser, setCurrentUser] = useState(null)
+  const [theme, setTheme] = useState(() => {
+    // localStorage에서 테마 가져오기 (기본값: 'dark')
+    return localStorage.getItem('theme') || 'dark'
+  })
   const isSummonerPage = location.pathname.startsWith('/summoner')
   const isCommunityPage = location.pathname.startsWith('/community')
 
@@ -33,6 +37,16 @@ function Header() {
       window.removeEventListener('loginStateChanged', handleStorageChange)
     }
   }, [])
+
+  // 테마 변경 시 document에 클래스 적용
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem('theme', theme)
+  }, [theme])
+
+  const toggleTheme = () => {
+    setTheme(prevTheme => prevTheme === 'dark' ? 'light' : 'dark')
+  }
   const handleLogout = () => {
     localStorage.removeItem('currentUser')
     setCurrentUser(null)
@@ -48,29 +62,53 @@ function Header() {
             <nav className="top-bar-nav">
             </nav>
           </div>
-          {!currentUser ? (
-            <button 
-              className="login-button"
-              onClick={() => navigate('/community/login')}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button
+              onClick={toggleTheme}
+              style={{
+                background: 'transparent',
+                border: `1px solid var(--border-color)`,
+                borderRadius: '4px',
+                padding: '6px 12px',
+                cursor: 'pointer',
+                color: 'var(--text-primary)',
+                fontSize: '14px'
+              }}
+              title={theme === 'dark' ? '화이트모드로 전환' : '다크모드로 전환'}
             >
-              로그인
+              {theme === 'dark' ? '☀️' : '🌙'}
             </button>
-          ) : (
-            <>
-              <span style={{ color: "#cdd2e2", fontSize: "14px", marginRight: "-800px" }}>
-                {currentUser}님
-                {currentUser === "admin1" && (
-                  <span style={{ color: "#e8a53e", marginLeft: "8px" }}>(관리자)</span>
-                )}
-              </span>
-              <button 
-                className="login-button"
-                onClick={handleLogout}
-              >
-                로그아웃
-              </button>
-            </>
-          )}
+            {!currentUser ? (
+  <button 
+    className="login-button"
+    onClick={() => navigate('/community/login')}
+  >
+    로그인
+  </button>
+) : (
+  <>
+    <span style={{ color: "var(--text-primary)", fontSize: "14px", marginRight: "8px" }}>
+      {currentUser}님
+      {currentUser === "admin1" && (
+        <span style={{ color: "var(--color-gold)", marginLeft: "8px" }}>(관리자)</span>
+      )}
+    </span>
+    <button
+      className="login-button"
+      onClick={() => navigate(`/user/${currentUser}`)}
+    >
+      마이페이지
+    </button>
+    <button 
+      className="login-button"
+      onClick={handleLogout}
+      style={{ marginLeft: "4px" }}
+    >
+      로그아웃
+    </button>
+  </>
+)}
+          </div>
         </div>
       </div>
       <nav className="main-nav">
@@ -78,11 +116,9 @@ function Header() {
           <div className="main-nav-links">
             <Link to="/">홈</Link>
             <Link 
-              to="/community" 
+              to="/community"
               onClick={() => {
-                // Header 탭 클릭 시 검색어 초기화 플래그 설정
                 sessionStorage.setItem('clearSearchOnNavigate', 'true');
-                // 검색어 초기화 이벤트 전달
                 const event = new CustomEvent('communitySearch', { 
                   detail: { keyword: "", searchBy: "all", sortFilter: "latest" } 
                 });
@@ -125,7 +161,7 @@ function Header() {
                 window.dispatchEvent(event);
               }}
             >
-              롤문철
+              투표게시판
             </Link>
             <Link 
               to="/community/highrecommend"
@@ -140,11 +176,6 @@ function Header() {
               추천글
             </Link>
           </div>
-          {currentUser ? (
-            <a href={`/user/${currentUser}`} target="_blank" rel="noopener noreferrer">마이페이지</a>
-          ) : (
-            <a href="#" onClick={() => navigate('/community/login')}>마이페이지</a>
-          )}
         </div>
       </nav>
       {(isSummonerPage || isCommunityPage) && (

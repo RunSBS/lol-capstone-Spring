@@ -158,6 +158,22 @@ public class PostController {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "게시글 조회 중 오류가 발생했습니다: " + e.getClass().getSimpleName() + " - " + e.getMessage());
         }
     }
+    
+    /**
+     * postId로 betId 조회
+     */
+    @GetMapping("/{postId}/bet-id")
+    public ResponseEntity<Map<String, Object>> getBetIdByPostId(@PathVariable Long postId) {
+        Optional<Bet> betOpt = betRepository.findByPost_Id(postId);
+        if (betOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        Bet bet = betOpt.get();
+        Map<String, Object> result = new HashMap<>();
+        result.put("betId", bet.getId());
+        result.put("deadline", bet.getDeadline().toString());
+        return ResponseEntity.ok(result);
+    }
 
     @PutMapping("/{id}")
     public ResponseEntity<Post> updatePost(@PathVariable Long id, @RequestBody UpdatePostReq req) {

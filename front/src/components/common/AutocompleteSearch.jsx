@@ -297,7 +297,7 @@ function AutocompleteSearch({
   }, [])
 
   return (
-    <div className="autocomplete-search-container">
+    <div className="autocomplete-search-container" style={{ width: '100%' }}>
       <input
         ref={inputRef}
         type="text"
@@ -306,6 +306,15 @@ function AutocompleteSearch({
         onChange={handleInputChange}
         onKeyDown={handleKeyDown}
         autoComplete="off"
+        style={{
+          fontSize: '18px',
+          padding: '0',
+          width: '100%',
+          background: 'none',
+          border: 'none',
+          outline: 'none',
+          color: 'var(--text-primary)'
+        }}
       />
       {loading && <div className="search-loading">검색 중...</div>}
       {rateLimitError && (

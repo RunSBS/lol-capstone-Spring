@@ -1,13 +1,13 @@
 /* Token Ranking Styles */
 .token-ranking-container {
-  background-color: #282e3e;
+  background-color: var(--card-bg-light);
   border-radius: 8px;
   padding: 20px;
 }
 
 .token-ranking-title {
   margin: 0 0 20px 0;
-  color: #cdd2e2;
+  color: var(--text-primary);
   font-size: 18px;
   text-align: center;
   font-weight: bold;
@@ -17,12 +17,12 @@
 .token-ranking-loading {
   padding: 20px;
   text-align: center;
-  color: #9e9eb1;
+  color: var(--text-tertiary);
 }
 
 .token-ranking-empty {
   text-align: center;
-  color: #9e9eb1;
+  color: var(--text-tertiary);
   padding: 20px;
   font-size: 14px;
 }

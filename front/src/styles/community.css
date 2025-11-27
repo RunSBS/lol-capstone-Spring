@@ -1,31 +1,7 @@
-/* Community CSS - Modern Dark Theme Design */
+/* Community CSS - Theme-aware Design */
 
-:root {
-  --color-bg: #1c202d;
-  --color-bg-light: #282e3e;
-  --color-bg-lighter: #323649;
-  --color-border: #31384c;
-  --color-border-light: #3a4158;
-  --color-text: #cdd2e2;
-  --color-text-light: #9e9eb1;
-  --color-text-muted: #6b7280;
-  --color-win: #5383e8;
-  --color-loss: #e84057;
-  --color-gold: #e8a53e;
-  --color-primary: #5383e8;
-  --color-primary-hover: #3a6ed8;
-  --color-success: #28a745;
-  --color-danger: #e84057;
-  --color-danger-hover: #c72e42;
-  --color-warning: #e8a53e;
-  --color-info: #17a2b8;
-  --color-input-bg: #202636;
-  --color-input-border: #2b3143;
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.5);
-  --transition: all 0.2s ease;
-}
+/* 전역 CSS 변수 사용 (index.css에서 정의됨) */
+/* 테마별 색상은 index.css의 :root[data-theme]에서 관리 */
 
 /* Community Page Styles */
 .community-page-nav {
@@ -35,9 +11,9 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: var(--color-bg-light);
+  background-color: var(--card-bg-light);
   border-radius: 8px;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.1));
 }
 
 .community-page-nav button {
@@ -75,11 +51,11 @@
 
 /* Community Content Wrapper - 모든 내용을 감싸는 컨테이너 */
 .community-page-content > div {
-  background-color: var(--color-bg-light);
+  background-color: var(--card-bg-light);
   border: 1px solid var(--color-border);
   border-radius: 12px;
   padding: 32px;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.1));
 }
 
 /* 게시판 목록 페이지 (BoardPage) */
@@ -92,7 +68,7 @@
 
 /* 게시글 상세 페이지 (PostDetailPage) */
 .community-page-content > div:has(h2) {
-  background-color: var(--color-bg-light);
+  background-color: var(--card-bg-light);
   border: 1px solid var(--color-border);
   border-radius: 12px;
   padding: 32px;
@@ -191,7 +167,7 @@
 
 /* 글쓰기 페이지 (WritePost) */
 .community-page-content > div:has(form) {
-  background-color: var(--color-bg-light);
+  background-color: var(--card-bg-light);
   border: 1px solid var(--color-border);
   border-radius: 12px;
   padding: 32px;
@@ -266,7 +242,7 @@
 }
 
 .community-page-content > div:has(form) button[type="button"]:hover {
-  background-color: var(--color-bg-light);
+  background-color: var(--card-bg-light);
   border-color: var(--color-border-light);
 }
 
@@ -383,9 +359,9 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: var(--color-bg-light);
+  background-color: var(--card-bg-light);
   border-radius: 8px;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.1));
   flex-wrap: wrap;
 }
 
@@ -606,7 +582,7 @@
   cursor: pointer;
   font-weight: 500;
   transition: var(--transition);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.1));
 }
 
 .community-admin-button:hover {
@@ -632,7 +608,7 @@
   align-items: center;
   padding: 18px;
   margin-bottom: 12px;
-  background-color: var(--color-bg-light);
+  background-color: var(--card-bg-light);
   border: 1px solid var(--color-border);
   border-radius: 8px;
   transition: var(--transition);
@@ -827,7 +803,7 @@
 .pagination-button {
   padding: 10px 16px;
   min-width: 44px;
-  background-color: var(--color-bg-light);
+  background-color: var(--card-bg-light);
   border: 1px solid var(--color-border);
   border-radius: 6px;
   color: var(--color-text);
@@ -848,7 +824,7 @@
   color: white;
   border-color: var(--color-primary);
   font-weight: 600;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.1));
 }
 
 .pagination-button.active:hover {
@@ -877,7 +853,7 @@
   align-items: flex-start;
   margin-bottom: 20px;
   padding: 24px;
-  background-color: var(--color-bg-light);
+  background-color: var(--card-bg-light);
   border-radius: 8px;
   border: 1px solid var(--color-border);
 }
@@ -946,14 +922,14 @@
 }
 
 .post-detail-edit-button:hover {
-  background-color: var(--color-bg-light);
+  background-color: var(--card-bg-light);
   border-color: var(--color-border-light);
   transform: translateY(-1px);
 }
 
 .post-detail-content {
   padding: 24px;
-  background-color: var(--color-bg-light);
+  background-color: var(--card-bg-light);
   border: 1px solid var(--color-border);
   border-radius: 8px;
   margin-bottom: 20px;
@@ -969,7 +945,7 @@
 .post-detail-vote-section {
   margin: 32px 0;
   padding: 24px;
-  background-color: var(--color-bg-light);
+  background-color: var(--card-bg-light);
   border: 1px solid var(--color-border);
   border-radius: 8px;
   text-align: center;
@@ -1011,7 +987,7 @@
   text-align: center;
   color: var(--color-text);
   padding: 16px;
-  background-color: var(--color-bg-light);
+  background-color: var(--card-bg-light);
   border-radius: 8px;
 }
 
@@ -1021,8 +997,8 @@
   border: 1px solid var(--color-border) !important;
   border-radius: 8px;
   overflow: hidden;
-  background-color: var(--color-bg-light);
-  box-shadow: var(--shadow-sm);
+  background-color: var(--card-bg-light);
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.1));
   margin: 20px 0;
 }
 
@@ -1249,7 +1225,7 @@
 }
 
 .vote-cancel-button:hover {
-  background-color: var(--color-bg-light);
+  background-color: var(--card-bg-light);
   border-color: var(--color-border-light);
   transform: translateY(-1px);
 }
@@ -1259,7 +1235,7 @@
   border: 1px solid var(--color-border);
   border-radius: 8px;
   padding: 24px;
-  background-color: var(--color-bg-light);
+  background-color: var(--card-bg-light);
   box-shadow: none;
 }
 
@@ -1701,7 +1677,7 @@
 }
 
 .write-post-button-secondary:hover:not(:disabled) {
-  background-color: var(--color-bg-light);
+  background-color: var(--card-bg-light);
 }
 
 .write-post-button-info {
@@ -1721,7 +1697,7 @@
   padding: 15px;
   border: 1px solid var(--color-border);
   border-radius: 4px;
-  background-color: var(--color-bg-light);
+  background-color: var(--card-bg-light);
 }
 
 .write-post-bet-label {
@@ -1842,7 +1818,7 @@
   border: 2px solid var(--color-primary);
   border-radius: 8px;
   overflow: hidden;
-  background-color: var(--color-bg-light);
+  background-color: var(--card-bg-light);
 }
 
 /* Login & Register Styles */
@@ -1850,7 +1826,7 @@
   max-width: 450px;
   margin: 60px auto;
   padding: 40px;
-  background-color: var(--color-bg-light);
+  background-color: var(--card-bg-light);
   border: 1px solid var(--color-border);
   border-radius: 12px;
   box-shadow: var(--shadow-lg);
@@ -1944,7 +1920,7 @@
 }
 
 .auth-button-secondary:hover {
-  background-color: var(--color-bg-light);
+  background-color: var(--card-bg-light);
 }
 
 .auth-button-outline {
@@ -1989,12 +1965,12 @@
 }
 
 .admin-section {
-  background-color: var(--color-bg-light);
+  background-color: var(--card-bg-light);
   border: 1px solid var(--color-border);
   border-radius: 8px;
   padding: 24px;
   margin-bottom: 24px;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.1));
 }
 
 .admin-section-title {
@@ -2043,7 +2019,7 @@
 }
 
 .admin-back-button:hover {
-  background-color: var(--color-bg-light);
+  background-color: var(--card-bg-light);
   transform: translateY(-1px);
 }
 
@@ -2097,7 +2073,7 @@
 .user-ban-button:hover {
   background-color: var(--color-danger-hover);
   transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.1));
 }
 
 .admin-access-denied {
@@ -2664,7 +2640,7 @@
   border-radius: 8px;
   padding: 20px;
   margin-bottom: 20px;
-  background-color: var(--color-bg-light);
+  background-color: var(--card-bg-light);
 }
 
 .vote-section-title {
@@ -2745,7 +2721,7 @@
   border-radius: 8px;
   padding: 20px;
   margin-bottom: 20px;
-  background-color: var(--color-bg-light);
+  background-color: var(--card-bg-light);
 }
 
 .vote-section-edit-title {

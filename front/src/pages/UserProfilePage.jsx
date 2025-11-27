@@ -222,7 +222,9 @@ export default function UserProfilePage() {
             stickers: Object.keys(stickers).length > 0 ? { ...prev.stickers, ...stickers } : prev.stickers,
             bannerStickers: bannerStickers.length > 0 ? bannerStickers : (prev.bannerStickers || []),
             bio: userInfo.bio || prev.bio || "",
-            avatar: userInfo.avatarUrl || prev.avatar || ""
+            avatar: userInfo.avatarUrl || prev.avatar || "",
+            tier: userInfo.tier || prev.tier || "",
+            mainChampion: userInfo.mainChampion || prev.mainChampion || ""
           }));
         }
       } catch (error) {
@@ -297,19 +299,26 @@ export default function UserProfilePage() {
     // 로그인된 사용자이면 백엔드에 저장
     if (currentLoggedInUser === username) {
       try {
-        await backendApi.updateProfile(user.bio, undefined);
+        await backendApi.updateProfile(user.bio, undefined, user.tier, user.mainChampion);
         // 백엔드에서 업데이트된 사용자 정보 가져오기
         const userInfo = await backendApi.getCurrentUser();
         setUser(prev => ({
           ...prev,
-          bio: userInfo.bio || prev.bio || ""
+          bio: userInfo.bio || prev.bio || "",
+          tier: userInfo.tier || prev.tier || "",
+          mainChampion: userInfo.mainChampion || prev.mainChampion || ""
         }));
-        saveUser({ ...user, bio: userInfo.bio || user.bio || "" });
-        alert("소개글이 저장되었습니다.");
+        saveUser({ 
+          ...user, 
+          bio: userInfo.bio || user.bio || "",
+          tier: userInfo.tier || user.tier || "",
+          mainChampion: userInfo.mainChampion || user.mainChampion || ""
+        });
+        alert("프로필이 저장되었습니다.");
         setEditing(false);
       } catch (error) {
-        console.error('소개글 저장 실패:', error);
-        alert("소개글 저장에 실패했습니다: " + (error.message || "알 수 없는 오류"));
+        console.error('프로필 저장 실패:', error);
+        alert("프로필 저장에 실패했습니다: " + (error.message || "알 수 없는 오류"));
       }
     } else {
       // 로컬 스토리지에만 저장 (비로그인 사용자)
@@ -707,7 +716,7 @@ export default function UserProfilePage() {
   // 테두리 스타일 가져오기
   const getBorderStyle = (borderId) => {
     const styles = {
-      default: { border: "3px solid #ddd" },
+      default: { border: "3px solid var(--border-color)" },
       gold: { border: "3px solid #ffd700", boxShadow: "0 0 10px #ffd700" },
       silver: { border: "3px solid #c0c0c0", boxShadow: "0 0 8px #c0c0c0" },
       rainbow: { 
@@ -732,10 +741,10 @@ export default function UserProfilePage() {
             textDecoration: "none",
             marginRight: 15,
             padding: "8px 12px",
-            backgroundColor: "#282e3e",
-            border: "1px solid #31384c",
+            backgroundColor: "var(--card-bg-light)",
+            border: "1px solid var(--border-light)",
             borderRadius: "4px",
-            color: "#cdd2e2",
+            color: "var(--text-primary)",
             fontSize: "14px",
             display: "flex",
             alignItems: "center",
@@ -744,7 +753,7 @@ export default function UserProfilePage() {
         >
           ← 홈으로
         </Link>
-        <h2 style={{ margin: 0, color: "#cdd2e2" }}>{username}님의 프로필</h2>
+        <h2 style={{ margin: 0, color: "var(--text-primary)" }}>{username}님의 프로필</h2>
       </div>
       
       {/* 배너 배경 */}
@@ -769,10 +778,10 @@ export default function UserProfilePage() {
           alignItems: "center",
           marginTop: "20px",
           padding: "20px",
-          backgroundColor: "#282e3e",
-          border: "1px solid #31384c",
+          backgroundColor: "var(--card-bg-light)",
+          border: "1px solid var(--border-light)",
           borderRadius: "12px",
-          color: "#cdd2e2"
+          color: "var(--text-primary)"
         }}>
           <div>
             {user.avatar ? (
@@ -793,11 +802,11 @@ export default function UserProfilePage() {
                   width: 96, 
                   height: 96, 
                   borderRadius: "50%", 
-                  background: "#323649", 
+                  background: "var(--card-bg-lighter)", 
                   display: "flex", 
                   alignItems: "center", 
                   justifyContent: "center", 
-                  color: "#9e9eb1", 
+                  color: "var(--text-tertiary)", 
                   ...getBorderStyle(user.currentBorder || "default")
                 }}
               >
@@ -812,23 +821,77 @@ export default function UserProfilePage() {
                   onChange={handleAvatarChange}
                   style={{
                     fontSize: "12px",
-                    color: "#cdd2e2"
+                    color: "var(--text-primary)"
                   }}
                 />
               </div>
             )}
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ marginBottom: 8, color: "#cdd2e2" }}>
+            <div style={{ marginBottom: 8, color: "var(--text-primary)" }}>
               <b>닉네임:</b> {user.username}
             </div>
-            <div style={{ marginBottom: 8, color: "#cdd2e2" }}>
+            <div style={{ marginBottom: 8, color: "var(--text-primary)" }}>
               <b>토큰 보유수:</b> {user.tokens || 0}
             </div>
-            <div style={{ color: "#cdd2e2" }}>
+            {user.tier && (
+              <div style={{ marginBottom: 8, color: "var(--text-primary)" }}>
+                <b>티어:</b> {user.tier}
+              </div>
+            )}
+            {user.mainChampion && (
+              <div style={{ marginBottom: 8, color: "var(--text-primary)" }}>
+                <b>주 챔피언:</b> {user.mainChampion}
+              </div>
+            )}
+            <div style={{ color: "var(--text-primary)" }}>
               <b>소개글:</b>
               {editing ? (
                 <div>
+                  <div style={{ marginBottom: 12 }}>
+                    <label style={{ display: "block", marginBottom: 4, color: "var(--text-primary)" }}>티어:</label>
+                    <select
+                      value={user.tier || ""}
+                      onChange={(e) => setUser(prev => ({ ...prev, tier: e.target.value }))}
+                      style={{ 
+                        width: "100%", 
+                        padding: "6px 8px",
+                        color: "var(--text-primary)",
+                        backgroundColor: "var(--input-bg)",
+                        border: "1px solid var(--input-border)",
+                        borderRadius: "4px"
+                      }}
+                    >
+                      <option value="">선택 안 함</option>
+                      <option value="IRON">아이언</option>
+                      <option value="BRONZE">브론즈</option>
+                      <option value="SILVER">실버</option>
+                      <option value="GOLD">골드</option>
+                      <option value="PLATINUM">플래티넘</option>
+                      <option value="EMERALD">에메랄드</option>
+                      <option value="DIAMOND">다이아몬드</option>
+                      <option value="MASTER">마스터</option>
+                      <option value="GRANDMASTER">그랜드마스터</option>
+                      <option value="CHALLENGER">챌린저</option>
+                    </select>
+                  </div>
+                  <div style={{ marginBottom: 12 }}>
+                    <label style={{ display: "block", marginBottom: 4, color: "var(--text-primary)" }}>주 챔피언:</label>
+                    <input
+                      type="text"
+                      value={user.mainChampion || ""}
+                      onChange={(e) => setUser(prev => ({ ...prev, mainChampion: e.target.value }))}
+                      placeholder="예: Yasuo, Zed, Ahri"
+                      style={{ 
+                        width: "100%", 
+                        padding: "6px 8px",
+                        color: "var(--text-primary)",
+                        backgroundColor: "var(--input-bg)",
+                        border: "1px solid var(--input-border)",
+                        borderRadius: "4px"
+                      }}
+                    />
+                  </div>
                   <textarea
                     value={user.bio || ""}
                     onChange={(e) => setUser(prev => ({ ...prev, bio: e.target.value }))}
@@ -836,9 +899,9 @@ export default function UserProfilePage() {
                     style={{ 
                       width: "100%", 
                       marginTop: 6, 
-                      color: "#cdd2e2",
-                      backgroundColor: "#1c202d",
-                      border: "1px solid #31384c",
+                      color: "var(--text-primary)",
+                      backgroundColor: "var(--input-bg)",
+                      border: "1px solid var(--input-border)",
                       borderRadius: "4px",
                       padding: "8px",
                       fontSize: "14px"
@@ -849,7 +912,7 @@ export default function UserProfilePage() {
                     style={{ 
                       marginTop: 6,
                       padding: "6px 12px",
-                      backgroundColor: "#5383e8",
+                      backgroundColor: "var(--color-primary)",
                       color: "white",
                       border: "none",
                       borderRadius: "4px",
@@ -865,9 +928,9 @@ export default function UserProfilePage() {
                       marginTop: 6, 
                       marginLeft: 6,
                       padding: "6px 12px",
-                      backgroundColor: "#323649",
-                      color: "#cdd2e2",
-                      border: "1px solid #31384c",
+                      backgroundColor: "var(--card-bg-lighter)",
+                      color: "var(--text-primary)",
+                      border: "1px solid var(--border-light)",
                       borderRadius: "4px",
                       cursor: "pointer",
                       fontSize: "14px"
@@ -877,7 +940,7 @@ export default function UserProfilePage() {
                   </button>
                 </div>
               ) : (
-                <div style={{ marginTop: 6, whiteSpace: "pre-wrap", color: "#9e9eb1" }}>{user.bio || "소개글이 없습니다."}</div>
+                <div style={{ marginTop: 6, whiteSpace: "pre-wrap", color: "var(--text-tertiary)" }}>{user.bio || "소개글이 없습니다."}</div>
               )}
             </div>
             {isOwner && !editing && (
@@ -903,14 +966,14 @@ export default function UserProfilePage() {
 
       {/* 테두리 상점 */}
       {isOwner && (
-        <div style={{ marginTop: 30, border: "1px solid #31384c", borderRadius: 8, padding: 20, backgroundColor: "#282e3e" }}>
+        <div style={{ marginTop: 30, border: "1px solid var(--border-light)", borderRadius: 8, padding: 20, backgroundColor: "var(--card-bg-light)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-            <h3 style={{ color: "#cdd2e2", margin: 0 }}>프로필 테두리 상점</h3>
+            <h3 style={{ color: "var(--text-primary)", margin: 0 }}>프로필 테두리 상점</h3>
             <button 
               onClick={() => setShowBorderShop(!showBorderShop)}
               style={{ 
                 padding: "8px 16px", 
-                backgroundColor: showBorderShop ? "#e84057" : "#5383e8", 
+                backgroundColor: showBorderShop ? "var(--color-danger)" : "var(--color-primary)", 
                 color: "white", 
                 border: "none", 
                 borderRadius: 4,
@@ -923,19 +986,19 @@ export default function UserProfilePage() {
 
           {showBorderShop && (
             <div>
-              <div style={{ marginBottom: 15, padding: 10, backgroundColor: "#323649", borderRadius: 4, color: "#cdd2e2" }}>
+              <div style={{ marginBottom: 15, padding: 10, backgroundColor: "var(--card-bg-lighter)", borderRadius: 4, color: "var(--text-primary)" }}>
                 <strong>보유 토큰: {user.tokens}개</strong>
               </div>
               {/* 보유 필터 */}
               <div style={{ display: "flex", gap: 8, marginBottom: 15 }}>
-                <span style={{ fontSize: 12, color: '#666', alignSelf: 'center' }}>필터:</span>
+                <span style={{ fontSize: 12, color: 'var(--text-tertiary)', alignSelf: 'center' }}>필터:</span>
                 <button 
                   onClick={() => setBorderFilter('all')} 
                   style={{ 
                     padding: '6px 10px', 
-                    border: '1px solid #dee2e6', 
-                    backgroundColor: (borderFilter === 'all') ? '#343a40' : '#f8f9fa', 
-                    color: (borderFilter === 'all') ? '#fff' : '#333', 
+                    border: `1px solid var(--border-color)`, 
+                    backgroundColor: (borderFilter === 'all') ? 'var(--bg-secondary)' : 'var(--card-bg-light)', 
+                    color: (borderFilter === 'all') ? 'var(--text-primary)' : 'var(--text-primary)', 
                     borderRadius: 4, 
                     cursor: 'pointer', 
                     fontSize: 12 
@@ -947,9 +1010,9 @@ export default function UserProfilePage() {
                   onClick={() => setBorderFilter('owned')} 
                   style={{ 
                     padding: '6px 10px', 
-                    border: '1px solid #dee2e6', 
-                    backgroundColor: (borderFilter === 'owned') ? '#198754' : '#f8f9fa', 
-                    color: (borderFilter === 'owned') ? '#fff' : '#333', 
+                    border: `1px solid var(--border-color)`, 
+                    backgroundColor: (borderFilter === 'owned') ? 'var(--color-success)' : 'var(--card-bg-light)', 
+                    color: (borderFilter === 'owned') ? '#fff' : 'var(--text-primary)', 
                     borderRadius: 4, 
                     cursor: 'pointer', 
                     fontSize: 12 
@@ -961,9 +1024,9 @@ export default function UserProfilePage() {
                   onClick={() => setBorderFilter('unowned')} 
                   style={{ 
                     padding: '6px 10px', 
-                    border: '1px solid #dee2e6', 
-                    backgroundColor: (borderFilter === 'unowned') ? '#dc3545' : '#f8f9fa', 
-                    color: (borderFilter === 'unowned') ? '#fff' : '#333', 
+                    border: `1px solid var(--border-color)`, 
+                    backgroundColor: (borderFilter === 'unowned') ? 'var(--color-danger)' : 'var(--card-bg-light)', 
+                    color: (borderFilter === 'unowned') ? '#fff' : 'var(--text-primary)', 
                     borderRadius: 4, 
                     cursor: 'pointer', 
                     fontSize: 12 
@@ -989,10 +1052,10 @@ export default function UserProfilePage() {
                       <div 
                         key={border.id} 
                         style={{ 
-                          border: "1px solid #31384c", 
+                          border: "1px solid var(--border-light)", 
                           borderRadius: 8, 
                           padding: 15,
-                          backgroundColor: isCurrent ? "#323649" : "#1c202d"
+                          backgroundColor: isCurrent ? "var(--card-bg-lighter)" : "var(--input-bg)"
                         }}
                       >
                         <div style={{ textAlign: "center", marginBottom: 10 }}>
@@ -1001,16 +1064,16 @@ export default function UserProfilePage() {
                               width: 60, 
                               height: 60, 
                               borderRadius: "50%", 
-                              backgroundColor: "#282e3e", 
+                              backgroundColor: "var(--card-bg-light)", 
                               margin: "0 auto",
                               ...getBorderStyle(border.id)
                             }}
                           />
                         </div>
                         
-                        <h4 style={{ margin: "0 0 5px 0", fontSize: "16px", color: "#cdd2e2" }}>{border.name}</h4>
-                        <p style={{ margin: "0 0 10px 0", fontSize: "12px", color: "#9e9eb1" }}>{border.description}</p>
-                        <p style={{ margin: "0 0 10px 0", fontSize: "14px", fontWeight: "bold", color: "#cdd2e2" }}>
+                        <h4 style={{ margin: "0 0 5px 0", fontSize: "16px", color: "var(--text-primary)" }}>{border.name}</h4>
+                        <p style={{ margin: "0 0 10px 0", fontSize: "12px", color: "var(--text-tertiary)" }}>{border.description}</p>
+                        <p style={{ margin: "0 0 10px 0", fontSize: "14px", fontWeight: "bold", color: "var(--text-primary)" }}>
                           {border.price === 0 ? "무료" : `${border.price} 토큰`}
                         </p>
                         
@@ -1038,7 +1101,7 @@ export default function UserProfilePage() {
                               style={{
                                 flex: 1,
                                 padding: "6px 12px",
-                                backgroundColor: user.tokens < border.price ? "#323649" : "#28a745",
+                                backgroundColor: user.tokens < border.price ? "var(--card-bg-lighter)" : "var(--color-success)",
                                 color: "white",
                                 border: "none",
                                 borderRadius: 4,
@@ -1062,9 +1125,9 @@ export default function UserProfilePage() {
 
       {/* 배너 상점 */}
       {isOwner && (
-        <div style={{ marginTop: 30, border: "1px solid #31384c", borderRadius: 8, padding: 20, backgroundColor: "#282e3e" }}>
+        <div style={{ marginTop: 30, border: "1px solid var(--border-light)", borderRadius: 8, padding: 20, backgroundColor: "var(--card-bg-light)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-            <h3 style={{ color: "#cdd2e2", margin: 0 }}>배너 상점</h3>
+            <h3 style={{ color: "var(--text-primary)", margin: 0 }}>배너 상점</h3>
             <button 
               onClick={() => setShowBannerShop(!showBannerShop)}
               style={{ 
@@ -1082,7 +1145,7 @@ export default function UserProfilePage() {
 
           {showBannerShop && (
             <div>
-              <div style={{ marginBottom: 15, padding: 10, backgroundColor: "#323649", borderRadius: 4, color: "#cdd2e2" }}>
+              <div style={{ marginBottom: 15, padding: 10, backgroundColor: "var(--card-bg-lighter)", borderRadius: 4, color: "var(--text-primary)" }}>
                 <strong>보유 토큰: {user.tokens}개</strong>
               </div>
               {/* 보유 필터 */}
@@ -1148,10 +1211,10 @@ export default function UserProfilePage() {
                       <div 
                         key={banner.id} 
                         style={{ 
-                          border: "1px solid #31384c", 
+                          border: "1px solid var(--border-light)", 
                           borderRadius: 8, 
                           padding: 15,
-                          backgroundColor: isCurrent ? "#323649" : "#1c202d",
+                          backgroundColor: isCurrent ? "var(--card-bg-lighter)" : "var(--input-bg)",
                           position: "relative",
                           overflow: "hidden"
                         }}
@@ -1177,9 +1240,9 @@ export default function UserProfilePage() {
                           }} />
                         </div>
                         
-                        <h4 style={{ margin: "0 0 5px 0", fontSize: "16px", color: "#cdd2e2" }}>{banner.name}</h4>
-                        <p style={{ margin: "0 0 10px 0", fontSize: "12px", color: "#9e9eb1" }}>{banner.description}</p>
-                        <p style={{ margin: "0 0 10px 0", fontSize: "14px", fontWeight: "bold", color: "#cdd2e2" }}>
+                        <h4 style={{ margin: "0 0 5px 0", fontSize: "16px", color: "var(--text-primary)" }}>{banner.name}</h4>
+                        <p style={{ margin: "0 0 10px 0", fontSize: "12px", color: "var(--text-tertiary)" }}>{banner.description}</p>
+                        <p style={{ margin: "0 0 10px 0", fontSize: "14px", fontWeight: "bold", color: "var(--text-primary)" }}>
                           {banner.price === 0 ? "무료" : `${banner.price} 토큰`}
                         </p>
                         
@@ -1207,7 +1270,7 @@ export default function UserProfilePage() {
                               style={{
                                 flex: 1,
                                 padding: "6px 12px",
-                                backgroundColor: user.tokens < banner.price ? "#323649" : "#28a745",
+                                backgroundColor: user.tokens < banner.price ? "var(--card-bg-lighter)" : "var(--color-success)",
                                 color: "white",
                                 border: "none",
                                 borderRadius: 4,
@@ -1231,9 +1294,9 @@ export default function UserProfilePage() {
 
       {/* 스티커 상점 */}
       {isOwner && (
-        <div style={{ marginTop: 30, border: "1px solid #31384c", borderRadius: 8, padding: 20, backgroundColor: "#282e3e" }}>
+        <div style={{ marginTop: 30, border: "1px solid var(--border-light)", borderRadius: 8, padding: 20, backgroundColor: "var(--card-bg-light)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-            <h3 style={{ color: "#cdd2e2", margin: 0 }}>스티커 상점</h3>
+            <h3 style={{ color: "var(--text-primary)", margin: 0 }}>스티커 상점</h3>
             <button 
               onClick={() => setShowStickerShop(!showStickerShop)}
               style={{ 
