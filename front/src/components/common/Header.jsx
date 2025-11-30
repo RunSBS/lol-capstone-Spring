@@ -56,22 +56,83 @@ function Header() {
   return (
     <header className="app-header">
       <div className="header-container">
-        <div className="top-bar">
-          <div className="top-bar-left">
+        <div className="unified-nav-bar">
+          <div className="unified-nav-left">
             <Link to="/" className="logo">DJ.GG</Link>
-            <nav className="top-bar-nav">
+            <nav className="main-nav-links">
+              <Link to="/">홈</Link>
+              <Link 
+                to="/community"
+                onClick={() => {
+                  sessionStorage.setItem('clearSearchOnNavigate', 'true');
+                  const event = new CustomEvent('communitySearch', { 
+                    detail: { keyword: "", searchBy: "all", sortFilter: "latest" } 
+                  });
+                  window.dispatchEvent(event);
+                }}
+              >
+                커뮤니티
+              </Link>
+              <Link 
+                to="/community/free"
+                onClick={() => {
+                  sessionStorage.setItem('clearSearchOnNavigate', 'true');
+                  const event = new CustomEvent('communitySearch', { 
+                    detail: { keyword: "", searchBy: "all", sortFilter: "latest" } 
+                  });
+                  window.dispatchEvent(event);
+                }}
+              >
+                자유게시판
+              </Link>
+              <Link 
+                to="/community/guide"
+                onClick={() => {
+                  sessionStorage.setItem('clearSearchOnNavigate', 'true');
+                  const event = new CustomEvent('communitySearch', { 
+                    detail: { keyword: "", searchBy: "all", sortFilter: "latest" } 
+                  });
+                  window.dispatchEvent(event);
+                }}
+              >
+                공략
+              </Link>
+              <Link 
+                to="/community/lolmuncheol"
+                onClick={() => {
+                  sessionStorage.setItem('clearSearchOnNavigate', 'true');
+                  const event = new CustomEvent('communitySearch', { 
+                    detail: { keyword: "", searchBy: "all", sortFilter: "latest" } 
+                  });
+                  window.dispatchEvent(event);
+                }}
+              >
+                투표게시판
+              </Link>
+              <Link 
+                to="/community/highrecommend"
+                onClick={() => {
+                  sessionStorage.setItem('clearSearchOnNavigate', 'true');
+                  const event = new CustomEvent('communitySearch', { 
+                    detail: { keyword: "", searchBy: "all", sortFilter: "latest" } 
+                  });
+                  window.dispatchEvent(event);
+                }}
+              >
+                추천글
+              </Link>
             </nav>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div className="unified-nav-right" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <button
               onClick={toggleTheme}
               style={{
                 background: 'transparent',
-                border: `1px solid var(--border-color)`,
+                border: '1px solid rgba(255, 255, 255, 0.3)',
                 borderRadius: '4px',
                 padding: '6px 12px',
                 cursor: 'pointer',
-                color: 'var(--text-primary)',
+                color: 'white',
                 fontSize: '14px'
               }}
               title={theme === 'dark' ? '화이트모드로 전환' : '다크모드로 전환'}
@@ -87,10 +148,10 @@ function Header() {
   </button>
 ) : (
   <>
-    <span style={{ color: "var(--text-primary)", fontSize: "14px", marginRight: "8px" }}>
+    <span style={{ color: "white", fontSize: "14px", marginRight: "8px" }}>
       {currentUser}님
       {currentUser === "admin1" && (
-        <span style={{ color: "var(--color-gold)", marginLeft: "8px" }}>(관리자)</span>
+        <span style={{ color: "#e8a53e", marginLeft: "8px" }}>(관리자)</span>
       )}
     </span>
     <button
@@ -111,73 +172,6 @@ function Header() {
           </div>
         </div>
       </div>
-      <nav className="main-nav">
-        <div className="main-nav-content">
-          <div className="main-nav-links">
-            <Link to="/">홈</Link>
-            <Link 
-              to="/community"
-              onClick={() => {
-                sessionStorage.setItem('clearSearchOnNavigate', 'true');
-                const event = new CustomEvent('communitySearch', { 
-                  detail: { keyword: "", searchBy: "all", sortFilter: "latest" } 
-                });
-                window.dispatchEvent(event);
-              }}
-            >
-              커뮤니티
-            </Link>
-            <Link 
-              to="/community/free"
-              onClick={() => {
-                sessionStorage.setItem('clearSearchOnNavigate', 'true');
-                const event = new CustomEvent('communitySearch', { 
-                  detail: { keyword: "", searchBy: "all", sortFilter: "latest" } 
-                });
-                window.dispatchEvent(event);
-              }}
-            >
-              자유게시판
-            </Link>
-            <Link 
-              to="/community/guide"
-              onClick={() => {
-                sessionStorage.setItem('clearSearchOnNavigate', 'true');
-                const event = new CustomEvent('communitySearch', { 
-                  detail: { keyword: "", searchBy: "all", sortFilter: "latest" } 
-                });
-                window.dispatchEvent(event);
-              }}
-            >
-              공략
-            </Link>
-            <Link 
-              to="/community/lolmuncheol"
-              onClick={() => {
-                sessionStorage.setItem('clearSearchOnNavigate', 'true');
-                const event = new CustomEvent('communitySearch', { 
-                  detail: { keyword: "", searchBy: "all", sortFilter: "latest" } 
-                });
-                window.dispatchEvent(event);
-              }}
-            >
-              투표게시판
-            </Link>
-            <Link 
-              to="/community/highrecommend"
-              onClick={() => {
-                sessionStorage.setItem('clearSearchOnNavigate', 'true');
-                const event = new CustomEvent('communitySearch', { 
-                  detail: { keyword: "", searchBy: "all", sortFilter: "latest" } 
-                });
-                window.dispatchEvent(event);
-              }}
-            >
-              추천글
-            </Link>
-          </div>
-        </div>
-      </nav>
       {(isSummonerPage || isCommunityPage) && (
         <div className="header-container">
           <div className="search-section">
