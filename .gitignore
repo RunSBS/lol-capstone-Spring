@@ -46,3 +46,5 @@ out/
 
 # .env.example은 Git에 포함 (템플릿이므로)
 !.env.example
+
+.venv/

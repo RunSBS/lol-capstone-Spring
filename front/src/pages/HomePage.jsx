@@ -4,6 +4,7 @@ import PopularPosts from '../components/homepage/PopularPosts.jsx'
 import TokenRanking from '../components/homepage/TokenRanking.jsx'
 import Footer from '../components/common/Footer.jsx'
 import AutocompleteSearch from '../components/common/AutocompleteSearch.jsx'
+import Chatbot from "../components/homepage/Chatbot.jsx";
 
 function HomePage() {
 
@@ -63,6 +64,9 @@ function HomePage() {
         </div>
       </div>
       <Footer />
+
+        {/* 챗봇 추가 */}
+        <Chatbot/>
     </>
   )
 }
