@@ -136,7 +136,7 @@ const Chatbot = () => {
                             style={{ cursor: "pointer" }}
                             onClick={() => setIsOpen(false)}
                         >
-                            <FaXmark size={18} />
+                            <FaTimes size={18} />
                         </div>
                     </div>
 
